@@ -24,7 +24,6 @@
       --muted: #94a3b8;
       --muted2: #64748b;
       --radius: 16px;
-      --shadow: 0 18px 55px rgba(0,0,0,.26);
     }
 
     * {
@@ -60,6 +59,7 @@
         opacity: 0;
         transform: translateY(10px);
       }
+
       to {
         opacity: 1;
         transform: translateY(0);
@@ -107,6 +107,7 @@
         opacity: 0;
         transform: translateY(-6px);
       }
+
       to {
         opacity: 1;
         transform: translateY(0);
@@ -198,12 +199,11 @@
     }
 
     .value.count { color: var(--accent); }
-    .value.paid { color: var(--amber); }
-    .value.deducted { color: var(--purple); }
+    .value.wallet { color: var(--green); }
+    .value.expense { color: var(--red); }
     .value.profit { color: var(--green); }
     .value.loss { color: var(--red); }
     .value.dollar { color: var(--accent); }
-    .value.expense { color: var(--red); }
 
     .unit {
       font-size: .58em;
@@ -248,6 +248,7 @@
         opacity: 0;
         transform: translateY(8px);
       }
+
       to {
         opacity: 1;
         transform: translateY(0);
@@ -283,19 +284,10 @@
       margin-top: .9rem;
     }
 
-    .expense-grid {
-      display: grid;
-      grid-template-columns: 2fr 1fr auto;
-      gap: .7rem;
-      align-items: end;
-      margin-bottom: .9rem;
-    }
-
     @media(max-width: 1000px) {
       .form-grid,
       .preset-grid,
-      .preset-add-grid,
-      .expense-grid {
+      .preset-add-grid {
         grid-template-columns: 1fr;
       }
     }
@@ -407,8 +399,7 @@
       margin-top: .8rem;
     }
 
-    .preset-list,
-    .expense-list {
+    .preset-list {
       margin-top: .9rem;
       overflow-x: auto;
       border: 1px solid var(--border);
@@ -416,19 +407,16 @@
       animation: panelIn .22s ease both;
     }
 
-    .preset-list table,
-    .expense-list table {
+    .preset-list table {
       min-width: 720px;
       font-size: .82rem;
     }
 
-    .preset-list th,
-    .expense-list th {
+    .preset-list th {
       padding: .6rem .7rem;
     }
 
-    .preset-list td,
-    .expense-list td {
+    .preset-list td {
       padding: .55rem .7rem;
     }
 
@@ -504,11 +492,10 @@
       font-weight: 800;
     }
 
-    .paid-val { color: var(--amber); }
-    .deducted-val { color: var(--purple); }
+    .paid-val { color: var(--green); }
+    .deducted-val { color: var(--red); }
     .profit-val { color: var(--green); }
     .loss-val { color: var(--red); }
-    .expense-val { color: var(--red); }
 
     .delete-btn {
       background: transparent;
@@ -569,7 +556,7 @@
 
   <div class="header">
     <h1>حاسبة مكسب المشروع</h1>
-    <p>قوائم أسرع، إدخال أسهل، وحساب تلقائي للمكسب والمصاريف والدولار</p>
+    <p>إدارة الشحنات والعروض وحساب الداخل للمحفظة والمصاريف وصافي الربح</p>
   </div>
 
   <div id="toast" class="toast"></div>
@@ -577,8 +564,8 @@
   <div class="section">
     <div class="section-head">
       <div>
-        <div class="section-title">📊 ملخص الحسابات</div>
-        <div class="section-subtitle">الإجماليات، الدولار، المصاريف، والمكسب النهائي</div>
+        <div class="section-title">📊 لوحة ملخص الأرباح</div>
+        <div class="section-subtitle">الداخل للمحفظة، المصاريف، وصافي المكسب</div>
       </div>
       <button class="toggle-btn" type="button" onclick="toggleSection('summaryContent', this)">إخفاء</button>
     </div>
@@ -590,8 +577,8 @@
       </div>
 
       <div class="card">
-        <div class="label">إجمالي السعر المدفوع</div>
-        <div class="value paid" id="paidTotal">0.00<span class="unit">EGP</span></div>
+        <div class="label">إجمالي الداخل للمحفظة</div>
+        <div class="value wallet" id="walletTotal">0.00<span class="unit">EGP</span></div>
       </div>
 
       <div class="card">
@@ -600,26 +587,21 @@
       </div>
 
       <div class="card">
-        <div class="label">إجمالي السعر المخصوم + المصاريف</div>
-        <div class="value deducted" id="deductedTotal">0.00<span class="unit">EGP</span></div>
-      </div>
-
-      <div class="card">
-        <div class="label">إجمالي المكسب</div>
+        <div class="label">صافي المكسب</div>
         <div class="value profit" id="profitTotal">0.00<span class="unit">EGP</span></div>
       </div>
 
       <div class="card">
-        <div class="label">إجمالي المدفوع بالدولار</div>
+        <div class="label">الداخل للمحفظة بالدولار</div>
         <div class="dollar-control">
           <span>سعر الدولار</span>
-          <input id="paidDollarRate" class="dollar-input" type="number" step="0.01" min="0.01" value="53">
+          <input id="walletDollarRate" class="dollar-input" type="number" step="0.01" min="0.01" value="53">
         </div>
-        <div class="value dollar" id="paidUsdTotal">0.00<span class="unit">USD</span></div>
+        <div class="value dollar" id="walletUsdTotal">0.00<span class="unit">USD</span></div>
       </div>
 
       <div class="card">
-        <div class="label">إجمالي المخصوم بالدولار</div>
+        <div class="label">إجمالي المصاريف بالدولار</div>
         <div class="dollar-control">
           <span>سعر الدولار</span>
           <input id="deductedDollarRate" class="dollar-input" type="number" step="0.01" min="0.01" value="53">
@@ -632,53 +614,53 @@
   <div class="section">
     <div class="section-head">
       <div>
-        <div class="section-title">⚡ العروض المحفوظة</div>
-        <div class="section-subtitle">اكتب للبحث أو اختار العرض مباشرة. التاريخ عند الإضافة بيكون تاريخ اليوم ويمكن تعديله من الجدول.</div>
+        <div class="section-title">⚡ مكتبة العروض السريعة</div>
+        <div class="section-subtitle">احفظ عروضك المتكررة واختارها مباشرة بدل الكتابة كل مرة</div>
       </div>
       <button class="toggle-btn" type="button" onclick="toggleSection('presetsContent', this)">إخفاء</button>
     </div>
 
     <div id="presetsContent" class="panel">
-      <div class="panel-title">اختيار سريع من العروض والأسعار المحفوظة</div>
+      <div class="panel-title">اختيار عرض محفوظ</div>
 
       <div class="preset-grid">
         <div class="field">
-          <label>بحث سريع في العروض</label>
-          <input id="presetSearchInput" type="text" placeholder="مثال: ببجي الكورية أو عرض 180" oninput="renderPresetSelect()">
+          <label>بحث في العروض</label>
+          <input id="presetSearchInput" type="text" placeholder="مثال: ببجي الكورية أو 30" oninput="renderPresetSelect()">
         </div>
 
-        <button class="btn btn-add" type="button" onclick="addSelectedPresetToRows()">إضافة للجدول</button>
+        <button class="btn btn-add" type="button" onclick="addSelectedPresetToRows()">إضافة للعمليات</button>
         <button class="btn btn-purple" type="button" onclick="fillManualFromPreset()">تعبئة يدوي</button>
       </div>
 
       <div class="field" style="margin-bottom:.9rem">
-        <label>اختار عرض محفوظ</label>
+        <label>القائمة المختصرة للعروض</label>
         <select id="presetSelect">
-          <option value="">— اختار من القائمة —</option>
+          <option value="">— اختار عرض محفوظ —</option>
         </select>
       </div>
 
-      <div class="panel-title" style="margin-top:.6rem">➕ إضافة عرض جديد لقائمة الاختيارات</div>
+      <div class="panel-title" style="margin-top:.6rem">إضافة عرض جديد للمكتبة</div>
 
       <div class="preset-add-grid">
         <div class="field">
-          <label>الحاجة اللي اتشحنت</label>
+          <label>اسم المنتج / الخدمة</label>
           <input id="presetItemInput" type="text" placeholder="مثال: ببجي الكورية">
         </div>
 
         <div class="field">
           <label>العرض</label>
-          <input id="presetOfferInput" type="text" placeholder="مثال: عرض 180">
+          <input id="presetOfferInput" type="text" placeholder="مثال: 30">
         </div>
 
         <div class="field">
-          <label>السعر المدفوع</label>
-          <input id="presetPaidInput" type="number" step="0.01" min="0" placeholder="مثال: 140">
+          <label>السعر المدفوع / الداخل للمحفظة</label>
+          <input id="presetPaidInput" type="number" step="0.01" min="0" placeholder="مثال: 35">
         </div>
 
         <div class="field">
-          <label>السعر المخصوم</label>
-          <input id="presetDeductedInput" type="number" step="0.01" min="0" placeholder="مثال: 180">
+          <label>السعر المخصوم / المصاريف</label>
+          <input id="presetDeductedInput" type="number" step="0.01" min="0" placeholder="مثال: 25">
         </div>
 
         <button class="btn btn-purple" type="button" onclick="addPreset()">حفظ العرض</button>
@@ -695,11 +677,11 @@
           <thead>
             <tr>
               <th>#</th>
-              <th>الحاجة</th>
+              <th>المنتج / الخدمة</th>
               <th>العرض</th>
-              <th class="col-paid">مدفوع</th>
-              <th class="col-deducted">مخصوم</th>
-              <th class="col-profit">مكسب</th>
+              <th class="col-paid">الداخل للمحفظة</th>
+              <th class="col-deducted">المصاريف</th>
+              <th class="col-profit">ربح العملية</th>
               <th>إجراء</th>
             </tr>
           </thead>
@@ -712,8 +694,8 @@
   <div class="section">
     <div class="section-head">
       <div>
-        <div class="section-title">➕ إضافة عملية يدويًا</div>
-        <div class="section-subtitle">تقدر تكتب التاريخ بنفسك أو تسيبه فاضي فيتحط تاريخ اليوم</div>
+        <div class="section-title">➕ إضافة عملية جديدة</div>
+        <div class="section-subtitle">أضف عملية يدويًا مع تاريخها وقيمتها</div>
       </div>
       <button class="toggle-btn" type="button" onclick="toggleSection('manualContent', this)">إخفاء</button>
     </div>
@@ -721,28 +703,28 @@
     <div id="manualContent" class="panel">
       <div class="form-grid">
         <div class="field">
-          <label>التاريخ</label>
+          <label>تاريخ العملية</label>
           <input id="dateInput" type="date">
         </div>
 
         <div class="field">
-          <label>الحاجة اللي اتشحنت</label>
+          <label>اسم المنتج / الخدمة</label>
           <input id="itemInput" type="text" placeholder="مثال: ببجي الكورية">
         </div>
 
         <div class="field">
           <label>العرض</label>
-          <input id="offerInput" type="text" placeholder="مثال: عرض 8100">
+          <input id="offerInput" type="text" placeholder="مثال: 30">
         </div>
 
         <div class="field">
-          <label>السعر المدفوع</label>
-          <input id="paidInput" type="number" step="0.01" min="0" placeholder="مثال: 4330">
+          <label>السعر المدفوع / الداخل للمحفظة</label>
+          <input id="paidInput" type="number" step="0.01" min="0" placeholder="مثال: 35">
         </div>
 
         <div class="field">
-          <label>السعر المخصوم</label>
-          <input id="deductedInput" type="number" step="0.01" min="0" placeholder="مثال: 5280">
+          <label>السعر المخصوم / المصاريف</label>
+          <input id="deductedInput" type="number" step="0.01" min="0" placeholder="مثال: 25">
         </div>
 
         <button class="btn btn-add" type="button" onclick="addRow()">إضافة</button>
@@ -763,53 +745,8 @@
   <div class="section">
     <div class="section-head">
       <div>
-        <div class="section-title">💸 المصاريف</div>
-        <div class="section-subtitle">مخفية افتراضيًا، وتتحسب مع إجمالي السعر المخصوم</div>
-      </div>
-      <button class="toggle-btn" type="button" onclick="toggleSection('expensesContent', this)">إظهار</button>
-    </div>
-
-    <div id="expensesContent" class="panel hidden-section">
-      <div class="expense-grid">
-        <div class="field">
-          <label>اسم المصروف</label>
-          <input id="expenseNameInput" type="text" placeholder="مثال: باقة نت">
-        </div>
-
-        <div class="field">
-          <label>قيمة المصروف</label>
-          <input id="expenseAmountInput" type="number" step="0.01" min="0" placeholder="مثال: 1500">
-        </div>
-
-        <button class="btn btn-add" type="button" onclick="addExpense()">إضافة مصروف</button>
-      </div>
-
-      <div class="actions">
-        <button class="btn btn-amber" type="button" onclick="restoreLastDeleted()">↩️ استرجاع آخر حذف</button>
-        <button class="btn btn-clear" type="button" onclick="clearExpenses()">🗑️ مسح المصاريف</button>
-      </div>
-
-      <div class="expense-list">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>المصروف</th>
-              <th>القيمة</th>
-              <th>إجراء</th>
-            </tr>
-          </thead>
-          <tbody id="expenseBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-head">
-      <div>
-        <div class="section-title">📋 جدول العمليات</div>
-        <div class="section-subtitle">تقدر تعدل أي خانة مباشرة من الجدول</div>
+        <div class="section-title">📋 سجل العمليات</div>
+        <div class="section-subtitle">كل العمليات المضافة مع إمكانية التعديل المباشر</div>
       </div>
       <button class="toggle-btn" type="button" onclick="toggleSection('tableContent', this)">إخفاء</button>
     </div>
@@ -820,11 +757,11 @@
           <tr>
             <th>#</th>
             <th class="col-date">التاريخ</th>
-            <th>الحاجة اللي اتشحنت</th>
+            <th>المنتج / الخدمة</th>
             <th>العرض</th>
-            <th class="col-paid">السعر المدفوع</th>
-            <th class="col-deducted">السعر المخصوم</th>
-            <th class="col-profit">المكسب</th>
+            <th class="col-paid">الداخل للمحفظة</th>
+            <th class="col-deducted">المصاريف</th>
+            <th class="col-profit">ربح العملية</th>
             <th>إجراء</th>
           </tr>
         </thead>
@@ -833,35 +770,26 @@
       </table>
 
       <div id="emptyState" class="empty">
-        لا يوجد بيانات حتى الآن. أضف أول عملية من الأعلى.
+        لا يوجد عمليات حتى الآن. أضف أول عملية من الأعلى.
       </div>
     </div>
   </div>
 
   <div class="footer-note">
-    البيانات والعروض والمصاريف وأسعار الدولار محفوظة تلقائيًا على نفس الجهاز والمتصفح.
+    البيانات والعروض وأسعار الدولار محفوظة تلقائيًا على نفس الجهاز والمتصفح.
   </div>
 
 </div>
 
 <script>
-  const STORAGE_ROWS = 'profit_calculator_rows_v3';
-  const STORAGE_PRESETS = 'profit_calculator_presets_v3';
-  const STORAGE_EXPENSES = 'profit_calculator_expenses_v1';
+  const STORAGE_ROWS = 'profit_calculator_rows_v5';
+  const STORAGE_PRESETS = 'profit_calculator_presets_v5';
   const STORAGE_DELETED_STACK = 'profit_calculator_deleted_stack_v1';
-  const STORAGE_PAID_DOLLAR_RATE = 'profit_paid_dollar_rate_v1';
+  const STORAGE_WALLET_DOLLAR_RATE = 'profit_wallet_dollar_rate_v1';
   const STORAGE_DEDUCTED_DOLLAR_RATE = 'profit_deducted_dollar_rate_v1';
 
   let rows = [];
   let presets = [];
-  let expenses = [];
-
-  const defaultExpenses = [
-    { name: 'باقة نت', amount: 1500 },
-    { name: 'فودا كاش', amount: 4000 },
-    { name: 'مرتب', amount: 3000 },
-    { name: 'ممول', amount: 12500 }
-  ];
 
   function today() {
     return new Date().toLocaleDateString('en-CA');
@@ -905,7 +833,7 @@
   }
 
   function calcProfit(row) {
-    return (Number(row.deducted) || 0) - (Number(row.paid) || 0);
+    return (Number(row.paid) || 0) - (Number(row.deducted) || 0);
   }
 
   function createRowObject(date, item, offer, paid, deducted) {
@@ -952,32 +880,6 @@
       presets = JSON.parse(localStorage.getItem(STORAGE_PRESETS)) || [];
     } catch (e) {
       presets = [];
-    }
-  }
-
-  function saveExpenses() {
-    localStorage.setItem(STORAGE_EXPENSES, JSON.stringify(expenses));
-  }
-
-  function loadExpenses() {
-    try {
-      const saved = localStorage.getItem(STORAGE_EXPENSES);
-
-      if (saved === null) {
-        expenses = defaultExpenses.map(expense => ({
-          id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
-          name: expense.name,
-          amount: expense.amount,
-          createdAt: new Date().toISOString()
-        }));
-
-        saveExpenses();
-        return;
-      }
-
-      expenses = JSON.parse(saved) || [];
-    } catch (e) {
-      expenses = [];
     }
   }
 
@@ -1029,31 +931,25 @@
       savePresets();
     }
 
-    if (last.type === 'expenses') {
-      expenses = [...expenses, ...last.items];
-      saveExpenses();
-    }
-
     setDeletedStack(stack);
 
     renderPresets();
-    renderExpenses();
     render();
 
     showToast(`✅ تم استرجاع: ${last.label || 'آخر حذف'}`);
   }
 
   function saveDollarRates() {
-    localStorage.setItem(STORAGE_PAID_DOLLAR_RATE, document.getElementById('paidDollarRate').value);
+    localStorage.setItem(STORAGE_WALLET_DOLLAR_RATE, document.getElementById('walletDollarRate').value);
     localStorage.setItem(STORAGE_DEDUCTED_DOLLAR_RATE, document.getElementById('deductedDollarRate').value);
   }
 
   function loadDollarRates() {
-    const savedPaidRate = localStorage.getItem(STORAGE_PAID_DOLLAR_RATE);
+    const savedWalletRate = localStorage.getItem(STORAGE_WALLET_DOLLAR_RATE);
     const savedDeductedRate = localStorage.getItem(STORAGE_DEDUCTED_DOLLAR_RATE);
 
-    if (savedPaidRate) {
-      document.getElementById('paidDollarRate').value = savedPaidRate;
+    if (savedWalletRate) {
+      document.getElementById('walletDollarRate').value = savedWalletRate;
     }
 
     if (savedDeductedRate) {
@@ -1065,7 +961,7 @@
     const searchValue = document.getElementById('presetSearchInput')?.value.trim().toLowerCase() || '';
     const select = document.getElementById('presetSelect');
 
-    select.innerHTML = '<option value="">— اختار من القائمة —</option>';
+    select.innerHTML = '<option value="">— اختار عرض محفوظ —</option>';
 
     presets.forEach((preset, index) => {
       const label = `${preset.item} — ${preset.offer}`;
@@ -1123,25 +1019,25 @@
     const deducted = parseFloat(deductedInput.value);
 
     if (!item) {
-      alert('اكتب الحاجة اللي اتشحنت.');
+      alert('اكتب اسم المنتج / الخدمة.');
       itemInput.focus();
       return null;
     }
 
     if (!offer) {
-      alert('اكتب اسم العرض.');
+      alert('اكتب العرض.');
       offerInput.focus();
       return null;
     }
 
     if (Number.isNaN(paid) || paid < 0) {
-      alert('اكتب السعر المدفوع بشكل صحيح.');
+      alert('اكتب السعر المدفوع / الداخل للمحفظة بشكل صحيح.');
       paidInput.focus();
       return null;
     }
 
     if (Number.isNaN(deducted) || deducted < 0) {
-      alert('اكتب السعر المخصوم بشكل صحيح.');
+      alert('اكتب السعر المخصوم / المصاريف بشكل صحيح.');
       deductedInput.focus();
       return null;
     }
@@ -1163,13 +1059,13 @@
     document.getElementById('presetPaidInput').value = '';
     document.getElementById('presetDeductedInput').value = '';
 
-    showToast('✅ تم حفظ العرض في قائمة الاختيارات.');
+    showToast('✅ تم حفظ العرض في مكتبة العروض.');
   }
 
   function deletePreset(index) {
     if (!presets[index]) return;
 
-    const confirmed = confirm('⚠️ هل تريد حذف هذا العرض من القائمة؟');
+    const confirmed = confirm('⚠️ هل تريد حذف هذا العرض من مكتبة العروض؟');
     if (!confirmed) return;
 
     const deleted = presets.splice(index, 1);
@@ -1187,7 +1083,7 @@
       return;
     }
 
-    const confirmed = confirm('⚠️ هل تريد مسح كل العروض والأسعار المحفوظة؟');
+    const confirmed = confirm('⚠️ هل تريد مسح كل العروض المحفوظة؟');
     if (!confirmed) return;
 
     pushDeleted('presets', [...presets], 'كل العروض المحفوظة');
@@ -1219,7 +1115,7 @@
     saveRows();
     render();
 
-    showToast('✅ تم إضافة العرض المختار للجدول بتاريخ اليوم.');
+    showToast('✅ تم إضافة العرض المختار للعمليات بتاريخ اليوم.');
   }
 
   function fillManualFromPreset() {
@@ -1232,7 +1128,7 @@
     document.getElementById('paidInput').value = preset.paid;
     document.getElementById('deductedInput').value = preset.deducted;
 
-    showToast('✅ تم تعبئة بيانات العرض في الإدخال اليدوي بتاريخ اليوم.');
+    showToast('✅ تم تعبئة العرض في نموذج الإضافة اليدوية.');
   }
 
   function saveCurrentManualAsPreset() {
@@ -1247,7 +1143,7 @@
     const deducted = parseFloat(deductedInput.value);
 
     if (!item) {
-      alert('اكتب الحاجة اللي اتشحنت الأول.');
+      alert('اكتب اسم المنتج / الخدمة الأول.');
       itemInput.focus();
       return;
     }
@@ -1259,13 +1155,13 @@
     }
 
     if (Number.isNaN(paid) || paid < 0) {
-      alert('اكتب السعر المدفوع بشكل صحيح.');
+      alert('اكتب السعر المدفوع / الداخل للمحفظة بشكل صحيح.');
       paidInput.focus();
       return;
     }
 
     if (Number.isNaN(deducted) || deducted < 0) {
-      alert('اكتب السعر المخصوم بشكل صحيح.');
+      alert('اكتب السعر المخصوم / المصاريف بشكل صحيح.');
       deductedInput.focus();
       return;
     }
@@ -1274,133 +1170,7 @@
     savePresets();
     renderPresets();
 
-    showToast('✅ تم حفظ الإدخال الحالي كعرض سريع.');
-  }
-
-  function renderExpenses() {
-    const body = document.getElementById('expenseBody');
-    body.innerHTML = '';
-
-    expenses.forEach((expense, index) => {
-      const tr = document.createElement('tr');
-
-      tr.innerHTML = `
-        <td>${index + 1}</td>
-
-        <td>
-          <input
-            class="editable"
-            value="${escapeHTML(expense.name)}"
-            onchange="updateExpense(${index}, 'name', this.value)"
-          >
-        </td>
-
-        <td>
-          <input
-            class="editable num expense-val"
-            type="number"
-            step="0.01"
-            value="${Number(expense.amount) || 0}"
-            onchange="updateExpense(${index}, 'amount', this.value)"
-          >
-        </td>
-
-        <td>
-          <button class="delete-btn" onclick="deleteExpense(${index})">حذف</button>
-        </td>
-      `;
-
-      body.appendChild(tr);
-    });
-  }
-
-  function addExpense() {
-    const nameInput = document.getElementById('expenseNameInput');
-    const amountInput = document.getElementById('expenseAmountInput');
-
-    const name = nameInput.value.trim();
-    const amount = parseFloat(amountInput.value);
-
-    if (!name) {
-      alert('اكتب اسم المصروف.');
-      nameInput.focus();
-      return;
-    }
-
-    if (Number.isNaN(amount) || amount < 0) {
-      alert('اكتب قيمة المصروف بشكل صحيح.');
-      amountInput.focus();
-      return;
-    }
-
-    expenses.push({
-      id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
-      name,
-      amount,
-      createdAt: new Date().toISOString()
-    });
-
-    saveExpenses();
-    renderExpenses();
-    render();
-
-    nameInput.value = '';
-    amountInput.value = '';
-
-    showToast('✅ تم إضافة المصروف.');
-  }
-
-  function updateExpense(index, key, value) {
-    if (!expenses[index]) return;
-
-    if (key === 'amount') {
-      expenses[index][key] = parseFloat(value) || 0;
-    } else {
-      expenses[index][key] = value;
-    }
-
-    saveExpenses();
-    renderExpenses();
-    render();
-  }
-
-  function deleteExpense(index) {
-    if (!expenses[index]) return;
-
-    const confirmed = confirm('⚠️ هل تريد حذف هذا المصروف؟');
-    if (!confirmed) return;
-
-    const deleted = expenses.splice(index, 1);
-    pushDeleted('expenses', deleted, 'مصروف');
-
-    saveExpenses();
-    renderExpenses();
-    render();
-
-    showToast('✅ تم حذف المصروف. يمكنك استرجاعه.');
-  }
-
-  function clearExpenses() {
-    if (!expenses.length) {
-      showToast('ℹ️ لا يوجد مصاريف لمسحها.');
-      return;
-    }
-
-    const confirmed = confirm('⚠️ هل تريد مسح كل المصاريف؟');
-    if (!confirmed) return;
-
-    pushDeleted('expenses', [...expenses], 'كل المصاريف');
-
-    expenses = [];
-    saveExpenses();
-    renderExpenses();
-    render();
-
-    showToast('✅ تم مسح المصاريف. يمكنك استرجاعها.');
-  }
-
-  function totalExpenses() {
-    return expenses.reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0);
+    showToast('✅ تم حفظ العملية الحالية كعرض سريع.');
   }
 
   function render() {
@@ -1409,16 +1179,18 @@
 
     body.innerHTML = '';
 
-    let totalPaid = 0;
-    let rowsDeducted = 0;
+    let totalWallet = 0;
+    let totalExpenses = 0;
+    let totalProfit = 0;
 
     rows.forEach((row, index) => {
       const paid = Number(row.paid) || 0;
       const deducted = Number(row.deducted) || 0;
-      const profit = deducted - paid;
+      const profit = paid - deducted;
 
-      totalPaid += paid;
-      rowsDeducted += deducted;
+      totalWallet += paid;
+      totalExpenses += deducted;
+      totalProfit += profit;
 
       const profitClass = profit >= 0 ? 'profit-val' : 'loss-val';
 
@@ -1485,25 +1257,31 @@
       body.appendChild(tr);
     });
 
-    const expensesSum = totalExpenses();
-    const totalDeducted = rowsDeducted + expensesSum;
-    const totalProfit = totalDeducted - totalPaid;
-
-    const paidDollarRate = parseFloat(document.getElementById('paidDollarRate').value) || 0;
+    const walletDollarRate = parseFloat(document.getElementById('walletDollarRate').value) || 0;
     const deductedDollarRate = parseFloat(document.getElementById('deductedDollarRate').value) || 0;
 
-    const totalPaidUsd = paidDollarRate > 0 ? totalPaid / paidDollarRate : 0;
-    const totalDeductedUsd = deductedDollarRate > 0 ? totalDeducted / deductedDollarRate : 0;
+    const totalWalletUsd = walletDollarRate > 0 ? totalWallet / walletDollarRate : 0;
+    const totalDeductedUsd = deductedDollarRate > 0 ? totalExpenses / deductedDollarRate : 0;
 
     document.getElementById('countTotal').textContent = rows.length;
-    document.getElementById('paidTotal').innerHTML = `${fmt(totalPaid)}<span class="unit">EGP</span>`;
-    document.getElementById('expensesTotal').innerHTML = `${fmt(expensesSum)}<span class="unit">EGP</span>`;
-    document.getElementById('deductedTotal').innerHTML = `${fmt(totalDeducted)}<span class="unit">EGP</span>`;
-    document.getElementById('paidUsdTotal').innerHTML = `${fmt(totalPaidUsd)}<span class="unit">USD</span>`;
-    document.getElementById('deductedUsdTotal').innerHTML = `${fmt(totalDeductedUsd)}<span class="unit">USD</span>`;
+
+    document.getElementById('walletTotal').innerHTML =
+      `${fmt(totalWallet)}<span class="unit">EGP</span>`;
+
+    document.getElementById('expensesTotal').innerHTML =
+      `${fmt(totalExpenses)}<span class="unit">EGP</span>`;
+
+    document.getElementById('walletUsdTotal').innerHTML =
+      `${fmt(totalWalletUsd)}<span class="unit">USD</span>`;
+
+    document.getElementById('deductedUsdTotal').innerHTML =
+      `${fmt(totalDeductedUsd)}<span class="unit">USD</span>`;
 
     const profitTotalEl = document.getElementById('profitTotal');
-    profitTotalEl.innerHTML = `${fmt(totalProfit)}<span class="unit">EGP</span>`;
+
+    profitTotalEl.innerHTML =
+      `${fmt(totalProfit)}<span class="unit">EGP</span>`;
+
     profitTotalEl.className = totalProfit >= 0 ? 'value profit' : 'value loss';
 
     emptyState.style.display = rows.length ? 'none' : 'block';
@@ -1523,7 +1301,7 @@
     const deducted = parseFloat(deductedInput.value);
 
     if (!item) {
-      alert('اكتب الحاجة اللي اتشحنت.');
+      alert('اكتب اسم المنتج / الخدمة.');
       itemInput.focus();
       return;
     }
@@ -1535,13 +1313,13 @@
     }
 
     if (Number.isNaN(paid) || paid < 0) {
-      alert('اكتب السعر المدفوع بشكل صحيح.');
+      alert('اكتب السعر المدفوع / الداخل للمحفظة بشكل صحيح.');
       paidInput.focus();
       return;
     }
 
     if (Number.isNaN(deducted) || deducted < 0) {
-      alert('اكتب السعر المخصوم بشكل صحيح.');
+      alert('اكتب السعر المخصوم / المصاريف بشكل صحيح.');
       deductedInput.focus();
       return;
     }
@@ -1582,7 +1360,7 @@
     if (!confirmed) return;
 
     const deleted = rows.splice(index, 1);
-    pushDeleted('rows', deleted, 'عملية من الجدول');
+    pushDeleted('rows', deleted, 'عملية من سجل العمليات');
 
     saveRows();
     render();
@@ -1596,10 +1374,10 @@
       return;
     }
 
-    const confirmed = confirm('⚠️ هل تريد مسح كل عمليات الجدول؟');
+    const confirmed = confirm('⚠️ هل تريد مسح كل عمليات السجل؟');
     if (!confirmed) return;
 
-    pushDeleted('rows', [...rows], 'كل عمليات الجدول');
+    pushDeleted('rows', [...rows], 'كل عمليات السجل');
 
     rows = [];
     saveRows();
@@ -1618,8 +1396,8 @@
       'date',
       'item',
       'offer',
-      'paid_egp',
-      'deducted_egp',
+      'wallet_egp',
+      'expenses_egp',
       'profit_egp'
     ];
 
@@ -1654,14 +1432,13 @@
   function downloadBackup() {
     const backup = {
       appName: 'Profit Calculator',
-      version: 4,
+      version: 7,
       exportedAt: new Date().toISOString(),
       rows,
       presets,
-      expenses,
       deletedStack: getDeletedStack(),
       settings: {
-        paidDollarRate: document.getElementById('paidDollarRate').value,
+        walletDollarRate: document.getElementById('walletDollarRate').value,
         deductedDollarRate: document.getElementById('deductedDollarRate').value
       }
     };
@@ -1704,15 +1481,14 @@
 
         rows = backup.rows;
         presets = Array.isArray(backup.presets) ? backup.presets : [];
-        expenses = Array.isArray(backup.expenses) ? backup.expenses : [];
 
         if (Array.isArray(backup.deletedStack)) {
           setDeletedStack(backup.deletedStack);
         }
 
         if (backup.settings) {
-          if (backup.settings.paidDollarRate) {
-            document.getElementById('paidDollarRate').value = backup.settings.paidDollarRate;
+          if (backup.settings.walletDollarRate) {
+            document.getElementById('walletDollarRate').value = backup.settings.walletDollarRate;
           }
 
           if (backup.settings.deductedDollarRate) {
@@ -1722,11 +1498,9 @@
 
         saveRows();
         savePresets();
-        saveExpenses();
         saveDollarRates();
 
         renderPresets();
-        renderExpenses();
         render();
 
         showToast('✅ تم استرجاع النسخة الاحتياطية بنجاح.');
@@ -1745,14 +1519,12 @@
 
     loadRows();
     loadPresets();
-    loadExpenses();
     loadDollarRates();
 
     renderPresets();
-    renderExpenses();
     render();
 
-    document.getElementById('paidDollarRate').addEventListener('input', function () {
+    document.getElementById('walletDollarRate').addEventListener('input', function () {
       saveDollarRates();
       render();
     });
