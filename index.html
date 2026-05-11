@@ -11,8 +11,9 @@
   <style>
     :root {
       --bg: #0f1117;
-      --surface: #1a1d2e;
-      --surface2: #20243a;
+      --surface: #191d2d;
+      --surface2: #20263a;
+      --card: rgba(26, 29, 46, .88);
       --border: #2a2d45;
       --accent: #4f8ef7;
       --green: #22c55e;
@@ -22,7 +23,8 @@
       --text: #e2e8f0;
       --muted: #94a3b8;
       --muted2: #64748b;
-      --radius: 14px;
+      --radius: 16px;
+      --shadow: 0 18px 55px rgba(0,0,0,.26);
     }
 
     * {
@@ -31,10 +33,14 @@
       padding: 0;
     }
 
+    html {
+      scroll-behavior: smooth;
+    }
+
     body {
       font-family: 'Cairo', sans-serif;
       background:
-        radial-gradient(circle at top right, rgba(79,142,247,.16), transparent 30%),
+        radial-gradient(circle at top right, rgba(79,142,247,.17), transparent 32%),
         radial-gradient(circle at bottom left, rgba(167,139,250,.12), transparent 35%),
         var(--bg);
       color: var(--text);
@@ -43,22 +49,35 @@
     }
 
     .page {
-      max-width: 1300px;
+      max-width: 1320px;
       margin: 0 auto;
       padding-bottom: 3rem;
+      animation: pageIn .45s ease both;
+    }
+
+    @keyframes pageIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     .header {
       text-align: center;
-      margin: 1rem 0 1.5rem;
+      margin: 1rem 0 1.4rem;
     }
 
     .header h1 {
-      font-size: clamp(1.8rem, 4vw, 3rem);
+      font-size: clamp(1.9rem, 4vw, 3.2rem);
       font-weight: 900;
       background: linear-gradient(135deg, var(--green), var(--accent), var(--purple));
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
+      letter-spacing: -.03em;
     }
 
     .header p {
@@ -70,16 +89,28 @@
     .toast {
       display: none;
       margin-bottom: 1rem;
-      padding: .8rem 1rem;
+      padding: .85rem 1rem;
       border-radius: var(--radius);
       border: 1px solid rgba(34,197,94,.35);
       background: rgba(34,197,94,.1);
       color: var(--green);
       font-size: .85rem;
+      animation: toastIn .25s ease both;
     }
 
     .toast.show {
       display: block;
+    }
+
+    @keyframes toastIn {
+      from {
+        opacity: 0;
+        transform: translateY(-6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     .section {
@@ -91,33 +122,33 @@
       align-items: center;
       justify-content: space-between;
       gap: .8rem;
-      margin-bottom: .65rem;
-      background: rgba(26,29,46,.72);
+      margin-bottom: .7rem;
+      background: rgba(26,29,46,.78);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: .75rem .9rem;
+      padding: .78rem 1rem;
+      box-shadow: 0 10px 28px rgba(0,0,0,.13);
     }
 
     .section-title {
       font-weight: 900;
-      font-size: .95rem;
-      color: var(--text);
+      font-size: .98rem;
     }
 
     .section-subtitle {
       color: var(--muted2);
       font-size: .72rem;
-      margin-top: .15rem;
+      margin-top: .12rem;
     }
 
     .toggle-btn {
       border: 1px solid rgba(79,142,247,.35);
-      background: rgba(79,142,247,.14);
+      background: rgba(79,142,247,.12);
       color: var(--accent);
-      border-radius: 9px;
-      padding: .45rem .75rem;
+      border-radius: 10px;
+      padding: .46rem .8rem;
       font-family: 'Cairo', sans-serif;
-      font-size: .78rem;
+      font-size: .76rem;
       font-weight: 900;
       cursor: pointer;
       white-space: nowrap;
@@ -129,57 +160,50 @@
 
     .summary {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
       gap: .8rem;
     }
 
-    .card {
-      background: rgba(26,29,46,.9);
+    .card,
+    .panel,
+    .table-wrap {
+      background: var(--card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
+      box-shadow: 0 12px 35px rgba(0,0,0,.13);
+      backdrop-filter: blur(10px);
+    }
+
+    .card {
       padding: 1rem;
+      transition: transform .18s ease, border-color .18s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(79,142,247,.36);
     }
 
     .card .label {
       color: var(--muted2);
-      font-size: .75rem;
-      margin-bottom: .3rem;
+      font-size: .74rem;
+      margin-bottom: .28rem;
       font-weight: 700;
     }
 
     .card .value {
-      font-size: 1.35rem;
+      font-size: 1.32rem;
       font-weight: 900;
       line-height: 1.2;
     }
 
-    .value.count {
-      color: var(--accent);
-    }
-
-    .value.paid {
-      color: var(--amber);
-    }
-
-    .value.deducted {
-      color: var(--purple);
-    }
-
-    .value.profit {
-      color: var(--green);
-    }
-
-    .value.loss {
-      color: var(--red);
-    }
-
-    .value.dollar {
-      color: var(--accent);
-    }
-
-    .value.expense {
-      color: var(--red);
-    }
+    .value.count { color: var(--accent); }
+    .value.paid { color: var(--amber); }
+    .value.deducted { color: var(--purple); }
+    .value.profit { color: var(--green); }
+    .value.loss { color: var(--red); }
+    .value.dollar { color: var(--accent); }
+    .value.expense { color: var(--red); }
 
     .unit {
       font-size: .58em;
@@ -206,7 +230,7 @@
       background: #111421;
       color: var(--accent);
       border: 1px solid rgba(79,142,247,.45);
-      border-radius: 8px;
+      border-radius: 9px;
       padding: .32rem .45rem;
       font-family: 'Cairo', sans-serif;
       font-weight: 800;
@@ -215,10 +239,19 @@
     }
 
     .panel {
-      background: rgba(26,29,46,.9);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
       padding: 1rem;
+      animation: panelIn .22s ease both;
+    }
+
+    @keyframes panelIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     .panel-title {
@@ -229,14 +262,14 @@
 
     .form-grid {
       display: grid;
-      grid-template-columns: 1.1fr 1.3fr 1.1fr 1fr 1fr auto;
+      grid-template-columns: 1fr 1.35fr 1.1fr .9fr .9fr auto;
       gap: .7rem;
       align-items: end;
     }
 
     .preset-grid {
       display: grid;
-      grid-template-columns: 2fr auto auto;
+      grid-template-columns: minmax(220px, 2fr) auto auto;
       gap: .7rem;
       align-items: end;
       margin-bottom: .9rem;
@@ -244,7 +277,7 @@
 
     .preset-add-grid {
       display: grid;
-      grid-template-columns: 1.4fr 1.2fr 1fr 1fr auto;
+      grid-template-columns: 1.35fr 1.15fr .9fr .9fr auto;
       gap: .7rem;
       align-items: end;
       margin-top: .9rem;
@@ -281,37 +314,66 @@
       background: #111421;
       color: var(--text);
       border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: .7rem .8rem;
+      border-radius: 11px;
+      padding: .72rem .82rem;
       outline: none;
       font-family: 'Cairo', sans-serif;
+      transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+    }
+
+    .field select {
+      cursor: pointer;
+      appearance: none;
+      background:
+        linear-gradient(45deg, transparent 50%, var(--accent) 50%),
+        linear-gradient(135deg, var(--accent) 50%, transparent 50%),
+        #111421;
+      background-position:
+        calc(100% - 20px) calc(1em + 6px),
+        calc(100% - 15px) calc(1em + 6px),
+        0 0;
+      background-size:
+        5px 5px,
+        5px 5px,
+        100% 100%;
+      background-repeat: no-repeat;
+      padding-right: 2.2rem;
     }
 
     .field input:focus,
     .field select:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 3px rgba(79,142,247,.15);
+      background-color: #12182a;
+    }
+
+    .quick-toolbar {
+      display: flex;
+      gap: .55rem;
+      flex-wrap: wrap;
+      margin: .75rem 0 .2rem;
     }
 
     .btn {
       border: 0;
-      border-radius: 10px;
-      padding: .7rem 1rem;
+      border-radius: 11px;
+      padding: .72rem 1rem;
       font-family: 'Cairo', sans-serif;
       font-weight: 900;
       cursor: pointer;
-      transition: .2s;
+      transition: transform .16s ease, opacity .16s ease, box-shadow .16s ease;
       white-space: nowrap;
     }
 
     .btn:hover {
-      opacity: .85;
+      opacity: .9;
       transform: translateY(-1px);
     }
 
     .btn-add {
       background: var(--green);
       color: #06120b;
+      box-shadow: 0 10px 24px rgba(34,197,94,.14);
     }
 
     .btn-export {
@@ -351,6 +413,7 @@
       overflow-x: auto;
       border: 1px solid var(--border);
       border-radius: 12px;
+      animation: panelIn .22s ease both;
     }
 
     .preset-list table,
@@ -371,9 +434,7 @@
 
     .table-wrap {
       overflow-x: auto;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      background: rgba(26,29,46,.9);
+      animation: panelIn .22s ease both;
     }
 
     table {
@@ -394,29 +455,25 @@
       font-size: .72rem;
       font-weight: 900;
       white-space: nowrap;
+      position: sticky;
+      top: 0;
+      z-index: 1;
     }
 
-    th.col-paid {
-      color: var(--amber);
-    }
-
-    th.col-deducted {
-      color: var(--purple);
-    }
-
-    th.col-profit {
-      color: var(--green);
-    }
-
-    th.col-date {
-      color: var(--accent);
-    }
+    th.col-paid { color: var(--amber); }
+    th.col-deducted { color: var(--purple); }
+    th.col-profit { color: var(--green); }
+    th.col-date { color: var(--accent); }
 
     td {
       padding: .65rem .8rem;
       border-top: 1px solid var(--border);
       white-space: nowrap;
       vertical-align: middle;
+    }
+
+    tbody tr {
+      transition: background .15s ease;
     }
 
     tbody tr:hover {
@@ -430,7 +487,7 @@
       width: 100%;
       min-width: 120px;
       padding: .35rem .4rem;
-      border-radius: 7px;
+      border-radius: 8px;
       font-family: 'Cairo', sans-serif;
       outline: none;
     }
@@ -447,31 +504,17 @@
       font-weight: 800;
     }
 
-    .paid-val {
-      color: var(--amber);
-    }
-
-    .deducted-val {
-      color: var(--purple);
-    }
-
-    .profit-val {
-      color: var(--green);
-    }
-
-    .loss-val {
-      color: var(--red);
-    }
-
-    .expense-val {
-      color: var(--red);
-    }
+    .paid-val { color: var(--amber); }
+    .deducted-val { color: var(--purple); }
+    .profit-val { color: var(--green); }
+    .loss-val { color: var(--red); }
+    .expense-val { color: var(--red); }
 
     .delete-btn {
       background: transparent;
       color: var(--red);
       border: 1px solid rgba(239,68,68,.35);
-      border-radius: 7px;
+      border-radius: 8px;
       padding: .25rem .6rem;
       cursor: pointer;
       font-family: 'Cairo', sans-serif;
@@ -491,6 +534,32 @@
       font-size: .75rem;
       margin-top: 1rem;
     }
+
+    @media(max-width: 720px) {
+      body {
+        padding: .7rem;
+      }
+
+      .section-head {
+        align-items: flex-start;
+      }
+
+      .header h1 {
+        font-size: 2rem;
+      }
+
+      .btn,
+      .toggle-btn {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .quick-toolbar,
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 
@@ -500,7 +569,7 @@
 
   <div class="header">
     <h1>حاسبة مكسب المشروع</h1>
-    <p>اختار من العروض المحفوظة أو أضف يدويًا، والموقع يحسب المكسب والإجماليات تلقائيًا</p>
+    <p>قوائم أسرع، إدخال أسهل، وحساب تلقائي للمكسب والمصاريف والدولار</p>
   </div>
 
   <div id="toast" class="toast"></div>
@@ -509,7 +578,7 @@
     <div class="section-head">
       <div>
         <div class="section-title">📊 ملخص الحسابات</div>
-        <div class="section-subtitle">الإجماليات، الدولار، والمكسب النهائي</div>
+        <div class="section-subtitle">الإجماليات، الدولار، المصاريف، والمكسب النهائي</div>
       </div>
       <button class="toggle-btn" type="button" onclick="toggleSection('summaryContent', this)">إخفاء</button>
     </div>
@@ -564,7 +633,7 @@
     <div class="section-head">
       <div>
         <div class="section-title">⚡ العروض المحفوظة</div>
-        <div class="section-subtitle">اختار العرض بسرعة، وتاريخ الإضافة بيكون تاريخ اليوم تلقائيًا ويمكن تعديله بعد الإضافة</div>
+        <div class="section-subtitle">اكتب للبحث أو اختار العرض مباشرة. التاريخ عند الإضافة بيكون تاريخ اليوم ويمكن تعديله من الجدول.</div>
       </div>
       <button class="toggle-btn" type="button" onclick="toggleSection('presetsContent', this)">إخفاء</button>
     </div>
@@ -574,14 +643,19 @@
 
       <div class="preset-grid">
         <div class="field">
-          <label>اختار عرض محفوظ</label>
-          <select id="presetSelect">
-            <option value="">— اختار من القائمة —</option>
-          </select>
+          <label>بحث سريع في العروض</label>
+          <input id="presetSearchInput" type="text" placeholder="مثال: ببجي الكورية أو عرض 180" oninput="renderPresetSelect()">
         </div>
 
         <button class="btn btn-add" type="button" onclick="addSelectedPresetToRows()">إضافة للجدول</button>
-        <button class="btn btn-purple" type="button" onclick="fillManualFromPreset()">تعبئة في الإدخال اليدوي</button>
+        <button class="btn btn-purple" type="button" onclick="fillManualFromPreset()">تعبئة يدوي</button>
+      </div>
+
+      <div class="field" style="margin-bottom:.9rem">
+        <label>اختار عرض محفوظ</label>
+        <select id="presetSelect">
+          <option value="">— اختار من القائمة —</option>
+        </select>
       </div>
 
       <div class="panel-title" style="margin-top:.6rem">➕ إضافة عرض جديد لقائمة الاختيارات</div>
@@ -610,9 +684,10 @@
         <button class="btn btn-purple" type="button" onclick="addPreset()">حفظ العرض</button>
       </div>
 
-      <div class="actions">
+      <div class="quick-toolbar">
         <button class="btn btn-export" type="button" onclick="toggleSection('presetListWrap', this)">إظهار القائمة</button>
-        <button class="btn btn-clear" type="button" onclick="clearPresets()">🗑️ مسح العروض المحفوظة</button>
+        <button class="btn btn-amber" type="button" onclick="restoreLastDeleted()">↩️ استرجاع آخر حذف</button>
+        <button class="btn btn-clear" type="button" onclick="clearPresets()">🗑️ مسح العروض</button>
       </div>
 
       <div id="presetListWrap" class="preset-list hidden-section">
@@ -652,12 +727,12 @@
 
         <div class="field">
           <label>الحاجة اللي اتشحنت</label>
-          <input id="itemInput" type="text" placeholder="مثال: بيجي الكهربية">
+          <input id="itemInput" type="text" placeholder="مثال: ببجي الكورية">
         </div>
 
         <div class="field">
           <label>العرض</label>
-          <input id="offerInput" type="text" placeholder="مثال: 8100 عرض">
+          <input id="offerInput" type="text" placeholder="مثال: عرض 8100">
         </div>
 
         <div class="field">
@@ -674,7 +749,7 @@
       </div>
 
       <div class="actions">
-        <button class="btn btn-purple" type="button" onclick="saveCurrentManualAsPreset()">⭐ حفظ الإدخال كعرض سريع</button>
+        <button class="btn btn-purple" type="button" onclick="saveCurrentManualAsPreset()">⭐ حفظ كعرض سريع</button>
         <button class="btn btn-amber" type="button" onclick="restoreLastDeleted()">↩️ استرجاع آخر حذف</button>
         <button class="btn btn-export" type="button" onclick="exportCSV()">⬇️ تصدير CSV</button>
         <button class="btn btn-export" type="button" onclick="downloadBackup()">💾 نسخة احتياطية</button>
@@ -770,8 +845,8 @@
 </div>
 
 <script>
-  const STORAGE_ROWS = 'profit_calculator_rows_v2';
-  const STORAGE_PRESETS = 'profit_calculator_presets_v2';
+  const STORAGE_ROWS = 'profit_calculator_rows_v3';
+  const STORAGE_PRESETS = 'profit_calculator_presets_v3';
   const STORAGE_EXPENSES = 'profit_calculator_expenses_v1';
   const STORAGE_DELETED_STACK = 'profit_calculator_deleted_stack_v1';
   const STORAGE_PAID_DOLLAR_RATE = 'profit_paid_dollar_rate_v1';
@@ -830,9 +905,7 @@
   }
 
   function calcProfit(row) {
-    const paid = Number(row.paid) || 0;
-    const deducted = Number(row.deducted) || 0;
-    return deducted - paid;
+    return (Number(row.deducted) || 0) - (Number(row.paid) || 0);
   }
 
   function createRowObject(date, item, offer, paid, deducted) {
@@ -933,7 +1006,7 @@
       items
     });
 
-    setDeletedStack(stack.slice(-30));
+    setDeletedStack(stack.slice(-35));
   }
 
   function restoreLastDeleted() {
@@ -971,11 +1044,8 @@
   }
 
   function saveDollarRates() {
-    const paidRate = document.getElementById('paidDollarRate').value;
-    const deductedRate = document.getElementById('deductedDollarRate').value;
-
-    localStorage.setItem(STORAGE_PAID_DOLLAR_RATE, paidRate);
-    localStorage.setItem(STORAGE_DEDUCTED_DOLLAR_RATE, deductedRate);
+    localStorage.setItem(STORAGE_PAID_DOLLAR_RATE, document.getElementById('paidDollarRate').value);
+    localStorage.setItem(STORAGE_DEDUCTED_DOLLAR_RATE, document.getElementById('deductedDollarRate').value);
   }
 
   function loadDollarRates() {
@@ -992,13 +1062,20 @@
   }
 
   function renderPresetSelect() {
+    const searchValue = document.getElementById('presetSearchInput')?.value.trim().toLowerCase() || '';
     const select = document.getElementById('presetSelect');
+
     select.innerHTML = '<option value="">— اختار من القائمة —</option>';
 
     presets.forEach((preset, index) => {
+      const label = `${preset.item} — ${preset.offer}`;
+      const searchable = label.toLowerCase();
+
+      if (searchValue && !searchable.includes(searchValue)) return;
+
       const option = document.createElement('option');
       option.value = index;
-      option.textContent = `${preset.item} — ${preset.offer}`;
+      option.textContent = label;
       select.appendChild(option);
     });
   }
@@ -1051,6 +1128,12 @@
       return null;
     }
 
+    if (!offer) {
+      alert('اكتب اسم العرض.');
+      offerInput.focus();
+      return null;
+    }
+
     if (Number.isNaN(paid) || paid < 0) {
       alert('اكتب السعر المدفوع بشكل صحيح.');
       paidInput.focus();
@@ -1068,7 +1151,6 @@
 
   function addPreset() {
     const values = getPresetFormValues();
-
     if (!values) return;
 
     presets.push(createPresetObject(values.item, values.offer, values.paid, values.deducted));
@@ -1088,7 +1170,6 @@
     if (!presets[index]) return;
 
     const confirmed = confirm('⚠️ هل تريد حذف هذا العرض من القائمة؟');
-
     if (!confirmed) return;
 
     const deleted = presets.splice(index, 1);
@@ -1107,7 +1188,6 @@
     }
 
     const confirmed = confirm('⚠️ هل تريد مسح كل العروض والأسعار المحفوظة؟');
-
     if (!confirmed) return;
 
     pushDeleted('presets', [...presets], 'كل العروض المحفوظة');
@@ -1133,7 +1213,6 @@
 
   function addSelectedPresetToRows() {
     const preset = getSelectedPreset();
-
     if (!preset) return;
 
     rows.push(createRowObject(today(), preset.item, preset.offer, preset.paid, preset.deducted));
@@ -1145,7 +1224,6 @@
 
   function fillManualFromPreset() {
     const preset = getSelectedPreset();
-
     if (!preset) return;
 
     document.getElementById('dateInput').value = today();
@@ -1171,6 +1249,12 @@
     if (!item) {
       alert('اكتب الحاجة اللي اتشحنت الأول.');
       itemInput.focus();
+      return;
+    }
+
+    if (!offer) {
+      alert('اكتب العرض الأول.');
+      offerInput.focus();
       return;
     }
 
@@ -1284,7 +1368,6 @@
     if (!expenses[index]) return;
 
     const confirmed = confirm('⚠️ هل تريد حذف هذا المصروف؟');
-
     if (!confirmed) return;
 
     const deleted = expenses.splice(index, 1);
@@ -1304,7 +1387,6 @@
     }
 
     const confirmed = confirm('⚠️ هل تريد مسح كل المصاريف؟');
-
     if (!confirmed) return;
 
     pushDeleted('expenses', [...expenses], 'كل المصاريف');
@@ -1446,6 +1528,12 @@
       return;
     }
 
+    if (!offer) {
+      alert('اكتب العرض.');
+      offerInput.focus();
+      return;
+    }
+
     if (Number.isNaN(paid) || paid < 0) {
       alert('اكتب السعر المدفوع بشكل صحيح.');
       paidInput.focus();
@@ -1491,7 +1579,6 @@
     if (!rows[index]) return;
 
     const confirmed = confirm('⚠️ هل تريد حذف هذه العملية؟');
-
     if (!confirmed) return;
 
     const deleted = rows.splice(index, 1);
@@ -1510,7 +1597,6 @@
     }
 
     const confirmed = confirm('⚠️ هل تريد مسح كل عمليات الجدول؟');
-
     if (!confirmed) return;
 
     pushDeleted('rows', [...rows], 'كل عمليات الجدول');
@@ -1568,7 +1654,7 @@
   function downloadBackup() {
     const backup = {
       appName: 'Profit Calculator',
-      version: 3,
+      version: 4,
       exportedAt: new Date().toISOString(),
       rows,
       presets,
@@ -1611,7 +1697,6 @@
         }
 
         const confirmed = confirm('⚠️ هل تريد استرجاع النسخة؟ سيتم استبدال البيانات الحالية.');
-
         if (!confirmed) {
           event.target.value = '';
           return;
