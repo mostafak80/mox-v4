@@ -1164,6 +1164,40 @@
       }
     }
 
+
+    /* ===== تحديثات الاستجابة المطلوبة: شريط ثابت + فتح حسب الاختيار ===== */
+    .mobile-bottom-nav {
+      position: fixed !important;
+      left: max(.65rem, env(safe-area-inset-left, 0px)) !important;
+      right: max(.65rem, env(safe-area-inset-right, 0px)) !important;
+      bottom: max(.55rem, env(safe-area-inset-bottom, 0px)) !important;
+      z-index: 2147483000 !important;
+      transform: translateZ(0);
+      will-change: transform;
+    }
+
+    @supports (-webkit-touch-callout: none) {
+      .mobile-bottom-nav {
+        bottom: max(.75rem, env(safe-area-inset-bottom, 0px)) !important;
+      }
+    }
+
+    @media(max-width: 900px) {
+      .mobile-bottom-nav {
+        display: grid !important;
+      }
+    }
+
+    @media(min-width: 901px) {
+      .mobile-bottom-nav {
+        display: none !important;
+      }
+    }
+
+    body {
+      padding-bottom: calc(5.7rem + env(safe-area-inset-bottom, 0px));
+    }
+
   </style>
 </head>
 
@@ -1256,7 +1290,7 @@
         <div class="section-title">📊 لوحة ملخص الأرباح</div>
         <div class="section-subtitle">عند عرض كل الأيام يتم خصم المصاريف الثابتة، وعند فلترة يوم أو فترة يظهر صافي مكسب العمليات فقط بدون المصاريف الثابتة</div>
       </div>
-      <button class="toggle-btn" type="button" onclick="toggleSection('summaryContent', this)">إخفاء</button>
+      <button class="toggle-btn" type="button" onclick="toggleMultiSection(['summaryFilterPanel','summaryContent'], this)">إخفاء</button>
     </div>
 
     <div id="summaryFilterPanel" class="panel filter-panel">
@@ -1686,6 +1720,19 @@
   let isApplyingCloudData = false;
   let cloudSyncTimer = null;
   let cloudSyncEnabled = false;
+  let isEnablingCloudSync = false;
+
+  const COLLAPSIBLE_CONTENT_IDS = [
+    'cloudSyncContent',
+    'summaryFilterPanel',
+    'summaryContent',
+    'reportsContent',
+    'presetsContent',
+    'manualContent',
+    'fixedExpensesContent',
+    'rowsFilterPanel',
+    'tableContent'
+  ];
 
   const defaultExpenses = [
     { name: 'إعلانات', amount: 12500 },
@@ -1700,18 +1747,61 @@
 
 
 
-  function scrollToBlock(id) {
-    const el = document.getElementById(id);
-    if (!el) return;
+  function getSectionGroupForTarget(id) {
+    const groups = {
+      cloudSyncContent: ['cloudSyncContent'],
+      summaryFilterPanel: ['summaryFilterPanel', 'summaryContent'],
+      summaryContent: ['summaryFilterPanel', 'summaryContent'],
+      reportsContent: ['reportsContent'],
+      presetsContent: ['presetsContent'],
+      manualContent: ['manualContent'],
+      fixedExpensesContent: ['fixedExpensesContent'],
+      rowsFilterPanel: ['rowsFilterPanel', 'tableContent'],
+      tableContent: ['rowsFilterPanel', 'tableContent']
+    };
 
-    if (el.classList.contains('hidden-section')) {
-      const parentSection = el.closest('.section');
-      const button = parentSection?.querySelector('.toggle-btn');
-      el.classList.remove('hidden-section');
-      if (button) button.textContent = 'إخفاء';
+    return groups[id] || [id];
+  }
+
+  function setSectionButtonLabelByChild(id, label) {
+    const el = document.getElementById(id);
+    const section = el?.closest('.section');
+    const button = section?.querySelector('.section-head .toggle-btn');
+    if (button) button.textContent = label;
+  }
+
+  function openSectionGroupForTarget(id) {
+    const ids = getSectionGroupForTarget(id);
+
+    ids.forEach(itemId => {
+      const el = document.getElementById(itemId);
+      if (el) el.classList.remove('hidden-section');
+    });
+
+    if (ids.includes('tableContent')) {
+      const preview = document.getElementById('latestRowsPreview');
+      if (preview) preview.classList.add('hidden-section');
     }
 
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setSectionButtonLabelByChild(ids[0], 'إخفاء');
+  }
+
+  function scrollToBlock(id) {
+    openSectionGroupForTarget(id);
+
+    const el = document.getElementById(id) || document.getElementById(getSectionGroupForTarget(id)[0]);
+    if (!el) return;
+
+    setTimeout(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 30);
+  }
+
+  function ensureMobileNavFixed() {
+    const nav = document.querySelector('.mobile-bottom-nav');
+    if (nav && nav.parentElement !== document.body) {
+      document.body.appendChild(nav);
+    }
   }
 
   function detectStandaloneMode() {
@@ -1767,11 +1857,42 @@
 
   function toggleSection(id, button) {
     const section = document.getElementById(id);
+    if (!section) return;
+
     section.classList.toggle('hidden-section');
 
     if (button) {
       button.textContent = section.classList.contains('hidden-section') ? 'إظهار' : 'إخفاء';
     }
+  }
+
+  function toggleMultiSection(ids, button) {
+    const elements = ids.map(id => document.getElementById(id)).filter(Boolean);
+    if (!elements.length) return;
+
+    const shouldShow = elements.some(el => el.classList.contains('hidden-section'));
+
+    elements.forEach(el => {
+      el.classList.toggle('hidden-section', !shouldShow);
+    });
+
+    if (button) {
+      button.textContent = shouldShow ? 'إخفاء' : 'إظهار';
+    }
+  }
+
+  function collapseAllSectionsOnStart() {
+    COLLAPSIBLE_CONTENT_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('hidden-section');
+    });
+
+    const preview = document.getElementById('latestRowsPreview');
+    if (preview) preview.classList.add('hidden-section');
+
+    document.querySelectorAll('.section-head .toggle-btn').forEach(button => {
+      button.textContent = 'إظهار';
+    });
   }
 
   function showToast(message) {
@@ -3444,11 +3565,17 @@
 
     localStorage.setItem(STORAGE_FIREBASE_CONFIG, JSON.stringify(config));
     localStorage.setItem(STORAGE_SYNC_CODE, syncCode);
+    localStorage.setItem(STORAGE_SYNC_ENABLED, '1');
+    cloudSyncEnabled = true;
 
     if (syncCodeInput) syncCodeInput.value = syncCode;
     if (configInput) configInput.value = JSON.stringify(config, null, 2);
 
-    showToast('✅ تم حفظ إعدادات المزامنة.');
+    if (!isEnablingCloudSync) {
+      setTimeout(() => autoStartCloudSyncIfEnabled(), 120);
+    }
+
+    showToast('✅ تم حفظ إعدادات المزامنة وتشغيلها تلقائيًا.');
     return true;
   }
 
@@ -3620,8 +3747,16 @@
     }
   }
 
-  async function enableCloudSync() {
-    if (!saveFirebaseSettings()) return;
+  async function enableCloudSync(options = {}) {
+    if (cloudUnsubscribe && cloudDocRef && cloudSyncEnabled) {
+      if (!options.silent) setCloudStatus('متزامن', 'ok');
+      return;
+    }
+
+    isEnablingCloudSync = true;
+    const settingsSaved = saveFirebaseSettings();
+    isEnablingCloudSync = false;
+    if (!settingsSaved) return;
 
     const ok = await initializeFirebaseSync();
     if (!ok) return;
@@ -3677,7 +3812,7 @@
       showToast('⚠️ فشل الاستماع للمزامنة. راجع Firestore Rules وكود المزامنة.');
     });
 
-    showToast('✅ تم تشغيل المزامنة السحابية.');
+    if (!options.silent) showToast('✅ تم تشغيل المزامنة السحابية.');
   }
 
   function disableCloudSync() {
@@ -3717,10 +3852,16 @@
   async function autoStartCloudSyncIfEnabled() {
     fillFirebaseSettingsForm();
 
-    if (localStorage.getItem(STORAGE_SYNC_ENABLED) === '1') {
+    const hasConfig = Boolean(getFirebaseConfig());
+    const hasSyncCode = Boolean(normalizeSyncCode(localStorage.getItem(STORAGE_SYNC_CODE)));
+
+    if (hasConfig && hasSyncCode) {
+      localStorage.setItem(STORAGE_SYNC_ENABLED, '1');
       cloudSyncEnabled = true;
-      await enableCloudSync();
+      await enableCloudSync({ silent: true });
+      setCloudStatus('مزامنة تلقائية', 'ok');
     } else {
+      cloudSyncEnabled = false;
       setCloudStatus('غير متصل', 'warn');
     }
   }
@@ -3938,7 +4079,21 @@
     reader.readAsText(file);
   }
 
+  window.addEventListener('online', function () {
+    if (localStorage.getItem(STORAGE_FIREBASE_CONFIG) && localStorage.getItem(STORAGE_SYNC_CODE)) {
+      autoStartCloudSyncIfEnabled();
+      scheduleCloudSync('online');
+    }
+  });
+
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && localStorage.getItem(STORAGE_FIREBASE_CONFIG) && localStorage.getItem(STORAGE_SYNC_CODE)) {
+      autoStartCloudSyncIfEnabled();
+    }
+  });
+
   document.addEventListener('DOMContentLoaded', function () {
+    ensureMobileNavFixed();
     detectStandaloneMode();
     setupDynamicManifest();
     showIOSInstallHintOnce();
@@ -3955,6 +4110,7 @@
     renderPresets();
     renderExpenses();
     render();
+    collapseAllSectionsOnStart();
     saveSafetyBackupIfUseful();
 
     document.getElementById('walletDollarRate').addEventListener('input', function () {
