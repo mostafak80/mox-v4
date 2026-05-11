@@ -1198,6 +1198,38 @@
       padding-bottom: calc(5.7rem + env(safe-area-inset-bottom, 0px));
     }
 
+
+    /* ===== تحسينات إضافية للشريط السفلي والمزامنة التلقائية ===== */
+    .mobile-nav-btn.active {
+      background: linear-gradient(135deg, rgba(79,142,247,.95), rgba(167,139,250,.9));
+      color: #07101f;
+      box-shadow: 0 12px 28px rgba(79,142,247,.22);
+    }
+
+    .mobile-nav-btn.primary.active {
+      background: linear-gradient(135deg, rgba(34,197,94,.98), rgba(79,142,247,.95));
+      color: #06120b;
+    }
+
+    .mobile-bottom-nav {
+      pointer-events: auto;
+    }
+
+    @media(max-width: 900px) {
+      .mobile-bottom-nav {
+        display: grid !important;
+        position: fixed !important;
+        left: max(.65rem, env(safe-area-inset-left, 0px)) !important;
+        right: max(.65rem, env(safe-area-inset-right, 0px)) !important;
+        bottom: max(.55rem, env(safe-area-inset-bottom, 0px)) !important;
+        z-index: 2147483000 !important;
+      }
+
+      body {
+        padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px)) !important;
+      }
+    }
+
   </style>
 </head>
 
@@ -1681,11 +1713,11 @@
   </div>
 
   <div class="mobile-bottom-nav" aria-label="تنقل سريع للموبايل">
-    <button class="mobile-nav-btn" type="button" onclick="scrollToBlock('summaryFilterPanel')"><strong>📊</strong><span>الملخص</span></button>
-    <button class="mobile-nav-btn" type="button" onclick="scrollToBlock('presetsContent')"><strong>⚡</strong><span>العروض</span></button>
-    <button class="mobile-nav-btn primary" type="button" onclick="scrollToBlock('manualContent')"><strong>＋</strong><span>إضافة</span></button>
-    <button class="mobile-nav-btn" type="button" onclick="scrollToBlock('tableContent')"><strong>📋</strong><span>السجل</span></button>
-    <button class="mobile-nav-btn" type="button" onclick="scrollToBlock('cloudSyncContent')"><strong>☁️</strong><span>مزامنة</span></button>
+    <button class="mobile-nav-btn" type="button" data-target="summaryFilterPanel" onclick="toggleMobileBlock('summaryFilterPanel')"><strong>📊</strong><span>الملخص</span></button>
+    <button class="mobile-nav-btn" type="button" data-target="presetsContent" onclick="toggleMobileBlock('presetsContent')"><strong>⚡</strong><span>العروض</span></button>
+    <button class="mobile-nav-btn primary" type="button" data-target="manualContent" onclick="toggleMobileBlock('manualContent')"><strong>＋</strong><span>إضافة</span></button>
+    <button class="mobile-nav-btn" type="button" data-target="tableContent" onclick="toggleMobileBlock('tableContent')"><strong>📋</strong><span>السجل</span></button>
+    <button class="mobile-nav-btn" type="button" data-target="cloudSyncContent" onclick="toggleMobileBlock('cloudSyncContent')"><strong>☁️</strong><span>مزامنة</span></button>
   </div>
 
 
@@ -1709,6 +1741,18 @@
   const STORAGE_SYNC_ENABLED = 'profit_sync_enabled_v1';
   const STORAGE_SYNC_DEVICE_ID = 'profit_sync_device_id_v1';
   const STORAGE_LAST_SYNC_AT = 'profit_last_sync_at_v1';
+  // إعدادات المزامنة الافتراضية — عشان الموقع يفتح ويزامن مباشرة بدون إدخال الكود كل مرة
+  const DEFAULT_SYNC_CODE = 'MOX-258-989';
+  const DEFAULT_FIREBASE_CONFIG = {
+    apiKey: "AIzaSyCQgXHLCD9M_hKGQqpxFMNPRJs-7IQJ6Q",
+    authDomain: "mox-v2.firebaseapp.com",
+    projectId: "mox-v2",
+    storageBucket: "mox-v2.firebasestorage.app",
+    messagingSenderId: "233653672293",
+    appId: "1:233653672293:web:29ab87a2fbb8607cae98c",
+    measurementId: "G-YV427C67NN"
+  };
+
 
   let rows = [];
   let presets = [];
@@ -1747,6 +1791,7 @@
 
 
 
+
   function getSectionGroupForTarget(id) {
     const groups = {
       cloudSyncContent: ['cloudSyncContent'],
@@ -1770,6 +1815,14 @@
     if (button) button.textContent = label;
   }
 
+  function isSectionGroupVisible(id) {
+    const ids = getSectionGroupForTarget(id);
+    return ids.every(itemId => {
+      const el = document.getElementById(itemId);
+      return el && !el.classList.contains('hidden-section');
+    });
+  }
+
   function openSectionGroupForTarget(id) {
     const ids = getSectionGroupForTarget(id);
 
@@ -1784,6 +1837,30 @@
     }
 
     setSectionButtonLabelByChild(ids[0], 'إخفاء');
+    setMobileNavActive(id);
+  }
+
+  function closeSectionGroupForTarget(id) {
+    const ids = getSectionGroupForTarget(id);
+
+    ids.forEach(itemId => {
+      const el = document.getElementById(itemId);
+      if (el) el.classList.add('hidden-section');
+    });
+
+    if (ids.includes('tableContent')) {
+      const preview = document.getElementById('latestRowsPreview');
+      if (preview) preview.classList.add('hidden-section');
+    }
+
+    setSectionButtonLabelByChild(ids[0], 'إظهار');
+    setMobileNavActive('');
+  }
+
+  function setMobileNavActive(id) {
+    document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+      btn.classList.toggle('active', Boolean(id) && btn.dataset.target === id);
+    });
   }
 
   function scrollToBlock(id) {
@@ -1797,7 +1874,23 @@
     }, 30);
   }
 
+  function toggleMobileBlock(id) {
+    if (isSectionGroupVisible(id)) {
+      closeSectionGroupForTarget(id);
+      return;
+    }
+
+    openSectionGroupForTarget(id);
+    const el = document.getElementById(id) || document.getElementById(getSectionGroupForTarget(id)[0]);
+    if (!el) return;
+
+    setTimeout(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 35);
+  }
+
   function ensureMobileNavFixed() {
+
     const nav = document.querySelector('.mobile-bottom-nav');
     if (nav && nav.parentElement !== document.body) {
       document.body.appendChild(nav);
@@ -1893,6 +1986,8 @@
     document.querySelectorAll('.section-head .toggle-btn').forEach(button => {
       button.textContent = 'إظهار';
     });
+
+    setMobileNavActive('');
   }
 
   function showToast(message) {
@@ -3482,23 +3577,45 @@
     input.value = stored ? new Date(stored).toLocaleString('ar-EG') : 'لم تتم بعد';
   }
 
+
+  function getStoredFirebaseConfig() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_FIREBASE_CONFIG) || 'null');
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function getFirebaseConfig() {
+    const stored = getStoredFirebaseConfig();
+    return stored && stored.apiKey && stored.projectId ? stored : DEFAULT_FIREBASE_CONFIG;
+  }
+
+  function getActiveSyncCode() {
+    const stored = normalizeSyncCode(localStorage.getItem(STORAGE_SYNC_CODE));
+    return stored || DEFAULT_SYNC_CODE;
+  }
+
+  function ensureFirebaseDefaultsSaved() {
+    const config = getFirebaseConfig();
+    localStorage.setItem(STORAGE_FIREBASE_CONFIG, JSON.stringify(config));
+    localStorage.setItem(STORAGE_SYNC_CODE, getActiveSyncCode());
+    localStorage.setItem(STORAGE_SYNC_ENABLED, '1');
+    cloudSyncEnabled = true;
+    return { config, syncCode: getActiveSyncCode() };
+  }
+
   function fillFirebaseSettingsForm() {
     const configInput = document.getElementById('firebaseConfigInput');
     const syncCodeInput = document.getElementById('syncCodeInput');
+    const { config, syncCode } = ensureFirebaseDefaultsSaved();
 
-    const savedConfig = localStorage.getItem(STORAGE_FIREBASE_CONFIG) || '';
-    const savedSyncCode = localStorage.getItem(STORAGE_SYNC_CODE) || '';
-
-    if (configInput && savedConfig) {
-      try {
-        configInput.value = JSON.stringify(JSON.parse(savedConfig), null, 2);
-      } catch (e) {
-        configInput.value = savedConfig;
-      }
+    if (configInput) {
+      configInput.value = JSON.stringify(config, null, 2);
     }
 
     if (syncCodeInput) {
-      syncCodeInput.value = savedSyncCode;
+      syncCodeInput.value = syncCode;
     }
 
     updateLastSyncDisplay();
@@ -3530,14 +3647,6 @@
     }
   }
 
-  function getFirebaseConfig() {
-    try {
-      return JSON.parse(localStorage.getItem(STORAGE_FIREBASE_CONFIG) || 'null');
-    } catch (e) {
-      return null;
-    }
-  }
-
   function normalizeSyncCode(value) {
     return String(value || '')
       .trim()
@@ -3546,20 +3655,27 @@
       .slice(0, 80);
   }
 
-  function saveFirebaseSettings() {
+  function saveFirebaseSettings(options = {}) {
     const configInput = document.getElementById('firebaseConfigInput');
     const syncCodeInput = document.getElementById('syncCodeInput');
 
-    const config = parseFirebaseConfig(configInput?.value || '');
-    const syncCode = normalizeSyncCode(syncCodeInput?.value || '');
+    const configFromInput = parseFirebaseConfig(configInput?.value || '');
+    const config = (configFromInput && configFromInput.apiKey && configFromInput.projectId)
+      ? configFromInput
+      : getFirebaseConfig();
+
+    const syncCodeFromInput = normalizeSyncCode(syncCodeInput?.value || '');
+    const syncCode = syncCodeFromInput || getActiveSyncCode() || DEFAULT_SYNC_CODE;
 
     if (!config || !config.apiKey || !config.projectId) {
-      showToast('⚠️ Firebase config غير صحيح. لازم يحتوي على apiKey و projectId على الأقل.');
+      setCloudStatus('Config ناقص', 'error');
+      if (!options.silent) showToast('⚠️ Firebase config غير صحيح. لازم يحتوي على apiKey و projectId على الأقل.');
       return false;
     }
 
     if (syncCode.length < 10) {
-      showToast('⚠️ كود المزامنة قصير. استخدم كود قوي لا يقل عن 10 أحرف.');
+      setCloudStatus('كود قصير', 'error');
+      if (!options.silent) showToast('⚠️ كود المزامنة قصير. استخدم كود قوي لا يقل عن 10 أحرف.');
       return false;
     }
 
@@ -3575,12 +3691,12 @@
       setTimeout(() => autoStartCloudSyncIfEnabled(), 120);
     }
 
-    showToast('✅ تم حفظ إعدادات المزامنة وتشغيلها تلقائيًا.');
+    if (!options.silent) showToast('✅ تم حفظ إعدادات المزامنة وتشغيلها تلقائيًا.');
     return true;
   }
 
   function getCloudDocPath() {
-    const syncCode = normalizeSyncCode(localStorage.getItem(STORAGE_SYNC_CODE));
+    const syncCode = getActiveSyncCode();
     if (!syncCode) return null;
     return { collection: 'moxSync', doc: syncCode };
   }
@@ -3754,7 +3870,8 @@
     }
 
     isEnablingCloudSync = true;
-    const settingsSaved = saveFirebaseSettings();
+    fillFirebaseSettingsForm();
+    const settingsSaved = saveFirebaseSettings({ silent: Boolean(options.silent) });
     isEnablingCloudSync = false;
     if (!settingsSaved) return;
 
@@ -3812,6 +3929,28 @@
       showToast('⚠️ فشل الاستماع للمزامنة. راجع Firestore Rules وكود المزامنة.');
     });
 
+    // فحص احتياطي كل 15 ثانية بجانب onSnapshot، عشان لو iPhone علّق الاستماع مؤقتًا يرجع يلقط التحديثات
+    if (window.__moxCloudHeartbeat) clearInterval(window.__moxCloudHeartbeat);
+    window.__moxCloudHeartbeat = setInterval(async () => {
+      try {
+        if (!cloudDocRef || !cloudSyncEnabled || document.hidden) return;
+        const snap = await cloudDocRef.get();
+        if (!snap.exists) return;
+        const data = snap.data();
+        const localLast = localStorage.getItem(STORAGE_LAST_SYNC_AT) || '';
+        const remoteUpdatedAt = data.updatedAt || '';
+        const sameDevice = data.clientId && data.clientId === getOrCreateDeviceId();
+        if (!sameDevice && remoteUpdatedAt && remoteUpdatedAt > localLast) {
+          saveBeforeRestoreBackup();
+          applyCloudPayload(data);
+          saveSafetyBackupIfUseful();
+          setCloudStatus('تم تحديث البيانات', 'ok');
+        }
+      } catch (e) {
+        console.warn('heartbeat sync warning:', e);
+      }
+    }, 15000);
+
     if (!options.silent) showToast('✅ تم تشغيل المزامنة السحابية.');
   }
 
@@ -3822,6 +3961,11 @@
     if (cloudUnsubscribe) {
       cloudUnsubscribe();
       cloudUnsubscribe = null;
+    }
+
+    if (window.__moxCloudHeartbeat) {
+      clearInterval(window.__moxCloudHeartbeat);
+      window.__moxCloudHeartbeat = null;
     }
 
     setCloudStatus('متوقف', 'warn');
@@ -3849,17 +3993,20 @@
     await uploadLocalDataToCloud(true);
   }
 
+
   async function autoStartCloudSyncIfEnabled() {
+    // تشغيل تلقائي حقيقي عند فتح الموقع: لا يحتاج المستخدم يكتب config أو كود كل مرة
     fillFirebaseSettingsForm();
+    ensureFirebaseDefaultsSaved();
 
     const hasConfig = Boolean(getFirebaseConfig());
-    const hasSyncCode = Boolean(normalizeSyncCode(localStorage.getItem(STORAGE_SYNC_CODE)));
+    const hasSyncCode = Boolean(getActiveSyncCode());
 
     if (hasConfig && hasSyncCode) {
       localStorage.setItem(STORAGE_SYNC_ENABLED, '1');
       cloudSyncEnabled = true;
       await enableCloudSync({ silent: true });
-      setCloudStatus('مزامنة تلقائية', 'ok');
+      setCloudStatus('متزامن تلقائيًا', 'ok');
     } else {
       cloudSyncEnabled = false;
       setCloudStatus('غير متصل', 'warn');
@@ -4080,14 +4227,12 @@
   }
 
   window.addEventListener('online', function () {
-    if (localStorage.getItem(STORAGE_FIREBASE_CONFIG) && localStorage.getItem(STORAGE_SYNC_CODE)) {
-      autoStartCloudSyncIfEnabled();
-      scheduleCloudSync('online');
-    }
+    autoStartCloudSyncIfEnabled();
+    scheduleCloudSync('online');
   });
 
   document.addEventListener('visibilitychange', function () {
-    if (!document.hidden && localStorage.getItem(STORAGE_FIREBASE_CONFIG) && localStorage.getItem(STORAGE_SYNC_CODE)) {
+    if (!document.hidden) {
       autoStartCloudSyncIfEnabled();
     }
   });
@@ -4125,6 +4270,7 @@
 
     initializePasswordProtection();
     autoStartCloudSyncIfEnabled();
+    setTimeout(() => autoStartCloudSyncIfEnabled(), 2500);
   });
 </script>
 
