@@ -1310,8 +1310,7 @@
       </div>
 
       <div class="security-note">
-        أول مرة: اعمل مشروع Firebase وخد كود <b>firebaseConfig</b>، حطه هنا مع كود مزامنة قوي، واضغط حفظ ثم رفع بيانات الجهاز. على الموبايل افتح نفس الموقع وحط نفس الإعدادات واضغط تنزيل بيانات السحابة أو تشغيل المزامنة.
-        لا يتم رفع كلمة مرور الموقع المحلية إلى Firebase.
+        المزامنة الآن ترفع وتنزل نسخة كاملة من بيانات الموقع مثل النسخة الاحتياطية: العمليات، العروض، المصاريف، الإعدادات، وسجل الحذف. بعد أول تشغيل، الموقع يزامن تلقائيًا عند الفتح وأثناء الاستخدام.
       </div>
     </div>
   </div>
@@ -3360,7 +3359,318 @@
           th,td{border:1px solid #ddd;padding:7px;text-align:right}
           th{background:#f3f4f6}
           @media print{button{display:none}}
-        </style>
+        
+
+    /* ===== MOX Pro Mobile Compact UI ===== */
+    :root {
+      --radius: 14px;
+      --soft-shadow: 0 10px 26px rgba(0,0,0,.18);
+    }
+
+    body {
+      font-size: 14px;
+    }
+
+    .page {
+      max-width: 1180px;
+    }
+
+    .header {
+      margin: .65rem 0 1rem;
+    }
+
+    .logo-box {
+      width: 64px;
+      height: 64px;
+      border-radius: 18px;
+    }
+
+    .header h1 {
+      font-size: clamp(1.55rem, 3.2vw, 2.35rem);
+    }
+
+    .header p,
+    .section-subtitle,
+    .filter-note,
+    .security-note,
+    .footer-note {
+      font-size: .68rem;
+      line-height: 1.65;
+    }
+
+    .section-head {
+      padding: .62rem .78rem;
+      border-radius: 14px;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .section-title {
+      font-size: .88rem;
+    }
+
+    .panel,
+    .card,
+    .table-wrap,
+    .latest-preview,
+    .stat-card {
+      border-radius: 14px;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .panel,
+    .filter-panel {
+      padding: .78rem;
+    }
+
+    .summary {
+      grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+      gap: .55rem;
+    }
+
+    .card {
+      padding: .72rem;
+    }
+
+    .card .label,
+    .stat-card .label,
+    .field label {
+      font-size: .66rem;
+    }
+
+    .card .value,
+    .stat-card .value {
+      font-size: 1.02rem;
+    }
+
+    .field input,
+    .field select,
+    .textarea-input,
+    .editable {
+      padding: .55rem .65rem;
+      border-radius: 10px;
+      font-size: 14px;
+    }
+
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+
+    .btn,
+    .toggle-btn {
+      min-height: 38px;
+      padding: .52rem .72rem;
+      border-radius: 10px;
+      font-size: .75rem;
+    }
+
+    table {
+      font-size: .78rem;
+      min-width: 840px;
+    }
+
+    th {
+      padding: .55rem .6rem;
+      font-size: .64rem;
+    }
+
+    td {
+      padding: .48rem .6rem;
+    }
+
+    .editable {
+      min-width: 92px;
+      padding: .28rem .35rem;
+    }
+
+    .mobile-bottom-nav {
+      max-width: 560px;
+      margin: 0 auto;
+      padding: .32rem !important;
+      gap: .28rem !important;
+      border-radius: 22px !important;
+      background: rgba(10, 13, 22, .90) !important;
+    }
+
+    .mobile-nav-btn {
+      min-height: 46px;
+      border-radius: 15px;
+      font-size: .58rem;
+    }
+
+    .mobile-nav-btn strong {
+      font-size: .9rem;
+    }
+
+    @media(max-width: 760px) {
+      body {
+        font-size: 13px;
+        padding: .58rem;
+        padding-left: max(.58rem, var(--safe-left));
+        padding-right: max(.58rem, var(--safe-right));
+        padding-top: max(.58rem, var(--safe-top));
+        padding-bottom: calc(5.45rem + var(--safe-bottom)) !important;
+      }
+
+      .header {
+        margin: .15rem 0 .65rem;
+        padding: .4rem 0 .1rem;
+      }
+
+      .logo-box {
+        width: 54px;
+        height: 54px;
+        border-radius: 16px;
+        margin-bottom: .38rem;
+      }
+
+      .header h1 {
+        font-size: clamp(1.45rem, 8vw, 2rem);
+      }
+
+      .section {
+        margin-bottom: .58rem;
+      }
+
+      .section-head {
+        padding: .58rem .65rem;
+        border-radius: 16px;
+        gap: .42rem;
+      }
+
+      .section-title {
+        font-size: .82rem;
+      }
+
+      .section-subtitle {
+        display: none;
+      }
+
+      .panel,
+      .filter-panel {
+        padding: .62rem;
+      }
+
+      .summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .45rem;
+      }
+
+      .card {
+        min-height: auto;
+        padding: .62rem;
+      }
+
+      .card .label,
+      .stat-card .label,
+      .field label,
+      td::before {
+        font-size: .6rem !important;
+      }
+
+      .card .value,
+      .stat-card .value {
+        font-size: .9rem;
+      }
+
+      .filter-grid,
+      .preset-tools,
+      .report-grid,
+      .stats-grid,
+      .preset-grid,
+      .preset-add-grid,
+      .expense-grid,
+      .form-grid {
+        gap: .45rem;
+      }
+
+      .field input,
+      .field select,
+      .textarea-input,
+      .lock-card input {
+        min-height: 40px;
+        padding: .56rem .62rem;
+        border-radius: 12px;
+      }
+
+      .btn,
+      .toggle-btn {
+        min-height: 40px;
+        padding: .5rem .62rem;
+        font-size: .72rem;
+        border-radius: 12px;
+      }
+
+      tbody tr {
+        border-radius: 15px;
+        padding: .52rem;
+        border-color: rgba(148,163,184,.14);
+        background: rgba(18,22,36,.88);
+      }
+
+      td {
+        padding: .28rem .05rem;
+        font-size: .74rem;
+      }
+
+      .editable,
+      .preset-edit-input {
+        min-height: 36px;
+        font-size: 16px;
+        padding: .4rem .5rem;
+      }
+
+      .small-btn,
+      .delete-btn {
+        min-height: 34px;
+        font-size: .68rem;
+        border-radius: 10px;
+        padding: .32rem .55rem;
+      }
+
+      .mobile-bottom-nav {
+        left: max(.45rem, var(--safe-left)) !important;
+        right: max(.45rem, var(--safe-right)) !important;
+        bottom: max(.42rem, var(--safe-bottom)) !important;
+        padding: .3rem !important;
+        border-radius: 21px !important;
+      }
+
+      .mobile-nav-btn {
+        min-height: 44px;
+        padding: .32rem .18rem;
+        border-radius: 14px;
+        font-size: .55rem;
+      }
+
+      .mobile-nav-btn strong {
+        font-size: .88rem;
+      }
+
+      .toast {
+        position: fixed;
+        top: max(.65rem, var(--safe-top));
+        left: .65rem;
+        right: .65rem;
+        z-index: 2147483001;
+        margin: 0;
+        font-size: .72rem;
+        padding: .68rem .78rem;
+      }
+    }
+
+    @media(max-width: 380px) {
+      .summary {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .mobile-nav-btn span {
+        font-size: .5rem;
+      }
+    }
+
+  </style>
       </head>
       <body>
         <button onclick="window.print()">طباعة / حفظ PDF</button>
@@ -3731,13 +4041,21 @@
   }
 
   function makeCloudPayload(reason) {
+    const fullBackup = makeBackupObject('cloud-full-sync');
+
     return {
       appName: 'Profit Calculator',
-      format: 'mox-v2-cloud-sync',
-      version: 12,
+      format: 'mox-v2-cloud-full-backup-sync',
+      version: 13,
       reason: reason || 'sync',
       updatedAt: new Date().toISOString(),
       clientId: getOrCreateDeviceId(),
+
+      // نسخة كاملة بنفس منطق زر النسخة الاحتياطية
+      backup: fullBackup,
+      storageSnapshot: fullBackup.storageSnapshot || getAppLocalStorageSnapshot(),
+
+      // حقول واضحة وسريعة للقراءة والتوافق مع النسخ القديمة
       rows,
       presets,
       expenses,
@@ -3745,6 +4063,12 @@
       settings: {
         walletDollarRate: document.getElementById('walletDollarRate')?.value || localStorage.getItem(STORAGE_WALLET_DOLLAR_RATE) || '53',
         expensesDollarRate: document.getElementById('expensesDollarRate')?.value || localStorage.getItem(STORAGE_EXPENSES_DOLLAR_RATE) || '53'
+      },
+      totals: {
+        rows: rows.length,
+        presets: presets.length,
+        expenses: expenses.length,
+        storageKeys: Object.keys(fullBackup.storageSnapshot || {}).length
       }
     };
   }
@@ -3755,20 +4079,44 @@
     isApplyingCloudData = true;
 
     try {
+      let applied = false;
+
+      // الشكل الجديد: السحابة تحمل نسخة Backup كاملة كأنك ضغطت زر نسخة احتياطية
+      if (data.backup && typeof data.backup === 'object') {
+        applied = applyBackupObject(data.backup) || applied;
+      } else if (data.storageSnapshot && typeof data.storageSnapshot === 'object') {
+        // توافق مع أي نسخة سحابية فيها snapshot كامل بدون backup wrapper
+        Object.entries(data.storageSnapshot).forEach(([key, value]) => {
+          if (key.startsWith('profit_')) {
+            if (value === null || value === undefined) {
+              localStorage.removeItem(key);
+            } else {
+              localStorage.setItem(key, String(value));
+            }
+          }
+        });
+        applied = true;
+      }
+
+      // توافق مع النسخ السحابية القديمة + ضمان الحقول الأساسية
       if (Array.isArray(data.rows)) {
         localStorage.setItem(STORAGE_ROWS, JSON.stringify(data.rows));
+        applied = true;
       }
 
       if (Array.isArray(data.presets)) {
         localStorage.setItem(STORAGE_PRESETS, JSON.stringify(data.presets));
+        applied = true;
       }
 
       if (Array.isArray(data.expenses)) {
         localStorage.setItem(STORAGE_EXPENSES, JSON.stringify(data.expenses));
+        applied = true;
       }
 
       if (Array.isArray(data.deletedStack)) {
         localStorage.setItem(STORAGE_DELETED_STACK, JSON.stringify(data.deletedStack));
+        applied = true;
       }
 
       if (data.settings) {
@@ -3779,7 +4127,12 @@
         if (data.settings.expensesDollarRate !== undefined) {
           localStorage.setItem(STORAGE_EXPENSES_DOLLAR_RATE, data.settings.expensesDollarRate);
         }
+        applied = true;
       }
+
+      // بعد تنزيل نسخة كاملة من جهاز آخر، نحافظ على إعدادات المزامنة الافتراضية شغالة
+      ensureFirebaseDefaultsSaved();
+      localStorage.setItem(STORAGE_SYNC_ENABLED, '1');
 
       if (data.updatedAt) {
         localStorage.setItem(STORAGE_LAST_SYNC_AT, data.updatedAt);
@@ -3789,12 +4142,13 @@
       loadPresets();
       loadExpenses();
       loadDollarRates();
+      fillFirebaseSettingsForm();
       renderPresets();
       renderExpenses();
       render();
       updateLastSyncDisplay(data.updatedAt);
 
-      return true;
+      return applied;
     } finally {
       isApplyingCloudData = false;
     }
@@ -3811,11 +4165,11 @@
 
     try {
       const payload = makeCloudPayload(manual ? 'manual-upload' : 'auto-sync');
-      await cloudDocRef.set(payload, { merge: true });
+      await cloudDocRef.set(payload);
       localStorage.setItem(STORAGE_LAST_SYNC_AT, payload.updatedAt);
       updateLastSyncDisplay(payload.updatedAt);
       setCloudStatus('متزامن', 'ok');
-      if (manual) showToast('✅ تم رفع بيانات هذا الجهاز للسحابة.');
+      if (manual) showToast('✅ تم رفع نسخة كاملة من بيانات الموقع للسحابة.');
     } catch (e) {
       console.error(e);
       setCloudStatus('فشل الرفع', 'error');
@@ -3845,7 +4199,7 @@
       if (applied) {
         saveSafetyBackupIfUseful();
         setCloudStatus('تم التنزيل', 'ok');
-        showToast('✅ تم تنزيل بيانات السحابة على هذا الجهاز.');
+        showToast('✅ تم تنزيل نسخة السحابة الكاملة على هذا الجهاز.');
       } else {
         showToast('⚠️ بيانات السحابة غير مناسبة.');
       }
@@ -4147,7 +4501,8 @@
   function getAppLocalStorageSnapshot() {
     const snapshot = {};
 
-    Object.keys(localStorage).forEach(key => {
+    // مزامنة كاملة: أي مفتاح خاص بالموقع يبدأ بـ profit_ يدخل ضمن النسخة السحابية
+    Object.keys(localStorage).sort().forEach(key => {
       if (key.startsWith('profit_')) {
         snapshot[key] = localStorage.getItem(key);
       }
