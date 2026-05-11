@@ -395,6 +395,107 @@
       min-width: 105px;
     }
 
+
+
+    .report-grid,
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: .8rem;
+      margin-top: .8rem;
+    }
+
+    .stat-card {
+      background: rgba(17,20,33,.72);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: .9rem;
+    }
+
+    .stat-card .label {
+      color: var(--muted2);
+      font-size: .72rem;
+      font-weight: 800;
+      margin-bottom: .25rem;
+    }
+
+    .stat-card .value {
+      font-size: 1.15rem;
+      font-weight: 900;
+      line-height: 1.4;
+    }
+
+    .security-note {
+      color: var(--muted);
+      font-size: .76rem;
+      line-height: 1.8;
+      margin-top: .55rem;
+    }
+
+    .lock-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+      background:
+        radial-gradient(circle at top right, rgba(79,142,247,.22), transparent 35%),
+        radial-gradient(circle at bottom left, rgba(167,139,250,.18), transparent 36%),
+        rgba(15,17,23,.97);
+    }
+
+    .lock-card {
+      width: min(420px, 100%);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      box-shadow: 0 25px 60px rgba(0,0,0,.35);
+      padding: 1.2rem;
+      text-align: center;
+    }
+
+    .lock-card h2 {
+      font-size: 1.25rem;
+      margin-bottom: .35rem;
+    }
+
+    .lock-card p {
+      color: var(--muted);
+      font-size: .82rem;
+      margin-bottom: .9rem;
+      line-height: 1.8;
+    }
+
+    .lock-card input {
+      width: 100%;
+      background: #111421;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: .8rem .9rem;
+      font-family: 'Cairo', sans-serif;
+      outline: none;
+      margin-bottom: .75rem;
+      text-align: center;
+    }
+
+    body.locked .page {
+      filter: blur(5px);
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .mini-table {
+      min-width: 720px;
+    }
+
+    .muted-line {
+      color: var(--muted2);
+      font-size: .74rem;
+      margin-top: .4rem;
+    }
+
     @media(max-width: 1000px) {
       .form-grid,
       .preset-grid,
@@ -603,6 +704,16 @@
 
 <body>
 
+<div id="lockScreen" class="lock-screen hidden-section">
+  <div class="lock-card">
+    <h2>🔐 الموقع مقفول</h2>
+    <p>اكتب كلمة المرور لفتح بيانات الموقع على هذا المتصفح.</p>
+    <input id="lockPasswordInput" type="password" placeholder="كلمة المرور" onkeydown="handleLockKey(event)">
+    <button class="btn btn-add" type="button" onclick="unlockApp()">فتح الموقع</button>
+    <div id="lockError" class="filter-note" style="color:var(--red);margin-top:.7rem"></div>
+  </div>
+</div>
+
 <div class="page">
 
   <div class="header">
@@ -692,6 +803,66 @@
           <input id="expensesDollarRate" class="dollar-input" type="number" step="0.01" min="0.01" value="53">
         </div>
         <div class="value dollar" id="expensesUsdTotal">0.00<span class="unit">USD</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <div>
+        <div class="section-title">📈 تقارير وإحصائيات</div>
+        <div class="section-subtitle">تقرير يومي تلقائي وأفضل العروض ربحًا حسب الفلاتر الحالية</div>
+      </div>
+      <button class="toggle-btn" type="button" onclick="toggleSection('reportsContent', this)">إخفاء</button>
+    </div>
+
+    <div id="reportsContent" class="panel">
+      <div class="panel-title">تقرير يوم محدد</div>
+      <div class="filter-grid">
+        <div class="field">
+          <label>اختار اليوم</label>
+          <input id="dailyReportDate" type="date" onchange="renderDailyReport()">
+        </div>
+        <button class="btn btn-export" type="button" onclick="setDailyReportToday()">تقرير اليوم</button>
+      </div>
+
+      <div class="report-grid">
+        <div class="stat-card">
+          <div class="label">دخل اليوم</div>
+          <div class="value wallet" id="dailyIncomeTotal">0.00<span class="unit">EGP</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="label">مصروف عمليات اليوم</div>
+          <div class="value expense" id="dailyExpenseTotal">0.00<span class="unit">EGP</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="label">ربح اليوم بدون المصاريف الثابتة</div>
+          <div class="value profit" id="dailyProfitTotal">0.00<span class="unit">EGP</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="label">أكثر منتج اتباع في اليوم</div>
+          <div class="value" id="dailyTopProduct">-</div>
+          <div class="muted-line" id="dailyTopProductMeta"></div>
+        </div>
+      </div>
+
+      <div class="panel-title" style="margin-top:1rem">أفضل 10 عروض ربحًا</div>
+      <div class="filter-note">القائمة التالية محسوبة حسب فلتر التاريخ + البحث + فلتر المنتج الحاليين.</div>
+      <div class="preset-list">
+        <table class="mini-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>المنتج</th>
+              <th>العرض</th>
+              <th>عدد العمليات</th>
+              <th class="col-paid">إجمالي الدخل</th>
+              <th class="col-deducted">إجمالي المصروف</th>
+              <th class="col-profit">إجمالي الربح</th>
+            </tr>
+          </thead>
+          <tbody id="topOffersBody"></tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -836,8 +1007,13 @@
 
       <div class="actions">
         <button class="btn btn-purple" type="button" onclick="saveCurrentManualAsPreset()">⭐ حفظ كعرض سريع</button>
+        <button class="btn btn-add" type="button" onclick="duplicateLastRow()">🔁 تكرار آخر عملية</button>
         <button class="btn btn-amber" type="button" onclick="restoreLastDeleted()">↩️ استرجاع آخر حذف</button>
         <button class="btn btn-export" type="button" onclick="exportCSV()">⬇️ تصدير CSV</button>
+        <button class="btn btn-export" type="button" onclick="exportExcel()">📊 تصدير Excel</button>
+        <button class="btn btn-export" type="button" onclick="exportPDF()">🧾 تصدير PDF</button>
+        <button class="btn btn-purple" type="button" onclick="setOrChangePassword()">🔐 كلمة مرور</button>
+        <button class="btn btn-purple" type="button" onclick="lockNow()">🔒 قفل الآن</button>
         <button class="btn btn-export" type="button" onclick="downloadBackup()">💾 نسخة احتياطية</button>
         <button class="btn btn-export" type="button" onclick="document.getElementById('backupInput').click()">📥 استرجاع نسخة</button>
         <input id="backupInput" type="file" accept="application/json" style="display:none" onchange="restoreBackup(event)">
@@ -903,6 +1079,22 @@
 
     <div id="latestRowsPreview" class="latest-preview hidden-section"></div>
 
+    <div id="rowsFilterPanel" class="panel filter-panel">
+      <div class="filter-grid">
+        <div class="field">
+          <label>بحث داخل سجل العمليات</label>
+          <input id="rowsSearchInput" type="text" placeholder="مثال: ببجي أو 60" oninput="applyRowTextFilters()">
+        </div>
+        <div class="field">
+          <label>فلتر حسب المنتج</label>
+          <select id="productFilterSelect" onchange="applyFilters(true)">
+            <option value="">كل المنتجات</option>
+          </select>
+        </div>
+        <button class="btn btn-export" type="button" onclick="clearRowTextFilters()">مسح بحث المنتج</button>
+      </div>
+    </div>
+
     <div id="tableContent" class="table-wrap">
       <table>
         <thead>
@@ -942,6 +1134,7 @@
   const STORAGE_EXPENSES_DOLLAR_RATE = 'profit_expenses_dollar_rate_v2';
   const STORAGE_SAFETY_BACKUP = 'profit_calculator_safety_backup_v1';
   const STORAGE_BEFORE_RESTORE_BACKUP = 'profit_calculator_before_restore_backup_v1';
+  const STORAGE_APP_PASSWORD = 'profit_app_password_v1';
 
   let rows = [];
   let presets = [];
@@ -1198,10 +1391,41 @@
     return true;
   }
 
+  function normalizeText(value) {
+    return String(value || '')
+      .toLowerCase()
+      .replaceAll('أ', 'ا')
+      .replaceAll('إ', 'ا')
+      .replaceAll('آ', 'ا')
+      .replaceAll('ة', 'ه')
+      .trim();
+  }
+
+  function getRowsSearchValue() {
+    return normalizeText(document.getElementById('rowsSearchInput')?.value || '');
+  }
+
+  function getProductFilterValue() {
+    return document.getElementById('productFilterSelect')?.value || '';
+  }
+
+  function isRowMatchingTextFilters(row) {
+    const search = getRowsSearchValue();
+    const product = getProductFilterValue();
+
+    if (product && row.item !== product) return false;
+
+    if (!search) return true;
+
+    const haystack = normalizeText(`${row.date || ''} ${row.item || ''} ${row.offer || ''} ${row.paid || ''} ${row.deducted || ''} ${calcProfit(row)}`);
+    return haystack.includes(search);
+  }
+
   function getFilteredRowsWithIndexes() {
     return rows
       .map((row, index) => ({ row, index }))
-      .filter(item => isRowInDateRange(item.row));
+      .filter(item => isRowInDateRange(item.row))
+      .filter(item => isRowMatchingTextFilters(item.row));
   }
 
   function formatDateLabel(value) {
@@ -1214,17 +1438,31 @@
     if (!note) return;
 
     const { from, to } = getDateFilters();
+    const search = document.getElementById('rowsSearchInput')?.value.trim() || '';
+    const product = getProductFilterValue();
+    const filteredCount = getFilteredRowsWithIndexes().length;
 
-    if (!from && !to) {
-      note.textContent = 'الملخص يعرض كل الأيام.';
+    const activeParts = [];
+
+    if (from || to) {
+      const fromLabel = from ? formatDateLabel(from) : 'بداية السجل';
+      const toLabel = to ? formatDateLabel(to) : 'نهاية السجل';
+      activeParts.push(`الفترة من ${fromLabel} إلى ${toLabel}`);
+    }
+
+    if (product) activeParts.push(`المنتج: ${product}`);
+    if (search) activeParts.push(`بحث: ${search}`);
+
+    if (!activeParts.length) {
+      note.textContent = 'الملخص يعرض كل الأيام وكل المنتجات.';
       return;
     }
 
-    const fromLabel = from ? formatDateLabel(from) : 'بداية السجل';
-    const toLabel = to ? formatDateLabel(to) : 'نهاية السجل';
-    const filteredCount = getFilteredRowsWithIndexes().length;
+    const fixedExpenseNote = (from || to)
+      ? 'صافي المكسب هنا بدون خصم المصاريف الثابتة.'
+      : 'عند عدم اختيار تاريخ يتم خصم المصاريف الثابتة من صافي المكسب.';
 
-    note.textContent = `الملخص وسجل العمليات محسوبين للفترة من ${fromLabel} إلى ${toLabel} — عدد العمليات: ${filteredCount}. صافي المكسب هنا بدون خصم المصاريف الثابتة.`;
+    note.textContent = `الملخص وسجل العمليات محسوبين حسب: ${activeParts.join(' — ')} — عدد العمليات: ${filteredCount}. ${fixedExpenseNote}`;
   }
 
   function applyFilters(keepQuickValue = false) {
@@ -1277,6 +1515,150 @@
     document.getElementById('filterToDate').value = '';
     document.getElementById('quickDateFilter').value = 'all';
     render();
+  }
+
+  function applyRowTextFilters() {
+    render();
+  }
+
+  function clearRowTextFilters() {
+    const searchInput = document.getElementById('rowsSearchInput');
+    const productSelect = document.getElementById('productFilterSelect');
+
+    if (searchInput) searchInput.value = '';
+    if (productSelect) productSelect.value = '';
+
+    render();
+  }
+
+  function renderProductFilterOptions() {
+    const select = document.getElementById('productFilterSelect');
+    if (!select) return;
+
+    const current = select.value;
+    const names = [...new Set([
+      ...rows.map(row => row.item),
+      ...presets.map(preset => preset.item)
+    ].map(value => String(value || '').trim()).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, 'ar', { sensitivity: 'base' }));
+
+    select.innerHTML = '<option value="">كل المنتجات</option>';
+
+    names.forEach(name => {
+      const option = document.createElement('option');
+      option.value = name;
+      option.textContent = name;
+      select.appendChild(option);
+    });
+
+    if (names.includes(current)) {
+      select.value = current;
+    } else {
+      select.value = '';
+    }
+  }
+
+  function setDailyReportToday() {
+    const input = document.getElementById('dailyReportDate');
+    if (!input) return;
+    input.value = today();
+    renderDailyReport();
+  }
+
+  function renderDailyReport() {
+    const input = document.getElementById('dailyReportDate');
+    if (!input) return;
+
+    if (!input.value) input.value = today();
+
+    const selectedDate = input.value;
+    const dayRows = rows.filter(row => String(row.date || '').slice(0, 10) === selectedDate);
+
+    const income = dayRows.reduce((sum, row) => sum + (Number(row.paid) || 0), 0);
+    const expense = dayRows.reduce((sum, row) => sum + (Number(row.deducted) || 0), 0);
+    const profit = income - expense;
+
+    document.getElementById('dailyIncomeTotal').innerHTML = `${fmt(income)}<span class="unit">EGP</span>`;
+    document.getElementById('dailyExpenseTotal').innerHTML = `${fmt(expense)}<span class="unit">EGP</span>`;
+
+    const profitEl = document.getElementById('dailyProfitTotal');
+    profitEl.innerHTML = `${fmt(profit)}<span class="unit">EGP</span>`;
+    profitEl.className = profit >= 0 ? 'value profit' : 'value loss';
+
+    const productMap = new Map();
+    dayRows.forEach(row => {
+      const key = row.item || 'غير محدد';
+      const current = productMap.get(key) || { count: 0, income: 0, expense: 0, profit: 0 };
+      current.count += 1;
+      current.income += Number(row.paid) || 0;
+      current.expense += Number(row.deducted) || 0;
+      current.profit += calcProfit(row);
+      productMap.set(key, current);
+    });
+
+    const topProduct = [...productMap.entries()]
+      .sort((a, b) => b[1].count - a[1].count || b[1].profit - a[1].profit)[0];
+
+    const productEl = document.getElementById('dailyTopProduct');
+    const productMetaEl = document.getElementById('dailyTopProductMeta');
+
+    if (!topProduct) {
+      productEl.textContent = '-';
+      productMetaEl.textContent = 'لا يوجد عمليات في هذا اليوم.';
+    } else {
+      productEl.textContent = topProduct[0];
+      productMetaEl.textContent = `${topProduct[1].count} عملية — ربح ${fmt(topProduct[1].profit)} EGP`;
+    }
+  }
+
+  function getTopOffersData(limit = 10) {
+    const map = new Map();
+
+    getFilteredRowsWithIndexes().forEach(({ row }) => {
+      const item = row.item || 'غير محدد';
+      const offer = row.offer || 'بدون عرض';
+      const key = `${item}|||${offer}`;
+      const current = map.get(key) || { item, offer, count: 0, income: 0, expense: 0, profit: 0 };
+
+      current.count += 1;
+      current.income += Number(row.paid) || 0;
+      current.expense += Number(row.deducted) || 0;
+      current.profit += calcProfit(row);
+
+      map.set(key, current);
+    });
+
+    return [...map.values()]
+      .sort((a, b) => b.profit - a.profit || b.count - a.count || b.income - a.income)
+      .slice(0, limit);
+  }
+
+  function renderTopOffers() {
+    const body = document.getElementById('topOffersBody');
+    if (!body) return;
+
+    const topOffers = getTopOffersData(10);
+    body.innerHTML = '';
+
+    if (!topOffers.length) {
+      body.innerHTML = '<tr><td colspan="7" class="empty" style="display:table-cell;padding:1rem">لا يوجد عمليات لحساب أفضل العروض.</td></tr>';
+      return;
+    }
+
+    topOffers.forEach((offer, index) => {
+      const profitClass = offer.profit >= 0 ? 'profit-val' : 'loss-val';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${index + 1}</td>
+        <td>${escapeHTML(offer.item)}</td>
+        <td>${escapeHTML(offer.offer)}</td>
+        <td>${offer.count}</td>
+        <td><span class="num paid-val">${fmt(offer.income)}</span></td>
+        <td><span class="num deducted-val">${fmt(offer.expense)}</span></td>
+        <td><span class="num ${profitClass}">${fmt(offer.profit)}</span></td>
+      `;
+      body.appendChild(tr);
+    });
   }
 
   function toggleRowsSection(button) {
@@ -1445,6 +1827,8 @@
       showToast('ℹ️ لا يوجد مصاريف لمسحها.');
       return;
     }
+
+    if (!requirePasswordForAction('مسح كل المصاريف الثابتة')) return;
 
     const confirmed = confirm('⚠️ هل تريد مسح كل المصاريف الثابتة؟');
     if (!confirmed) return;
@@ -1625,6 +2009,8 @@
       showToast('ℹ️ لا يوجد عروض محفوظة.');
       return;
     }
+
+    if (!requirePasswordForAction('مسح كل العروض المحفوظة')) return;
 
     const confirmed = confirm('⚠️ هل تريد مسح كل العروض المحفوظة؟');
     if (!confirmed) return;
@@ -1934,8 +2320,11 @@
 
     emptyState.style.display = visibleRows.length ? 'none' : 'block';
 
+    renderProductFilterOptions();
     updateFilterNote();
     renderLatestRowsPreview();
+    renderDailyReport();
+    renderTopOffers();
   }
 
   function addRow() {
@@ -1991,6 +2380,20 @@
     showToast('✅ تم إضافة العملية بنجاح.');
   }
 
+  function duplicateLastRow() {
+    if (!rows.length) {
+      showToast('ℹ️ لا يوجد عملية سابقة لتكرارها.');
+      return;
+    }
+
+    const last = rows[rows.length - 1];
+    rows.push(createRowObject(today(), last.item, last.offer, last.paid, last.deducted));
+    saveRows();
+    render();
+
+    showToast('✅ تم تكرار آخر عملية بتاريخ اليوم.');
+  }
+
   function updateRow(index, key, value) {
     if (!rows[index]) return;
 
@@ -2025,6 +2428,8 @@
       return;
     }
 
+    if (!requirePasswordForAction('مسح كل عمليات السجل')) return;
+
     const confirmed = confirm('⚠️ هل تريد مسح كل عمليات السجل؟');
     if (!confirmed) return;
 
@@ -2038,7 +2443,7 @@
   }
 
   function exportCSV() {
-    const exportRows = getFilteredRowsWithIndexes().map(item => item.row);
+    const exportRows = rowsToExport();
 
     if (!exportRows.length) {
       showToast(hasActiveDateFilter() ? '⚠️ لا يوجد بيانات داخل الفلتر للتصدير.' : '⚠️ لا يوجد بيانات للتصدير.');
@@ -2080,6 +2485,237 @@
     link.click();
 
     URL.revokeObjectURL(url);
+  }
+
+  function rowsToExport() {
+    return getFilteredRowsWithIndexes().map(item => item.row);
+  }
+
+  function buildReportHTML(exportRows, title) {
+    const income = exportRows.reduce((sum, row) => sum + (Number(row.paid) || 0), 0);
+    const expense = exportRows.reduce((sum, row) => sum + (Number(row.deducted) || 0), 0);
+    const profit = income - expense;
+
+    const rowsHTML = exportRows.map((row, index) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${escapeHTML(row.date || '')}</td>
+        <td>${escapeHTML(row.item || '')}</td>
+        <td>${escapeHTML(row.offer || '')}</td>
+        <td>${fmt(row.paid)}</td>
+        <td>${fmt(row.deducted)}</td>
+        <td>${fmt(calcProfit(row))}</td>
+      </tr>
+    `).join('');
+
+    return `
+      <!DOCTYPE html>
+      <html lang="ar" dir="rtl">
+      <head>
+        <meta charset="UTF-8">
+        <title>${escapeHTML(title)}</title>
+        <style>
+          body{font-family:Arial,Tahoma,sans-serif;direction:rtl;padding:20px;color:#111}
+          h1{font-size:22px;margin-bottom:8px}
+          .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:15px 0}
+          .card{border:1px solid #ddd;border-radius:10px;padding:10px}
+          .label{color:#666;font-size:12px;margin-bottom:5px}
+          .value{font-size:18px;font-weight:bold}
+          table{width:100%;border-collapse:collapse;margin-top:15px;font-size:12px}
+          th,td{border:1px solid #ddd;padding:7px;text-align:right}
+          th{background:#f3f4f6}
+          @media print{button{display:none}}
+        </style>
+      </head>
+      <body>
+        <button onclick="window.print()">طباعة / حفظ PDF</button>
+        <h1>${escapeHTML(title)}</h1>
+        <p>تاريخ التصدير: ${new Date().toLocaleString('ar-EG')}</p>
+        <div class="summary">
+          <div class="card"><div class="label">عدد العمليات</div><div class="value">${exportRows.length}</div></div>
+          <div class="card"><div class="label">إجمالي الدخل</div><div class="value">${fmt(income)} EGP</div></div>
+          <div class="card"><div class="label">إجمالي المصروف</div><div class="value">${fmt(expense)} EGP</div></div>
+          <div class="card"><div class="label">صافي ربح العمليات</div><div class="value">${fmt(profit)} EGP</div></div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>التاريخ</th><th>المنتج</th><th>العرض</th><th>الدخل</th><th>المصروف</th><th>الربح</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHTML || '<tr><td colspan="7">لا يوجد بيانات</td></tr>'}</tbody>
+        </table>
+      </body>
+      </html>
+    `;
+  }
+
+  function exportExcel() {
+    const exportRows = rowsToExport();
+
+    if (!exportRows.length) {
+      showToast('⚠️ لا يوجد بيانات للتصدير حسب الفلاتر الحالية.');
+      return;
+    }
+
+    const html = buildReportHTML(exportRows, 'تقرير العمليات - Excel');
+    const blob = new Blob(['\ufeff', html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `profit-report-${today()}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+
+    showToast('✅ تم تصدير ملف Excel.');
+  }
+
+  function exportPDF() {
+    const exportRows = rowsToExport();
+
+    if (!exportRows.length) {
+      showToast('⚠️ لا يوجد بيانات للتصدير حسب الفلاتر الحالية.');
+      return;
+    }
+
+    const html = buildReportHTML(exportRows, 'تقرير العمليات - PDF');
+    const win = window.open('', '_blank');
+
+    if (!win) {
+      showToast('⚠️ المتصفح منع فتح نافذة الطباعة. اسمح بالنوافذ المنبثقة وجرب تاني.');
+      return;
+    }
+
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+
+    win.onload = function () {
+      win.focus();
+      win.print();
+    };
+
+    showToast('✅ تم فتح نافذة الطباعة. اختار Save as PDF.');
+  }
+
+
+  function encodePassword(value) {
+    try {
+      return btoa(unescape(encodeURIComponent(String(value || ''))));
+    } catch (e) {
+      return String(value || '');
+    }
+  }
+
+  function hasAppPassword() {
+    return Boolean(localStorage.getItem(STORAGE_APP_PASSWORD));
+  }
+
+  function checkAppPassword(value) {
+    return localStorage.getItem(STORAGE_APP_PASSWORD) === encodePassword(value);
+  }
+
+  function requirePasswordForAction(actionName) {
+    if (!hasAppPassword()) return true;
+
+    const value = prompt(`اكتب كلمة المرور لتأكيد: ${actionName || 'الإجراء'}`);
+    if (value === null) return false;
+
+    if (!checkAppPassword(value)) {
+      alert('كلمة المرور غير صحيحة.');
+      return false;
+    }
+
+    return true;
+  }
+
+  function setOrChangePassword() {
+    if (hasAppPassword()) {
+      const oldPassword = prompt('اكتب كلمة المرور الحالية لتغييرها أو حذفها:');
+      if (oldPassword === null) return;
+
+      if (!checkAppPassword(oldPassword)) {
+        alert('كلمة المرور الحالية غير صحيحة.');
+        return;
+      }
+    }
+
+    const newPassword = prompt('اكتب كلمة المرور الجديدة. اتركها فارغة لإلغاء الحماية:');
+    if (newPassword === null) return;
+
+    if (!newPassword.trim()) {
+      localStorage.removeItem(STORAGE_APP_PASSWORD);
+      showToast('✅ تم إلغاء كلمة المرور.');
+      return;
+    }
+
+    if (newPassword.trim().length < 4) {
+      alert('كلمة المرور لازم تكون 4 حروف أو أرقام على الأقل.');
+      return;
+    }
+
+    localStorage.setItem(STORAGE_APP_PASSWORD, encodePassword(newPassword.trim()));
+    showToast('✅ تم حفظ كلمة المرور.');
+  }
+
+  function showLockScreen() {
+    const screen = document.getElementById('lockScreen');
+    if (!screen) return;
+
+    document.body.classList.add('locked');
+    screen.classList.remove('hidden-section');
+
+    setTimeout(() => document.getElementById('lockPasswordInput')?.focus(), 80);
+  }
+
+  function hideLockScreen() {
+    const screen = document.getElementById('lockScreen');
+    if (!screen) return;
+
+    document.body.classList.remove('locked');
+    screen.classList.add('hidden-section');
+    const input = document.getElementById('lockPasswordInput');
+    const error = document.getElementById('lockError');
+    if (input) input.value = '';
+    if (error) error.textContent = '';
+  }
+
+  function unlockApp() {
+    const input = document.getElementById('lockPasswordInput');
+    const error = document.getElementById('lockError');
+    const value = input?.value || '';
+
+    if (checkAppPassword(value)) {
+      hideLockScreen();
+      showToast('✅ تم فتح الموقع.');
+      return;
+    }
+
+    if (error) error.textContent = 'كلمة المرور غير صحيحة.';
+    input?.focus();
+  }
+
+  function handleLockKey(event) {
+    if (event.key === 'Enter') {
+      unlockApp();
+    }
+  }
+
+  function lockNow() {
+    if (!hasAppPassword()) {
+      showToast('ℹ️ فعّل كلمة مرور الأول من زر كلمة مرور.');
+      return;
+    }
+
+    showLockScreen();
+  }
+
+  function initializePasswordProtection() {
+    if (hasAppPassword()) {
+      showLockScreen();
+    }
   }
 
   function makeBackupObject(label) {
@@ -2271,6 +2907,11 @@
           return;
         }
 
+        if (!requirePasswordForAction('استرجاع نسخة احتياطية واستبدال البيانات الحالية')) {
+          event.target.value = '';
+          return;
+        }
+
         // قبل أي استرجاع بنحفظ نسخة أمان من البيانات الحالية، عشان لو الملف غلط تقدر ترجعها
         saveBeforeRestoreBackup();
 
@@ -2291,6 +2932,9 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('dateInput').value = today();
+    if (document.getElementById('dailyReportDate')) {
+      document.getElementById('dailyReportDate').value = today();
+    }
 
     loadRows();
     loadPresets();
@@ -2311,6 +2955,8 @@
       saveDollarRates();
       render();
     });
+
+    initializePasswordProtection();
   });
 </script>
 
