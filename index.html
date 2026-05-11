@@ -1744,13 +1744,13 @@
   // إعدادات المزامنة الافتراضية — عشان الموقع يفتح ويزامن مباشرة بدون إدخال الكود كل مرة
   const DEFAULT_SYNC_CODE = 'MOX-258-989';
   const DEFAULT_FIREBASE_CONFIG = {
-    apiKey: "AIzaSyCQgXHLCD9M_hKGQqpxFMNPRJs-7IQJ6Q",
+    apiKey: "AIzaSyCQgXHLCD9M_nkYGqpxFMNPRJ--7IQJ6Q",
     authDomain: "mox-v2.firebaseapp.com",
     projectId: "mox-v2",
     storageBucket: "mox-v2.firebasestorage.app",
     messagingSenderId: "233653672293",
-    appId: "1:233653672293:web:29ab87a2fbb8607cae98c",
-    measurementId: "G-YV427C67NN"
+    appId: "1:233653672293:web:29aab87a2fbb8607cae98c",
+    measurementId: "G-YV427C67GN"
   };
 
 
@@ -3587,22 +3587,26 @@
   }
 
   function getFirebaseConfig() {
-    const stored = getStoredFirebaseConfig();
-    return stored && stored.apiKey && stored.projectId ? stored : DEFAULT_FIREBASE_CONFIG;
+    // نسخة ثابتة مدمجة داخل الموقع حتى لا يتوقف التطبيق بسبب config قديم محفوظ في localStorage.
+    return { ...DEFAULT_FIREBASE_CONFIG };
   }
 
   function getActiveSyncCode() {
-    const stored = normalizeSyncCode(localStorage.getItem(STORAGE_SYNC_CODE));
-    return stored || DEFAULT_SYNC_CODE;
+    // كود ثابت مدمج داخل الموقع: المستخدم لا يحتاج يكتبه كل مرة.
+    return DEFAULT_SYNC_CODE;
   }
 
   function ensureFirebaseDefaultsSaved() {
     const config = getFirebaseConfig();
+    const syncCode = getActiveSyncCode();
+
+    // نكتب القيم الصحيحة فوق أي قيم قديمة كانت محفوظة بالغلط في المتصفح.
     localStorage.setItem(STORAGE_FIREBASE_CONFIG, JSON.stringify(config));
-    localStorage.setItem(STORAGE_SYNC_CODE, getActiveSyncCode());
+    localStorage.setItem(STORAGE_SYNC_CODE, syncCode);
     localStorage.setItem(STORAGE_SYNC_ENABLED, '1');
     cloudSyncEnabled = true;
-    return { config, syncCode: getActiveSyncCode() };
+
+    return { config, syncCode };
   }
 
   function fillFirebaseSettingsForm() {
@@ -3612,10 +3616,12 @@
 
     if (configInput) {
       configInput.value = JSON.stringify(config, null, 2);
+      configInput.readOnly = true;
     }
 
     if (syncCodeInput) {
       syncCodeInput.value = syncCode;
+      syncCodeInput.readOnly = true;
     }
 
     updateLastSyncDisplay();
@@ -3639,7 +3645,6 @@
       return JSON.parse(text);
     } catch (e) {
       try {
-        // بيسمح بلصق كود Firebase العادي اللي مفاتيحه بدون علامات تنصيص
         return Function(`"use strict"; return (${text});`)();
       } catch (error) {
         return null;
@@ -3656,42 +3661,28 @@
   }
 
   function saveFirebaseSettings(options = {}) {
+    const { config, syncCode } = ensureFirebaseDefaultsSaved();
+
     const configInput = document.getElementById('firebaseConfigInput');
     const syncCodeInput = document.getElementById('syncCodeInput');
 
-    const configFromInput = parseFirebaseConfig(configInput?.value || '');
-    const config = (configFromInput && configFromInput.apiKey && configFromInput.projectId)
-      ? configFromInput
-      : getFirebaseConfig();
-
-    const syncCodeFromInput = normalizeSyncCode(syncCodeInput?.value || '');
-    const syncCode = syncCodeFromInput || getActiveSyncCode() || DEFAULT_SYNC_CODE;
-
-    if (!config || !config.apiKey || !config.projectId) {
-      setCloudStatus('Config ناقص', 'error');
-      if (!options.silent) showToast('⚠️ Firebase config غير صحيح. لازم يحتوي على apiKey و projectId على الأقل.');
-      return false;
+    if (configInput) {
+      configInput.value = JSON.stringify(config, null, 2);
+      configInput.readOnly = true;
     }
 
-    if (syncCode.length < 10) {
-      setCloudStatus('كود قصير', 'error');
-      if (!options.silent) showToast('⚠️ كود المزامنة قصير. استخدم كود قوي لا يقل عن 10 أحرف.');
-      return false;
+    if (syncCodeInput) {
+      syncCodeInput.value = syncCode;
+      syncCodeInput.readOnly = true;
     }
 
-    localStorage.setItem(STORAGE_FIREBASE_CONFIG, JSON.stringify(config));
-    localStorage.setItem(STORAGE_SYNC_CODE, syncCode);
-    localStorage.setItem(STORAGE_SYNC_ENABLED, '1');
-    cloudSyncEnabled = true;
+    setCloudStatus('الإعدادات جاهزة', 'ok');
 
-    if (syncCodeInput) syncCodeInput.value = syncCode;
-    if (configInput) configInput.value = JSON.stringify(config, null, 2);
-
-    if (!isEnablingCloudSync) {
+    if (!isEnablingCloudSync && !options.noAutoStart) {
       setTimeout(() => autoStartCloudSyncIfEnabled(), 120);
     }
 
-    if (!options.silent) showToast('✅ تم حفظ إعدادات المزامنة وتشغيلها تلقائيًا.');
+    if (!options.silent) showToast('✅ إعدادات المزامنة جاهزة ومثبتة داخل الموقع.');
     return true;
   }
 
@@ -3810,7 +3801,8 @@
   }
 
   async function uploadLocalDataToCloud(manual) {
-    if (manual && !saveFirebaseSettings()) return;
+    ensureFirebaseDefaultsSaved();
+    fillFirebaseSettingsForm();
 
     if (!cloudDocRef) {
       const ok = await initializeFirebaseSync();
@@ -3832,7 +3824,8 @@
   }
 
   async function downloadCloudDataToLocal() {
-    if (!saveFirebaseSettings()) return;
+    ensureFirebaseDefaultsSaved();
+    fillFirebaseSettingsForm();
 
     if (!cloudDocRef) {
       const ok = await initializeFirebaseSync();
@@ -3870,10 +3863,9 @@
     }
 
     isEnablingCloudSync = true;
+    ensureFirebaseDefaultsSaved();
     fillFirebaseSettingsForm();
-    const settingsSaved = saveFirebaseSettings({ silent: Boolean(options.silent) });
     isEnablingCloudSync = false;
-    if (!settingsSaved) return;
 
     const ok = await initializeFirebaseSync();
     if (!ok) return;
@@ -3910,7 +3902,7 @@
           return;
         }
 
-        if (!localLast || remoteUpdatedAt > localLast) {
+        if (remoteUpdatedAt && remoteUpdatedAt !== localLast) {
           saveBeforeRestoreBackup();
           applyCloudPayload(data);
           saveSafetyBackupIfUseful();
@@ -3940,7 +3932,7 @@
         const localLast = localStorage.getItem(STORAGE_LAST_SYNC_AT) || '';
         const remoteUpdatedAt = data.updatedAt || '';
         const sameDevice = data.clientId && data.clientId === getOrCreateDeviceId();
-        if (!sameDevice && remoteUpdatedAt && remoteUpdatedAt > localLast) {
+        if (!sameDevice && remoteUpdatedAt && remoteUpdatedAt !== localLast) {
           saveBeforeRestoreBackup();
           applyCloudPayload(data);
           saveSafetyBackupIfUseful();
@@ -3983,7 +3975,8 @@
   }
 
   async function syncNow() {
-    if (!saveFirebaseSettings()) return;
+    ensureFirebaseDefaultsSaved();
+    fillFirebaseSettingsForm();
 
     if (localStorage.getItem(STORAGE_SYNC_ENABLED) !== '1') {
       await enableCloudSync();
@@ -4012,6 +4005,18 @@
       setCloudStatus('غير متصل', 'warn');
     }
   }
+
+  async function forceCloudReconnect() {
+    try {
+      ensureFirebaseDefaultsSaved();
+      if (!cloudUnsubscribe || !cloudSyncEnabled) {
+        await enableCloudSync({ silent: true });
+      }
+    } catch (e) {
+      console.warn('Cloud reconnect skipped:', e);
+    }
+  }
+
 
   function makeBackupObject(label) {
     return {
