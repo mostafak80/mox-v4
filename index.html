@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
   <title>MOX-V2</title>
 
@@ -15,6 +15,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="حاسبة المكسب">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="color-scheme" content="dark">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-touch-fullscreen" content="yes">
+  <link id="dynamicManifestLink" rel="manifest">
+
 
   <style>
     :root {
@@ -755,6 +762,408 @@
         grid-template-columns: 1fr;
       }
     }
+
+
+    /* ===== تحسينات الموبايل ونسخة التطبيق على iPhone ===== */
+    :root {
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --tap: 48px;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+
+    body {
+      overscroll-behavior-y: contain;
+      -webkit-font-smoothing: antialiased;
+      padding-left: max(1rem, var(--safe-left));
+      padding-right: max(1rem, var(--safe-right));
+      padding-top: max(1rem, var(--safe-top));
+      padding-bottom: calc(4.8rem + var(--safe-bottom));
+    }
+
+    button,
+    input,
+    select,
+    textarea,
+    .btn,
+    .toggle-btn,
+    .small-btn {
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+
+    .btn,
+    .toggle-btn {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .35rem;
+      transition: transform .16s ease, filter .16s ease, border-color .16s ease, background .16s ease;
+    }
+
+    .btn:active,
+    .toggle-btn:active,
+    .small-btn:active {
+      transform: scale(.98);
+      filter: brightness(1.08);
+    }
+
+    .section,
+    .card,
+    .panel,
+    .table-wrap,
+    .latest-preview,
+    .stat-card,
+    .preview-item {
+      scroll-margin-top: 1rem;
+    }
+
+    .app-top-hint {
+      display: none;
+      margin-bottom: .85rem;
+      border: 1px solid rgba(79,142,247,.28);
+      background: linear-gradient(135deg, rgba(79,142,247,.13), rgba(167,139,250,.10));
+      border-radius: 18px;
+      padding: .8rem .9rem;
+      color: var(--muted);
+      font-size: .78rem;
+      line-height: 1.8;
+    }
+
+    .app-standalone .app-top-hint {
+      display: block;
+    }
+
+    .mobile-bottom-nav {
+      position: fixed;
+      left: max(.65rem, var(--safe-left));
+      right: max(.65rem, var(--safe-right));
+      bottom: max(.55rem, var(--safe-bottom));
+      z-index: 999;
+      display: none;
+      grid-template-columns: repeat(5, 1fr);
+      gap: .35rem;
+      padding: .45rem;
+      border: 1px solid rgba(148,163,184,.18);
+      border-radius: 24px;
+      background: rgba(15, 17, 23, .86);
+      box-shadow: 0 18px 48px rgba(0,0,0,.36);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    .mobile-nav-btn {
+      border: 0;
+      border-radius: 17px;
+      min-height: 52px;
+      padding: .45rem .25rem;
+      background: rgba(26,29,46,.78);
+      color: var(--text);
+      font-family: 'Cairo', sans-serif;
+      font-weight: 900;
+      font-size: .66rem;
+      display: grid;
+      place-items: center;
+      gap: .1rem;
+      cursor: pointer;
+    }
+
+    .mobile-nav-btn strong {
+      display: block;
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    .mobile-nav-btn.primary {
+      background: linear-gradient(135deg, rgba(34,197,94,.95), rgba(79,142,247,.9));
+      color: #06120b;
+      box-shadow: 0 10px 24px rgba(34,197,94,.18);
+    }
+
+    .mobile-nav-btn:active {
+      transform: scale(.97);
+    }
+
+    .mobile-only { display: none; }
+
+    @media(max-width: 760px) {
+      body {
+        padding: .75rem;
+        padding-left: max(.75rem, var(--safe-left));
+        padding-right: max(.75rem, var(--safe-right));
+        padding-top: max(.75rem, var(--safe-top));
+        padding-bottom: calc(5.2rem + var(--safe-bottom));
+        background-attachment: fixed;
+      }
+
+      .mobile-bottom-nav,
+      .mobile-only {
+        display: grid;
+      }
+
+      .page {
+        max-width: 100%;
+        padding-bottom: 1rem;
+      }
+
+      .header {
+        margin: .35rem 0 1rem;
+        padding: .75rem .2rem .25rem;
+      }
+
+      .logo-box {
+        width: 66px;
+        height: 66px;
+        border-radius: 20px;
+        margin-bottom: .55rem;
+      }
+
+      .header h1 {
+        font-size: clamp(1.75rem, 9vw, 2.55rem);
+      }
+
+      .header p {
+        font-size: .78rem;
+        line-height: 1.7;
+      }
+
+      .section {
+        margin-bottom: .85rem;
+      }
+
+      .section-head {
+        border-radius: 18px;
+        padding: .78rem;
+        gap: .65rem;
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .section-title {
+        font-size: .95rem;
+      }
+
+      .section-subtitle {
+        font-size: .7rem;
+        line-height: 1.7;
+      }
+
+      .summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .62rem;
+      }
+
+      .card,
+      .panel,
+      .latest-preview,
+      .stat-card {
+        border-radius: 18px;
+      }
+
+      .card {
+        padding: .8rem;
+        min-height: 105px;
+      }
+
+      .card .label,
+      .stat-card .label {
+        font-size: .68rem;
+        line-height: 1.5;
+      }
+
+      .card .value,
+      .stat-card .value {
+        font-size: 1.05rem;
+        word-break: break-word;
+      }
+
+      .dollar-control {
+        gap: .35rem;
+        margin: .35rem 0 .45rem;
+      }
+
+      .dollar-input {
+        width: 74px;
+        padding: .3rem;
+      }
+
+      .filter-grid,
+      .preset-tools,
+      .report-grid,
+      .stats-grid,
+      .preset-grid,
+      .preset-add-grid,
+      .expense-grid,
+      .form-grid {
+        grid-template-columns: 1fr;
+        gap: .62rem;
+      }
+
+      .field label {
+        font-size: .7rem;
+      }
+
+      .field input,
+      .field select,
+      .textarea-input,
+      .lock-card input {
+        border-radius: 14px;
+        min-height: var(--tap);
+        padding: .78rem .82rem;
+      }
+
+      .textarea-input {
+        min-height: 165px;
+      }
+
+      .quick-toolbar,
+      .actions,
+      .sync-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: .55rem;
+      }
+
+      .btn,
+      .toggle-btn {
+        width: 100%;
+        min-height: var(--tap);
+        border-radius: 15px;
+        font-size: .84rem;
+      }
+
+      .small-btn,
+      .delete-btn {
+        min-height: 38px;
+        border-radius: 12px;
+        padding: .45rem .7rem;
+      }
+
+      .table-wrap,
+      .preset-list,
+      .expense-list {
+        overflow: visible;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+      }
+
+      table,
+      .mini-table {
+        min-width: 0;
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0 .65rem;
+        font-size: .84rem;
+      }
+
+      thead {
+        display: none;
+      }
+
+      tbody,
+      tr,
+      td {
+        display: block;
+        width: 100%;
+      }
+
+      tbody tr {
+        border: 1px solid var(--border);
+        border-radius: 19px;
+        background: rgba(26,29,46,.82);
+        box-shadow: 0 12px 28px rgba(0,0,0,.12);
+        padding: .72rem;
+        overflow: hidden;
+      }
+
+      td {
+        border-top: 0;
+        padding: .42rem .1rem;
+        white-space: normal;
+      }
+
+      td::before {
+        content: attr(data-label);
+        display: block;
+        color: var(--muted2);
+        font-size: .68rem;
+        font-weight: 900;
+        margin-bottom: .16rem;
+      }
+
+      td:not([data-label])::before {
+        display: none;
+      }
+
+      .editable,
+      .preset-edit-input {
+        width: 100%;
+        min-width: 0;
+        border-color: rgba(148,163,184,.12);
+        background: rgba(17,20,33,.72);
+        min-height: 42px;
+      }
+
+      .inline-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: .45rem;
+      }
+
+      .delete-btn {
+        width: 100%;
+      }
+
+      .preview-list {
+        grid-template-columns: 1fr;
+      }
+
+      .lock-card {
+        border-radius: 24px;
+        padding: 1rem;
+      }
+
+      .footer-note {
+        padding: .8rem 0 1.2rem;
+        line-height: 1.8;
+      }
+    }
+
+    @media(max-width: 390px) {
+      .summary {
+        grid-template-columns: 1fr;
+      }
+
+      .mobile-nav-btn {
+        font-size: .6rem;
+        min-height: 49px;
+      }
+    }
+
+    @media(prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+      }
+    }
+
   </style>
 </head>
 
@@ -782,6 +1191,8 @@
   </div>
 
   <div id="toast" class="toast"></div>
+
+  <div class="app-top-hint">📱 أنت فاتح الموقع كأنه تطبيق. الواجهة محسّنة للموبايل وبتحترم حواف iPhone، وكل الأزرار المهمة موجودة في الشريط السفلي.</div>
 
 
   <div class="section">
@@ -1232,8 +1643,17 @@
   </div>
 
   <div class="footer-note">
-    البيانات والعروض والمصاريف وأسعار الدولار محفوظة تلقائيًا على نفس الجهاز والمتصفح.
+    البيانات والعروض والمصاريف وأسعار الدولار محفوظة تلقائيًا على نفس الجهاز والمتصفح، ومع المزامنة السحابية تظهر على الكمبيوتر والفون.
   </div>
+
+  <div class="mobile-bottom-nav" aria-label="تنقل سريع للموبايل">
+    <button class="mobile-nav-btn" type="button" onclick="scrollToBlock('summaryFilterPanel')"><strong>📊</strong><span>الملخص</span></button>
+    <button class="mobile-nav-btn" type="button" onclick="scrollToBlock('presetsContent')"><strong>⚡</strong><span>العروض</span></button>
+    <button class="mobile-nav-btn primary" type="button" onclick="scrollToBlock('manualContent')"><strong>＋</strong><span>إضافة</span></button>
+    <button class="mobile-nav-btn" type="button" onclick="scrollToBlock('tableContent')"><strong>📋</strong><span>السجل</span></button>
+    <button class="mobile-nav-btn" type="button" onclick="scrollToBlock('cloudSyncContent')"><strong>☁️</strong><span>مزامنة</span></button>
+  </div>
+
 
 </div>
 
@@ -1276,6 +1696,73 @@
 
   function today() {
     return new Date().toLocaleDateString('en-CA');
+  }
+
+
+
+  function scrollToBlock(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    if (el.classList.contains('hidden-section')) {
+      const parentSection = el.closest('.section');
+      const button = parentSection?.querySelector('.toggle-btn');
+      el.classList.remove('hidden-section');
+      if (button) button.textContent = 'إخفاء';
+    }
+
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function detectStandaloneMode() {
+    const isStandalone =
+      window.navigator.standalone === true ||
+      window.matchMedia?.('(display-mode: standalone)').matches ||
+      window.matchMedia?.('(display-mode: fullscreen)').matches;
+
+    document.body.classList.toggle('app-standalone', Boolean(isStandalone));
+  }
+
+  function setupDynamicManifest() {
+    const link = document.getElementById('dynamicManifestLink');
+    if (!link) return;
+
+    const manifest = {
+      name: 'MOX-V2 - حاسبة المكسب',
+      short_name: 'MOX-V2',
+      start_url: window.location.pathname || '.',
+      scope: './',
+      display: 'standalone',
+      orientation: 'portrait',
+      dir: 'rtl',
+      lang: 'ar',
+      background_color: '#0f1117',
+      theme_color: '#0f1117',
+      icons: [
+        { src: 'assets/logo.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+        { src: 'assets/logo.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
+      ]
+    };
+
+    try {
+      const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+      link.href = URL.createObjectURL(blob);
+    } catch (e) {
+      console.warn('Manifest setup skipped:', e);
+    }
+  }
+
+  function showIOSInstallHintOnce() {
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent || '');
+    const isStandalone = window.navigator.standalone === true || window.matchMedia?.('(display-mode: standalone)').matches;
+    const key = 'profit_ios_install_hint_seen_v1';
+
+    if (!isIOS || isStandalone || localStorage.getItem(key)) return;
+
+    setTimeout(() => {
+      showToast('📲 على iPhone: افتح المشاركة ثم Add to Home Screen عشان يفتح كتطبيق.');
+      localStorage.setItem(key, '1');
+    }, 1200);
   }
 
   function toggleSection(id, button) {
@@ -1781,13 +2268,13 @@
       const profitClass = offer.profit >= 0 ? 'profit-val' : 'loss-val';
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${index + 1}</td>
-        <td>${escapeHTML(offer.item)}</td>
-        <td>${escapeHTML(offer.offer)}</td>
-        <td>${offer.count}</td>
-        <td><span class="num paid-val">${fmt(offer.income)}</span></td>
-        <td><span class="num deducted-val">${fmt(offer.expense)}</span></td>
-        <td><span class="num ${profitClass}">${fmt(offer.profit)}</span></td>
+        <td data-label="#">${index + 1}</td>
+        <td data-label="المنتج">${escapeHTML(offer.item)}</td>
+        <td data-label="العرض">${escapeHTML(offer.offer)}</td>
+        <td data-label="عدد العمليات">${offer.count}</td>
+        <td data-label="إجمالي الدخل"><span class="num paid-val">${fmt(offer.income)}</span></td>
+        <td data-label="إجمالي المصروف"><span class="num deducted-val">${fmt(offer.expense)}</span></td>
+        <td data-label="إجمالي الربح"><span class="num ${profitClass}">${fmt(offer.profit)}</span></td>
       `;
       body.appendChild(tr);
     });
@@ -1859,9 +2346,9 @@
       const tr = document.createElement('tr');
 
       tr.innerHTML = `
-        <td>${index + 1}</td>
+        <td data-label="#">${index + 1}</td>
 
-        <td>
+        <td data-label="بند المصروف">
           <input
             class="editable"
             value="${escapeHTML(item.name)}"
@@ -1869,7 +2356,7 @@
           >
         </td>
 
-        <td>
+        <td data-label="القيمة">
           <input
             class="editable num deducted-val"
             type="number"
@@ -1879,7 +2366,7 @@
           >
         </td>
 
-        <td>
+        <td data-label="إجراء">
           <button class="delete-btn" onclick="deleteExpense(${index})">حذف</button>
         </td>
       `;
@@ -2005,9 +2492,9 @@
       const tr = document.createElement('tr');
 
       tr.innerHTML = `
-        <td>${index + 1}</td>
+        <td data-label="#">${index + 1}</td>
 
-        <td>
+        <td data-label="المنتج / الخدمة">
           <input
             class="editable preset-edit-input"
             value="${escapeHTML(preset.item)}"
@@ -2015,7 +2502,7 @@
           >
         </td>
 
-        <td>
+        <td data-label="العرض">
           <input
             class="editable preset-edit-input"
             value="${escapeHTML(preset.offer)}"
@@ -2023,7 +2510,7 @@
           >
         </td>
 
-        <td>
+        <td data-label="الداخل للمحفظة">
           <input
             class="editable num paid-val preset-edit-input"
             type="number"
@@ -2033,7 +2520,7 @@
           >
         </td>
 
-        <td>
+        <td data-label="مصروف العملية">
           <input
             class="editable num deducted-val preset-edit-input"
             type="number"
@@ -2043,16 +2530,16 @@
           >
         </td>
 
-        <td><span class="num ${profitClass}">${fmt(profit)}</span></td>
+        <td data-label="ربح العملية"><span class="num ${profitClass}">${fmt(profit)}</span></td>
 
-        <td>
+        <td data-label="ترتيب">
           <div class="inline-actions">
             <button class="small-btn" onclick="movePreset(${index}, -1)" ${index === 0 ? 'disabled' : ''}>↑</button>
             <button class="small-btn" onclick="movePreset(${index}, 1)" ${index === presets.length - 1 ? 'disabled' : ''}>↓</button>
           </div>
         </td>
 
-        <td>
+        <td data-label="إجراء">
           <button class="delete-btn" onclick="deletePreset(${index})">حذف</button>
         </td>
       `;
@@ -2347,9 +2834,9 @@
       const tr = document.createElement('tr');
 
       tr.innerHTML = `
-        <td>${displayIndex + 1}</td>
+        <td data-label="#">${displayIndex + 1}</td>
 
-        <td>
+        <td data-label="التاريخ">
           <input
             class="editable"
             type="date"
@@ -2358,7 +2845,7 @@
           >
         </td>
 
-        <td>
+        <td data-label="المنتج / الخدمة">
           <input
             class="editable"
             value="${escapeHTML(row.item)}"
@@ -2366,7 +2853,7 @@
           >
         </td>
 
-        <td>
+        <td data-label="العرض">
           <input
             class="editable"
             value="${escapeHTML(row.offer)}"
@@ -2374,7 +2861,7 @@
           >
         </td>
 
-        <td>
+        <td data-label="الداخل للمحفظة">
           <input
             class="editable num paid-val"
             type="number"
@@ -2384,7 +2871,7 @@
           >
         </td>
 
-        <td>
+        <td data-label="مصروف العملية">
           <input
             class="editable num deducted-val"
             type="number"
@@ -2394,12 +2881,12 @@
           >
         </td>
 
-        <td>
+        <td data-label="ربح العملية">
           <span class="num ${profitClass}">${fmt(profit)}</span>
           <span class="unit">EGP</span>
         </td>
 
-        <td>
+        <td data-label="إجراء">
           <button class="delete-btn" onclick="deleteRow(${index})">حذف</button>
         </td>
       `;
@@ -3452,6 +3939,9 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    detectStandaloneMode();
+    setupDynamicManifest();
+    showIOSInstallHintOnce();
     document.getElementById('dateInput').value = today();
     if (document.getElementById('dailyReportDate')) {
       document.getElementById('dailyReportDate').value = today();
