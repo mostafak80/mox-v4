@@ -305,6 +305,96 @@
       margin-bottom: .9rem;
     }
 
+    .filter-grid,
+    .preset-tools {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: .7rem;
+      align-items: end;
+      margin-bottom: .9rem;
+    }
+
+    .filter-panel {
+      margin-bottom: .8rem;
+      padding: .9rem;
+    }
+
+    .filter-note {
+      color: var(--muted);
+      font-size: .76rem;
+      margin-top: .2rem;
+      line-height: 1.7;
+    }
+
+    .latest-preview {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 12px 35px rgba(0,0,0,.13);
+      backdrop-filter: blur(10px);
+      padding: .9rem;
+      margin-bottom: .7rem;
+    }
+
+    .preview-head {
+      font-size: .85rem;
+      font-weight: 900;
+      color: var(--accent);
+      margin-bottom: .6rem;
+    }
+
+    .preview-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: .65rem;
+    }
+
+    .preview-item {
+      border: 1px solid rgba(79,142,247,.22);
+      background: rgba(17,20,33,.7);
+      border-radius: 13px;
+      padding: .75rem;
+    }
+
+    .preview-title {
+      font-weight: 900;
+      margin-bottom: .35rem;
+    }
+
+    .preview-meta {
+      color: var(--muted);
+      font-size: .76rem;
+      line-height: 1.8;
+    }
+
+    .inline-actions {
+      display: flex;
+      gap: .35rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .small-btn {
+      border-radius: 8px;
+      padding: .28rem .55rem;
+      font-family: 'Cairo', sans-serif;
+      font-weight: 900;
+      font-size: .72rem;
+      cursor: pointer;
+      border: 1px solid rgba(79,142,247,.35);
+      background: rgba(79,142,247,.12);
+      color: var(--accent);
+    }
+
+    .small-btn:disabled {
+      opacity: .35;
+      cursor: not-allowed;
+    }
+
+    .preset-edit-input {
+      min-width: 105px;
+    }
+
     @media(max-width: 1000px) {
       .form-grid,
       .preset-grid,
@@ -535,6 +625,36 @@
       <button class="toggle-btn" type="button" onclick="toggleSection('summaryContent', this)">إخفاء</button>
     </div>
 
+    <div id="summaryFilterPanel" class="panel filter-panel">
+      <div class="filter-grid">
+        <div class="field">
+          <label>فلتر سريع</label>
+          <select id="quickDateFilter" onchange="setQuickDateFilter(this.value)">
+            <option value="all">كل الأيام</option>
+            <option value="today">اليوم</option>
+            <option value="yesterday">أمس</option>
+            <option value="last7">آخر 7 أيام</option>
+            <option value="month">الشهر الحالي</option>
+            <option value="custom">تاريخ مخصص</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>من يوم</label>
+          <input id="filterFromDate" type="date" onchange="applyFilters()">
+        </div>
+
+        <div class="field">
+          <label>إلى يوم</label>
+          <input id="filterToDate" type="date" onchange="applyFilters()">
+        </div>
+
+        <button class="btn btn-export" type="button" onclick="clearDateFilters()">عرض كل الأيام</button>
+      </div>
+
+      <div id="activeFilterNote" class="filter-note">الملخص يعرض كل الأيام.</div>
+    </div>
+
     <div id="summaryContent" class="summary">
       <div class="card">
         <div class="label">عدد العمليات</div>
@@ -605,6 +725,24 @@
         </select>
       </div>
 
+      <div class="preset-tools">
+        <div class="field">
+          <label>ترتيب القائمة</label>
+          <select id="presetSortSelect" onchange="sortPresets(this.value)">
+            <option value="manual">ترتيب يدوي</option>
+            <option value="itemAsc">حسب اسم المنتج</option>
+            <option value="offerAsc">حسب العرض</option>
+            <option value="paidAsc">الدخل من الأقل للأعلى</option>
+            <option value="paidDesc">الدخل من الأعلى للأقل</option>
+            <option value="profitDesc">الربح من الأعلى للأقل</option>
+            <option value="profitAsc">الربح من الأقل للأعلى</option>
+          </select>
+        </div>
+
+        <button class="btn btn-export" type="button" onclick="moveSelectedPreset(-1)">⬆️ رفع المختار</button>
+        <button class="btn btn-export" type="button" onclick="moveSelectedPreset(1)">⬇️ تنزيل المختار</button>
+      </div>
+
       <div class="panel-title" style="margin-top:.6rem">إضافة عرض جديد للمكتبة</div>
 
       <div class="preset-add-grid">
@@ -647,6 +785,7 @@
               <th class="col-paid">الداخل للمحفظة</th>
               <th class="col-deducted">مصروف العملية</th>
               <th class="col-profit">ربح العملية</th>
+              <th>ترتيب</th>
               <th>إجراء</th>
             </tr>
           </thead>
@@ -756,10 +895,12 @@
     <div class="section-head">
       <div>
         <div class="section-title">📋 سجل العمليات</div>
-        <div class="section-subtitle">كل العمليات المضافة مع إمكانية التعديل المباشر</div>
+        <div class="section-subtitle">كل العمليات المضافة مع إمكانية التعديل المباشر والفلترة حسب اليوم</div>
       </div>
-      <button class="toggle-btn" type="button" onclick="toggleSection('tableContent', this)">إخفاء</button>
+      <button class="toggle-btn" type="button" onclick="toggleRowsSection(this)">إخفاء</button>
     </div>
+
+    <div id="latestRowsPreview" class="latest-preview hidden-section"></div>
 
     <div id="tableContent" class="table-wrap">
       <table>
@@ -1012,6 +1153,185 @@
     return expenses.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   }
 
+  function addDays(date, days) {
+    const copy = new Date(date);
+    copy.setDate(copy.getDate() + days);
+    return copy;
+  }
+
+  function dateToISO(date) {
+    return date.toLocaleDateString('en-CA');
+  }
+
+  function getDateFilters() {
+    let from = document.getElementById('filterFromDate')?.value || '';
+    let to = document.getElementById('filterToDate')?.value || '';
+
+    if (from && to && from > to) {
+      const temp = from;
+      from = to;
+      to = temp;
+    }
+
+    return { from, to };
+  }
+
+  function hasActiveDateFilter() {
+    const { from, to } = getDateFilters();
+    return Boolean(from || to);
+  }
+
+  function isRowInDateRange(row) {
+    if (!hasActiveDateFilter()) return true;
+
+    const rowDate = String(row.date || '').slice(0, 10);
+    if (!rowDate) return false;
+
+    const { from, to } = getDateFilters();
+
+    if (from && rowDate < from) return false;
+    if (to && rowDate > to) return false;
+
+    return true;
+  }
+
+  function getFilteredRowsWithIndexes() {
+    return rows
+      .map((row, index) => ({ row, index }))
+      .filter(item => isRowInDateRange(item.row));
+  }
+
+  function formatDateLabel(value) {
+    if (!value) return '';
+    return value.split('-').reverse().join('/');
+  }
+
+  function updateFilterNote() {
+    const note = document.getElementById('activeFilterNote');
+    if (!note) return;
+
+    const { from, to } = getDateFilters();
+
+    if (!from && !to) {
+      note.textContent = 'الملخص يعرض كل الأيام.';
+      return;
+    }
+
+    const fromLabel = from ? formatDateLabel(from) : 'بداية السجل';
+    const toLabel = to ? formatDateLabel(to) : 'نهاية السجل';
+    const filteredCount = getFilteredRowsWithIndexes().length;
+
+    note.textContent = `الملخص وسجل العمليات محسوبين للفترة من ${fromLabel} إلى ${toLabel} — عدد العمليات: ${filteredCount}.`;
+  }
+
+  function applyFilters(keepQuickValue = false) {
+    const quickFilter = document.getElementById('quickDateFilter');
+    if (quickFilter && !keepQuickValue) {
+      quickFilter.value = 'custom';
+    }
+
+    render();
+  }
+
+  function setQuickDateFilter(value) {
+    const fromInput = document.getElementById('filterFromDate');
+    const toInput = document.getElementById('filterToDate');
+    const now = new Date();
+
+    if (value === 'all') {
+      fromInput.value = '';
+      toInput.value = '';
+    }
+
+    if (value === 'today') {
+      const d = today();
+      fromInput.value = d;
+      toInput.value = d;
+    }
+
+    if (value === 'yesterday') {
+      const d = dateToISO(addDays(now, -1));
+      fromInput.value = d;
+      toInput.value = d;
+    }
+
+    if (value === 'last7') {
+      fromInput.value = dateToISO(addDays(now, -6));
+      toInput.value = today();
+    }
+
+    if (value === 'month') {
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      fromInput.value = dateToISO(firstDay);
+      toInput.value = today();
+    }
+
+    applyFilters(true);
+  }
+
+  function clearDateFilters() {
+    document.getElementById('filterFromDate').value = '';
+    document.getElementById('filterToDate').value = '';
+    document.getElementById('quickDateFilter').value = 'all';
+    render();
+  }
+
+  function toggleRowsSection(button) {
+    const table = document.getElementById('tableContent');
+    const preview = document.getElementById('latestRowsPreview');
+
+    table.classList.toggle('hidden-section');
+
+    const isHidden = table.classList.contains('hidden-section');
+    preview.classList.toggle('hidden-section', !isHidden);
+
+    if (button) {
+      button.textContent = isHidden ? 'إظهار' : 'إخفاء';
+    }
+
+    if (isHidden) {
+      renderLatestRowsPreview();
+    }
+  }
+
+  function renderLatestRowsPreview() {
+    const preview = document.getElementById('latestRowsPreview');
+    if (!preview) return;
+
+    const visibleRows = getFilteredRowsWithIndexes();
+    const lastTwo = visibleRows.slice(-2).reverse();
+    const title = hasActiveDateFilter() ? 'آخر عمليتين داخل الفلتر' : 'آخر عمليتين مسجلتين';
+
+    if (!lastTwo.length) {
+      preview.innerHTML = `
+        <div class="preview-head">${title}</div>
+        <div class="empty" style="display:block;padding:1rem">لا يوجد عمليات لعرضها.</div>
+      `;
+      return;
+    }
+
+    preview.innerHTML = `
+      <div class="preview-head">${title}</div>
+      <div class="preview-list">
+        ${lastTwo.map(({ row }) => {
+          const profit = calcProfit(row);
+          const profitClass = profit >= 0 ? 'profit-val' : 'loss-val';
+
+          return `
+            <div class="preview-item">
+              <div class="preview-title">${escapeHTML(row.item)} — ${escapeHTML(row.offer)}</div>
+              <div class="preview-meta">
+                التاريخ: ${escapeHTML(row.date || '-')}<br>
+                الداخل: <span class="num paid-val">${fmt(row.paid)}</span> EGP — المصروف: <span class="num deducted-val">${fmt(row.deducted)}</span> EGP<br>
+                الربح: <span class="num ${profitClass}">${fmt(profit)}</span> EGP
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
   function renderExpenses() {
     const body = document.getElementById('expenseBody');
     if (!body) return;
@@ -1143,7 +1463,7 @@
     select.innerHTML = '<option value="">— اختار عرض محفوظ —</option>';
 
     presets.forEach((preset, index) => {
-      const label = `${preset.item} — ${preset.offer}`;
+      const label = `${preset.item} — ${preset.offer} | دخل ${fmt(preset.paid)} | تكلفة ${fmt(preset.deducted)}`;
       const searchable = label.toLowerCase();
 
       if (searchValue && !searchable.includes(searchValue)) return;
@@ -1167,11 +1487,52 @@
 
       tr.innerHTML = `
         <td>${index + 1}</td>
-        <td>${escapeHTML(preset.item)}</td>
-        <td>${escapeHTML(preset.offer)}</td>
-        <td><span class="num paid-val">${fmt(preset.paid)}</span></td>
-        <td><span class="num deducted-val">${fmt(preset.deducted)}</span></td>
+
+        <td>
+          <input
+            class="editable preset-edit-input"
+            value="${escapeHTML(preset.item)}"
+            onchange="updatePreset(${index}, 'item', this.value)"
+          >
+        </td>
+
+        <td>
+          <input
+            class="editable preset-edit-input"
+            value="${escapeHTML(preset.offer)}"
+            onchange="updatePreset(${index}, 'offer', this.value)"
+          >
+        </td>
+
+        <td>
+          <input
+            class="editable num paid-val preset-edit-input"
+            type="number"
+            step="0.01"
+            value="${Number(preset.paid) || 0}"
+            onchange="updatePreset(${index}, 'paid', this.value)"
+          >
+        </td>
+
+        <td>
+          <input
+            class="editable num deducted-val preset-edit-input"
+            type="number"
+            step="0.01"
+            value="${Number(preset.deducted) || 0}"
+            onchange="updatePreset(${index}, 'deducted', this.value)"
+          >
+        </td>
+
         <td><span class="num ${profitClass}">${fmt(profit)}</span></td>
+
+        <td>
+          <div class="inline-actions">
+            <button class="small-btn" onclick="movePreset(${index}, -1)" ${index === 0 ? 'disabled' : ''}>↑</button>
+            <button class="small-btn" onclick="movePreset(${index}, 1)" ${index === presets.length - 1 ? 'disabled' : ''}>↓</button>
+          </div>
+        </td>
+
         <td>
           <button class="delete-btn" onclick="deletePreset(${index})">حذف</button>
         </td>
@@ -1274,6 +1635,96 @@
     showToast('✅ تم مسح العروض المحفوظة. يمكنك استرجاعها.');
   }
 
+  function updatePreset(index, key, value) {
+    if (!presets[index]) return;
+
+    if (key === 'paid' || key === 'deducted') {
+      presets[index][key] = parseFloat(value) || 0;
+    } else {
+      presets[index][key] = value;
+    }
+
+    presets[index].updatedAt = new Date().toISOString();
+
+    savePresets();
+    renderPresets();
+
+    showToast('✅ تم تعديل العرض المحفوظ.');
+  }
+
+  function movePreset(index, direction) {
+    const newIndex = index + direction;
+
+    if (newIndex < 0 || newIndex >= presets.length) return;
+
+    const temp = presets[index];
+    presets[index] = presets[newIndex];
+    presets[newIndex] = temp;
+
+    savePresets();
+    renderPresets();
+
+    const select = document.getElementById('presetSelect');
+    if (select) {
+      select.value = String(newIndex);
+    }
+  }
+
+  function moveSelectedPreset(direction) {
+    const select = document.getElementById('presetSelect');
+    const index = select.value;
+
+    if (index === '') {
+      alert('اختار عرض من القائمة الأول.');
+      return;
+    }
+
+    movePreset(Number(index), direction);
+  }
+
+  function sortPresets(type) {
+    if (!type || type === 'manual') return;
+
+    const collator = new Intl.Collator('ar', {
+      numeric: true,
+      sensitivity: 'base'
+    });
+
+    presets.sort((a, b) => {
+      if (type === 'itemAsc') {
+        return collator.compare(a.item || '', b.item || '') || collator.compare(a.offer || '', b.offer || '');
+      }
+
+      if (type === 'offerAsc') {
+        return collator.compare(a.offer || '', b.offer || '') || collator.compare(a.item || '', b.item || '');
+      }
+
+      if (type === 'paidAsc') {
+        return (Number(a.paid) || 0) - (Number(b.paid) || 0);
+      }
+
+      if (type === 'paidDesc') {
+        return (Number(b.paid) || 0) - (Number(a.paid) || 0);
+      }
+
+      if (type === 'profitDesc') {
+        return calcProfit(b) - calcProfit(a);
+      }
+
+      if (type === 'profitAsc') {
+        return calcProfit(a) - calcProfit(b);
+      }
+
+      return 0;
+    });
+
+    savePresets();
+    renderPresets();
+
+    document.getElementById('presetSortSelect').value = 'manual';
+    showToast('✅ تم ترتيب العروض المحفوظة.');
+  }
+
   function getSelectedPreset() {
     const select = document.getElementById('presetSelect');
     const index = select.value;
@@ -1355,13 +1806,14 @@
   function render() {
     const body = document.getElementById('tableBody');
     const emptyState = document.getElementById('emptyState');
+    const visibleRows = getFilteredRowsWithIndexes();
 
     body.innerHTML = '';
 
     let walletTotal = 0;
     let operationExpensesTotal = 0;
 
-    rows.forEach((row, index) => {
+    visibleRows.forEach(({ row, index }, displayIndex) => {
       const paid = Number(row.paid) || 0;
       const deducted = Number(row.deducted) || 0;
       const profit = paid - deducted;
@@ -1374,7 +1826,7 @@
       const tr = document.createElement('tr');
 
       tr.innerHTML = `
-        <td>${index + 1}</td>
+        <td>${displayIndex + 1}</td>
 
         <td>
           <input
@@ -1436,7 +1888,7 @@
 
     const fixedExpensesTotal = totalFixedExpenses();
 
-    // إجمالي المصاريف المعروض = مصاريف العمليات فقط
+    // إجمالي المصاريف المعروض = مصاريف العمليات داخل الفلتر فقط
     const visibleExpensesTotal = operationExpensesTotal;
 
     // صافي المكسب = الداخل للمحفظة - مصاريف العمليات - المصاريف الثابتة
@@ -1448,7 +1900,7 @@
     const walletUsdTotal = walletDollarRate > 0 ? walletTotal / walletDollarRate : 0;
     const expensesUsdTotal = expensesDollarRate > 0 ? visibleExpensesTotal / expensesDollarRate : 0;
 
-    document.getElementById('countTotal').textContent = rows.length;
+    document.getElementById('countTotal').textContent = visibleRows.length;
 
     document.getElementById('walletTotal').innerHTML =
       `${fmt(walletTotal)}<span class="unit">EGP</span>`;
@@ -1466,7 +1918,10 @@
     profitTotalEl.innerHTML = `${fmt(profitTotal)}<span class="unit">EGP</span>`;
     profitTotalEl.className = profitTotal >= 0 ? 'value profit' : 'value loss';
 
-    emptyState.style.display = rows.length ? 'none' : 'block';
+    emptyState.style.display = visibleRows.length ? 'none' : 'block';
+
+    updateFilterNote();
+    renderLatestRowsPreview();
   }
 
   function addRow() {
@@ -1569,8 +2024,10 @@
   }
 
   function exportCSV() {
-    if (!rows.length) {
-      showToast('⚠️ لا يوجد بيانات للتصدير.');
+    const exportRows = getFilteredRowsWithIndexes().map(item => item.row);
+
+    if (!exportRows.length) {
+      showToast(hasActiveDateFilter() ? '⚠️ لا يوجد بيانات داخل الفلتر للتصدير.' : '⚠️ لا يوجد بيانات للتصدير.');
       return;
     }
 
@@ -1583,7 +2040,7 @@
       'operation_profit_egp'
     ];
 
-    const csvRows = rows.map(row => {
+    const csvRows = exportRows.map(row => {
       const profit = calcProfit(row);
 
       return [
@@ -1598,14 +2055,15 @@
 
     const csv = [headers, ...csvRows]
       .map(row => row.map(value => `"${String(value ?? '').replaceAll('"', '""')}"`).join(','))
-      .join('\n');
+      .join('
+');
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
 
     const link = document.createElement('a');
     link.href = url;
-    link.download = `profit-report-${today()}.csv`;
+    link.download = hasActiveDateFilter() ? `profit-report-filtered-${today()}.csv` : `profit-report-${today()}.csv`;
     link.click();
 
     URL.revokeObjectURL(url);
