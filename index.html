@@ -1,0 +1,1689 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>حاسبة مكسب المشروع</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d2e;
+      --surface2: #20243a;
+      --border: #2a2d45;
+      --accent: #4f8ef7;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --purple: #a78bfa;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --muted2: #64748b;
+      --radius: 14px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      background:
+        radial-gradient(circle at top right, rgba(79,142,247,.16), transparent 30%),
+        radial-gradient(circle at bottom left, rgba(167,139,250,.12), transparent 35%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 1rem;
+    }
+
+    .page {
+      max-width: 1300px;
+      margin: 0 auto;
+      padding-bottom: 3rem;
+    }
+
+    .header {
+      text-align: center;
+      margin: 1rem 0 1.5rem;
+    }
+
+    .header h1 {
+      font-size: clamp(1.8rem, 4vw, 3rem);
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--green), var(--accent), var(--purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .header p {
+      color: var(--muted);
+      font-size: .9rem;
+      margin-top: .35rem;
+    }
+
+    .toast {
+      display: none;
+      margin-bottom: 1rem;
+      padding: .8rem 1rem;
+      border-radius: var(--radius);
+      border: 1px solid rgba(34,197,94,.35);
+      background: rgba(34,197,94,.1);
+      color: var(--green);
+      font-size: .85rem;
+    }
+
+    .toast.show {
+      display: block;
+    }
+
+    .section {
+      margin-bottom: 1rem;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .8rem;
+      margin-bottom: .65rem;
+      background: rgba(26,29,46,.72);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: .75rem .9rem;
+    }
+
+    .section-title {
+      font-weight: 900;
+      font-size: .95rem;
+      color: var(--text);
+    }
+
+    .section-subtitle {
+      color: var(--muted2);
+      font-size: .72rem;
+      margin-top: .15rem;
+    }
+
+    .toggle-btn {
+      border: 1px solid rgba(79,142,247,.35);
+      background: rgba(79,142,247,.14);
+      color: var(--accent);
+      border-radius: 9px;
+      padding: .45rem .75rem;
+      font-family: 'Cairo', sans-serif;
+      font-size: .78rem;
+      font-weight: 900;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .hidden-section {
+      display: none !important;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: .8rem;
+    }
+
+    .card {
+      background: rgba(26,29,46,.9);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+    }
+
+    .card .label {
+      color: var(--muted2);
+      font-size: .75rem;
+      margin-bottom: .3rem;
+      font-weight: 700;
+    }
+
+    .card .value {
+      font-size: 1.35rem;
+      font-weight: 900;
+      line-height: 1.2;
+    }
+
+    .value.count {
+      color: var(--accent);
+    }
+
+    .value.paid {
+      color: var(--amber);
+    }
+
+    .value.deducted {
+      color: var(--purple);
+    }
+
+    .value.profit {
+      color: var(--green);
+    }
+
+    .value.loss {
+      color: var(--red);
+    }
+
+    .value.dollar {
+      color: var(--accent);
+    }
+
+    .value.expense {
+      color: var(--red);
+    }
+
+    .unit {
+      font-size: .58em;
+      color: var(--muted);
+      margin-right: .2rem;
+    }
+
+    .dollar-control {
+      display: flex;
+      align-items: center;
+      gap: .45rem;
+      margin: .45rem 0 .65rem;
+      flex-wrap: wrap;
+    }
+
+    .dollar-control span {
+      color: var(--muted);
+      font-size: .68rem;
+      font-weight: 700;
+    }
+
+    .dollar-input {
+      width: 85px;
+      background: #111421;
+      color: var(--accent);
+      border: 1px solid rgba(79,142,247,.45);
+      border-radius: 8px;
+      padding: .32rem .45rem;
+      font-family: 'Cairo', sans-serif;
+      font-weight: 800;
+      outline: none;
+      text-align: center;
+    }
+
+    .panel {
+      background: rgba(26,29,46,.9);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+    }
+
+    .panel-title {
+      font-weight: 900;
+      font-size: .95rem;
+      margin-bottom: .8rem;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1.3fr 1.1fr 1fr 1fr auto;
+      gap: .7rem;
+      align-items: end;
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 2fr auto auto;
+      gap: .7rem;
+      align-items: end;
+      margin-bottom: .9rem;
+    }
+
+    .preset-add-grid {
+      display: grid;
+      grid-template-columns: 1.4fr 1.2fr 1fr 1fr auto;
+      gap: .7rem;
+      align-items: end;
+      margin-top: .9rem;
+    }
+
+    .expense-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr auto;
+      gap: .7rem;
+      align-items: end;
+      margin-bottom: .9rem;
+    }
+
+    @media(max-width: 1000px) {
+      .form-grid,
+      .preset-grid,
+      .preset-add-grid,
+      .expense-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .field label {
+      display: block;
+      color: var(--muted);
+      font-size: .72rem;
+      margin-bottom: .25rem;
+      font-weight: 700;
+    }
+
+    .field input,
+    .field select {
+      width: 100%;
+      background: #111421;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: .7rem .8rem;
+      outline: none;
+      font-family: 'Cairo', sans-serif;
+    }
+
+    .field input:focus,
+    .field select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(79,142,247,.15);
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 10px;
+      padding: .7rem 1rem;
+      font-family: 'Cairo', sans-serif;
+      font-weight: 900;
+      cursor: pointer;
+      transition: .2s;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      opacity: .85;
+      transform: translateY(-1px);
+    }
+
+    .btn-add {
+      background: var(--green);
+      color: #06120b;
+    }
+
+    .btn-export {
+      background: rgba(79,142,247,.16);
+      color: var(--accent);
+      border: 1px solid rgba(79,142,247,.35);
+    }
+
+    .btn-purple {
+      background: rgba(167,139,250,.16);
+      color: var(--purple);
+      border: 1px solid rgba(167,139,250,.35);
+    }
+
+    .btn-amber {
+      background: rgba(245,158,11,.16);
+      color: var(--amber);
+      border: 1px solid rgba(245,158,11,.35);
+    }
+
+    .btn-clear {
+      background: rgba(239,68,68,.14);
+      color: var(--red);
+      border: 1px solid rgba(239,68,68,.35);
+    }
+
+    .actions {
+      display: flex;
+      gap: .6rem;
+      flex-wrap: wrap;
+      margin-top: .8rem;
+    }
+
+    .preset-list,
+    .expense-list {
+      margin-top: .9rem;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    .preset-list table,
+    .expense-list table {
+      min-width: 720px;
+      font-size: .82rem;
+    }
+
+    .preset-list th,
+    .expense-list th {
+      padding: .6rem .7rem;
+    }
+
+    .preset-list td,
+    .expense-list td {
+      padding: .55rem .7rem;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: rgba(26,29,46,.9);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .88rem;
+      min-width: 980px;
+    }
+
+    thead {
+      background: linear-gradient(90deg, #1e2340, #252a45);
+    }
+
+    th {
+      padding: .75rem .8rem;
+      text-align: right;
+      color: var(--muted);
+      font-size: .72rem;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    th.col-paid {
+      color: var(--amber);
+    }
+
+    th.col-deducted {
+      color: var(--purple);
+    }
+
+    th.col-profit {
+      color: var(--green);
+    }
+
+    th.col-date {
+      color: var(--accent);
+    }
+
+    td {
+      padding: .65rem .8rem;
+      border-top: 1px solid var(--border);
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+
+    tbody tr:hover {
+      background: rgba(79,142,247,.045);
+    }
+
+    .editable {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text);
+      width: 100%;
+      min-width: 120px;
+      padding: .35rem .4rem;
+      border-radius: 7px;
+      font-family: 'Cairo', sans-serif;
+      outline: none;
+    }
+
+    .editable:focus {
+      background: rgba(255,255,255,.04);
+      border-color: var(--accent);
+    }
+
+    .num {
+      direction: ltr;
+      text-align: right;
+      font-family: 'Courier New', monospace;
+      font-weight: 800;
+    }
+
+    .paid-val {
+      color: var(--amber);
+    }
+
+    .deducted-val {
+      color: var(--purple);
+    }
+
+    .profit-val {
+      color: var(--green);
+    }
+
+    .loss-val {
+      color: var(--red);
+    }
+
+    .expense-val {
+      color: var(--red);
+    }
+
+    .delete-btn {
+      background: transparent;
+      color: var(--red);
+      border: 1px solid rgba(239,68,68,.35);
+      border-radius: 7px;
+      padding: .25rem .6rem;
+      cursor: pointer;
+      font-family: 'Cairo', sans-serif;
+      font-weight: 800;
+    }
+
+    .empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 2rem 1rem;
+      display: none;
+    }
+
+    .footer-note {
+      text-align: center;
+      color: var(--muted2);
+      font-size: .75rem;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="page">
+
+  <div class="header">
+    <h1>حاسبة مكسب المشروع</h1>
+    <p>اختار من العروض المحفوظة أو أضف يدويًا، والموقع يحسب المكسب والإجماليات تلقائيًا</p>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <div class="section">
+    <div class="section-head">
+      <div>
+        <div class="section-title">📊 ملخص الحسابات</div>
+        <div class="section-subtitle">الإجماليات، الدولار، والمكسب النهائي</div>
+      </div>
+      <button class="toggle-btn" type="button" onclick="toggleSection('summaryContent', this)">إخفاء</button>
+    </div>
+
+    <div id="summaryContent" class="summary">
+      <div class="card">
+        <div class="label">عدد العمليات</div>
+        <div class="value count" id="countTotal">0</div>
+      </div>
+
+      <div class="card">
+        <div class="label">إجمالي السعر المدفوع</div>
+        <div class="value paid" id="paidTotal">0.00<span class="unit">EGP</span></div>
+      </div>
+
+      <div class="card">
+        <div class="label">إجمالي المصاريف</div>
+        <div class="value expense" id="expensesTotal">0.00<span class="unit">EGP</span></div>
+      </div>
+
+      <div class="card">
+        <div class="label">إجمالي السعر المخصوم + المصاريف</div>
+        <div class="value deducted" id="deductedTotal">0.00<span class="unit">EGP</span></div>
+      </div>
+
+      <div class="card">
+        <div class="label">إجمالي المكسب</div>
+        <div class="value profit" id="profitTotal">0.00<span class="unit">EGP</span></div>
+      </div>
+
+      <div class="card">
+        <div class="label">إجمالي المدفوع بالدولار</div>
+        <div class="dollar-control">
+          <span>سعر الدولار</span>
+          <input id="paidDollarRate" class="dollar-input" type="number" step="0.01" min="0.01" value="53">
+        </div>
+        <div class="value dollar" id="paidUsdTotal">0.00<span class="unit">USD</span></div>
+      </div>
+
+      <div class="card">
+        <div class="label">إجمالي المخصوم بالدولار</div>
+        <div class="dollar-control">
+          <span>سعر الدولار</span>
+          <input id="deductedDollarRate" class="dollar-input" type="number" step="0.01" min="0.01" value="53">
+        </div>
+        <div class="value dollar" id="deductedUsdTotal">0.00<span class="unit">USD</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <div>
+        <div class="section-title">⚡ العروض المحفوظة</div>
+        <div class="section-subtitle">اختار العرض بسرعة، وتاريخ الإضافة بيكون تاريخ اليوم تلقائيًا ويمكن تعديله بعد الإضافة</div>
+      </div>
+      <button class="toggle-btn" type="button" onclick="toggleSection('presetsContent', this)">إخفاء</button>
+    </div>
+
+    <div id="presetsContent" class="panel">
+      <div class="panel-title">اختيار سريع من العروض والأسعار المحفوظة</div>
+
+      <div class="preset-grid">
+        <div class="field">
+          <label>اختار عرض محفوظ</label>
+          <select id="presetSelect">
+            <option value="">— اختار من القائمة —</option>
+          </select>
+        </div>
+
+        <button class="btn btn-add" type="button" onclick="addSelectedPresetToRows()">إضافة للجدول</button>
+        <button class="btn btn-purple" type="button" onclick="fillManualFromPreset()">تعبئة في الإدخال اليدوي</button>
+      </div>
+
+      <div class="panel-title" style="margin-top:.6rem">➕ إضافة عرض جديد لقائمة الاختيارات</div>
+
+      <div class="preset-add-grid">
+        <div class="field">
+          <label>الحاجة اللي اتشحنت</label>
+          <input id="presetItemInput" type="text" placeholder="مثال: ببجي الكورية">
+        </div>
+
+        <div class="field">
+          <label>العرض</label>
+          <input id="presetOfferInput" type="text" placeholder="مثال: عرض 180">
+        </div>
+
+        <div class="field">
+          <label>السعر المدفوع</label>
+          <input id="presetPaidInput" type="number" step="0.01" min="0" placeholder="مثال: 140">
+        </div>
+
+        <div class="field">
+          <label>السعر المخصوم</label>
+          <input id="presetDeductedInput" type="number" step="0.01" min="0" placeholder="مثال: 180">
+        </div>
+
+        <button class="btn btn-purple" type="button" onclick="addPreset()">حفظ العرض</button>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-export" type="button" onclick="toggleSection('presetListWrap', this)">إظهار القائمة</button>
+        <button class="btn btn-clear" type="button" onclick="clearPresets()">🗑️ مسح العروض المحفوظة</button>
+      </div>
+
+      <div id="presetListWrap" class="preset-list hidden-section">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>الحاجة</th>
+              <th>العرض</th>
+              <th class="col-paid">مدفوع</th>
+              <th class="col-deducted">مخصوم</th>
+              <th class="col-profit">مكسب</th>
+              <th>إجراء</th>
+            </tr>
+          </thead>
+          <tbody id="presetListBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <div>
+        <div class="section-title">➕ إضافة عملية يدويًا</div>
+        <div class="section-subtitle">تقدر تكتب التاريخ بنفسك أو تسيبه فاضي فيتحط تاريخ اليوم</div>
+      </div>
+      <button class="toggle-btn" type="button" onclick="toggleSection('manualContent', this)">إخفاء</button>
+    </div>
+
+    <div id="manualContent" class="panel">
+      <div class="form-grid">
+        <div class="field">
+          <label>التاريخ</label>
+          <input id="dateInput" type="date">
+        </div>
+
+        <div class="field">
+          <label>الحاجة اللي اتشحنت</label>
+          <input id="itemInput" type="text" placeholder="مثال: بيجي الكهربية">
+        </div>
+
+        <div class="field">
+          <label>العرض</label>
+          <input id="offerInput" type="text" placeholder="مثال: 8100 عرض">
+        </div>
+
+        <div class="field">
+          <label>السعر المدفوع</label>
+          <input id="paidInput" type="number" step="0.01" min="0" placeholder="مثال: 4330">
+        </div>
+
+        <div class="field">
+          <label>السعر المخصوم</label>
+          <input id="deductedInput" type="number" step="0.01" min="0" placeholder="مثال: 5280">
+        </div>
+
+        <button class="btn btn-add" type="button" onclick="addRow()">إضافة</button>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-purple" type="button" onclick="saveCurrentManualAsPreset()">⭐ حفظ الإدخال كعرض سريع</button>
+        <button class="btn btn-amber" type="button" onclick="restoreLastDeleted()">↩️ استرجاع آخر حذف</button>
+        <button class="btn btn-export" type="button" onclick="exportCSV()">⬇️ تصدير CSV</button>
+        <button class="btn btn-export" type="button" onclick="downloadBackup()">💾 نسخة احتياطية</button>
+        <button class="btn btn-export" type="button" onclick="document.getElementById('backupInput').click()">📥 استرجاع نسخة</button>
+        <input id="backupInput" type="file" accept="application/json" style="display:none" onchange="restoreBackup(event)">
+        <button class="btn btn-clear" type="button" onclick="clearAll()">🗑️ مسح العمليات</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <div>
+        <div class="section-title">💸 المصاريف</div>
+        <div class="section-subtitle">مخفية افتراضيًا، وتتحسب مع إجمالي السعر المخصوم</div>
+      </div>
+      <button class="toggle-btn" type="button" onclick="toggleSection('expensesContent', this)">إظهار</button>
+    </div>
+
+    <div id="expensesContent" class="panel hidden-section">
+      <div class="expense-grid">
+        <div class="field">
+          <label>اسم المصروف</label>
+          <input id="expenseNameInput" type="text" placeholder="مثال: باقة نت">
+        </div>
+
+        <div class="field">
+          <label>قيمة المصروف</label>
+          <input id="expenseAmountInput" type="number" step="0.01" min="0" placeholder="مثال: 1500">
+        </div>
+
+        <button class="btn btn-add" type="button" onclick="addExpense()">إضافة مصروف</button>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-amber" type="button" onclick="restoreLastDeleted()">↩️ استرجاع آخر حذف</button>
+        <button class="btn btn-clear" type="button" onclick="clearExpenses()">🗑️ مسح المصاريف</button>
+      </div>
+
+      <div class="expense-list">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>المصروف</th>
+              <th>القيمة</th>
+              <th>إجراء</th>
+            </tr>
+          </thead>
+          <tbody id="expenseBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <div>
+        <div class="section-title">📋 جدول العمليات</div>
+        <div class="section-subtitle">تقدر تعدل أي خانة مباشرة من الجدول</div>
+      </div>
+      <button class="toggle-btn" type="button" onclick="toggleSection('tableContent', this)">إخفاء</button>
+    </div>
+
+    <div id="tableContent" class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th class="col-date">التاريخ</th>
+            <th>الحاجة اللي اتشحنت</th>
+            <th>العرض</th>
+            <th class="col-paid">السعر المدفوع</th>
+            <th class="col-deducted">السعر المخصوم</th>
+            <th class="col-profit">المكسب</th>
+            <th>إجراء</th>
+          </tr>
+        </thead>
+
+        <tbody id="tableBody"></tbody>
+      </table>
+
+      <div id="emptyState" class="empty">
+        لا يوجد بيانات حتى الآن. أضف أول عملية من الأعلى.
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    البيانات والعروض والمصاريف وأسعار الدولار محفوظة تلقائيًا على نفس الجهاز والمتصفح.
+  </div>
+
+</div>
+
+<script>
+  const STORAGE_ROWS = 'profit_calculator_rows_v2';
+  const STORAGE_PRESETS = 'profit_calculator_presets_v2';
+  const STORAGE_EXPENSES = 'profit_calculator_expenses_v1';
+  const STORAGE_DELETED_STACK = 'profit_calculator_deleted_stack_v1';
+  const STORAGE_PAID_DOLLAR_RATE = 'profit_paid_dollar_rate_v1';
+  const STORAGE_DEDUCTED_DOLLAR_RATE = 'profit_deducted_dollar_rate_v1';
+
+  let rows = [];
+  let presets = [];
+  let expenses = [];
+
+  const defaultExpenses = [
+    { name: 'باقة نت', amount: 1500 },
+    { name: 'فودا كاش', amount: 4000 },
+    { name: 'مرتب', amount: 3000 },
+    { name: 'ممول', amount: 12500 }
+  ];
+
+  function today() {
+    return new Date().toLocaleDateString('en-CA');
+  }
+
+  function toggleSection(id, button) {
+    const section = document.getElementById(id);
+    section.classList.toggle('hidden-section');
+
+    if (button) {
+      button.textContent = section.classList.contains('hidden-section') ? 'إظهار' : 'إخفاء';
+    }
+  }
+
+  function showToast(message) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.classList.add('show');
+
+    setTimeout(() => {
+      toast.classList.remove('show');
+    }, 3000);
+  }
+
+  function fmt(n) {
+    const number = Number(n) || 0;
+
+    return number.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }
+
+  function escapeHTML(value) {
+    return String(value || '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
+
+  function calcProfit(row) {
+    const paid = Number(row.paid) || 0;
+    const deducted = Number(row.deducted) || 0;
+    return deducted - paid;
+  }
+
+  function createRowObject(date, item, offer, paid, deducted) {
+    return {
+      id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      date: date || today(),
+      item: item || '',
+      offer: offer || '',
+      paid: Number(paid) || 0,
+      deducted: Number(deducted) || 0,
+      createdAt: new Date().toISOString()
+    };
+  }
+
+  function createPresetObject(item, offer, paid, deducted) {
+    return {
+      id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      item: item || '',
+      offer: offer || '',
+      paid: Number(paid) || 0,
+      deducted: Number(deducted) || 0,
+      createdAt: new Date().toISOString()
+    };
+  }
+
+  function saveRows() {
+    localStorage.setItem(STORAGE_ROWS, JSON.stringify(rows));
+  }
+
+  function loadRows() {
+    try {
+      rows = JSON.parse(localStorage.getItem(STORAGE_ROWS)) || [];
+    } catch (e) {
+      rows = [];
+    }
+  }
+
+  function savePresets() {
+    localStorage.setItem(STORAGE_PRESETS, JSON.stringify(presets));
+  }
+
+  function loadPresets() {
+    try {
+      presets = JSON.parse(localStorage.getItem(STORAGE_PRESETS)) || [];
+    } catch (e) {
+      presets = [];
+    }
+  }
+
+  function saveExpenses() {
+    localStorage.setItem(STORAGE_EXPENSES, JSON.stringify(expenses));
+  }
+
+  function loadExpenses() {
+    try {
+      const saved = localStorage.getItem(STORAGE_EXPENSES);
+
+      if (saved === null) {
+        expenses = defaultExpenses.map(expense => ({
+          id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+          name: expense.name,
+          amount: expense.amount,
+          createdAt: new Date().toISOString()
+        }));
+
+        saveExpenses();
+        return;
+      }
+
+      expenses = JSON.parse(saved) || [];
+    } catch (e) {
+      expenses = [];
+    }
+  }
+
+  function getDeletedStack() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_DELETED_STACK)) || [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function setDeletedStack(stack) {
+    localStorage.setItem(STORAGE_DELETED_STACK, JSON.stringify(stack));
+  }
+
+  function pushDeleted(type, items, label) {
+    if (!items || !items.length) return;
+
+    const stack = getDeletedStack();
+
+    stack.push({
+      id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      type,
+      label,
+      deletedAt: new Date().toISOString(),
+      items
+    });
+
+    setDeletedStack(stack.slice(-30));
+  }
+
+  function restoreLastDeleted() {
+    const stack = getDeletedStack();
+
+    if (!stack.length) {
+      showToast('ℹ️ لا يوجد شيء محذوف لاسترجاعه.');
+      return;
+    }
+
+    const last = stack.pop();
+
+    if (last.type === 'rows') {
+      rows = [...rows, ...last.items];
+      saveRows();
+    }
+
+    if (last.type === 'presets') {
+      presets = [...presets, ...last.items];
+      savePresets();
+    }
+
+    if (last.type === 'expenses') {
+      expenses = [...expenses, ...last.items];
+      saveExpenses();
+    }
+
+    setDeletedStack(stack);
+
+    renderPresets();
+    renderExpenses();
+    render();
+
+    showToast(`✅ تم استرجاع: ${last.label || 'آخر حذف'}`);
+  }
+
+  function saveDollarRates() {
+    const paidRate = document.getElementById('paidDollarRate').value;
+    const deductedRate = document.getElementById('deductedDollarRate').value;
+
+    localStorage.setItem(STORAGE_PAID_DOLLAR_RATE, paidRate);
+    localStorage.setItem(STORAGE_DEDUCTED_DOLLAR_RATE, deductedRate);
+  }
+
+  function loadDollarRates() {
+    const savedPaidRate = localStorage.getItem(STORAGE_PAID_DOLLAR_RATE);
+    const savedDeductedRate = localStorage.getItem(STORAGE_DEDUCTED_DOLLAR_RATE);
+
+    if (savedPaidRate) {
+      document.getElementById('paidDollarRate').value = savedPaidRate;
+    }
+
+    if (savedDeductedRate) {
+      document.getElementById('deductedDollarRate').value = savedDeductedRate;
+    }
+  }
+
+  function renderPresetSelect() {
+    const select = document.getElementById('presetSelect');
+    select.innerHTML = '<option value="">— اختار من القائمة —</option>';
+
+    presets.forEach((preset, index) => {
+      const option = document.createElement('option');
+      option.value = index;
+      option.textContent = `${preset.item} — ${preset.offer}`;
+      select.appendChild(option);
+    });
+  }
+
+  function renderPresetList() {
+    const body = document.getElementById('presetListBody');
+    body.innerHTML = '';
+
+    presets.forEach((preset, index) => {
+      const profit = calcProfit(preset);
+      const profitClass = profit >= 0 ? 'profit-val' : 'loss-val';
+
+      const tr = document.createElement('tr');
+
+      tr.innerHTML = `
+        <td>${index + 1}</td>
+        <td>${escapeHTML(preset.item)}</td>
+        <td>${escapeHTML(preset.offer)}</td>
+        <td><span class="num paid-val">${fmt(preset.paid)}</span></td>
+        <td><span class="num deducted-val">${fmt(preset.deducted)}</span></td>
+        <td><span class="num ${profitClass}">${fmt(profit)}</span></td>
+        <td>
+          <button class="delete-btn" onclick="deletePreset(${index})">حذف</button>
+        </td>
+      `;
+
+      body.appendChild(tr);
+    });
+  }
+
+  function renderPresets() {
+    renderPresetSelect();
+    renderPresetList();
+  }
+
+  function getPresetFormValues() {
+    const itemInput = document.getElementById('presetItemInput');
+    const offerInput = document.getElementById('presetOfferInput');
+    const paidInput = document.getElementById('presetPaidInput');
+    const deductedInput = document.getElementById('presetDeductedInput');
+
+    const item = itemInput.value.trim();
+    const offer = offerInput.value.trim();
+    const paid = parseFloat(paidInput.value);
+    const deducted = parseFloat(deductedInput.value);
+
+    if (!item) {
+      alert('اكتب الحاجة اللي اتشحنت.');
+      itemInput.focus();
+      return null;
+    }
+
+    if (Number.isNaN(paid) || paid < 0) {
+      alert('اكتب السعر المدفوع بشكل صحيح.');
+      paidInput.focus();
+      return null;
+    }
+
+    if (Number.isNaN(deducted) || deducted < 0) {
+      alert('اكتب السعر المخصوم بشكل صحيح.');
+      deductedInput.focus();
+      return null;
+    }
+
+    return { item, offer, paid, deducted };
+  }
+
+  function addPreset() {
+    const values = getPresetFormValues();
+
+    if (!values) return;
+
+    presets.push(createPresetObject(values.item, values.offer, values.paid, values.deducted));
+
+    savePresets();
+    renderPresets();
+
+    document.getElementById('presetItemInput').value = '';
+    document.getElementById('presetOfferInput').value = '';
+    document.getElementById('presetPaidInput').value = '';
+    document.getElementById('presetDeductedInput').value = '';
+
+    showToast('✅ تم حفظ العرض في قائمة الاختيارات.');
+  }
+
+  function deletePreset(index) {
+    if (!presets[index]) return;
+
+    const confirmed = confirm('⚠️ هل تريد حذف هذا العرض من القائمة؟');
+
+    if (!confirmed) return;
+
+    const deleted = presets.splice(index, 1);
+    pushDeleted('presets', deleted, 'عرض محفوظ');
+
+    savePresets();
+    renderPresets();
+
+    showToast('✅ تم حذف العرض. يمكنك استرجاعه من زر استرجاع آخر حذف.');
+  }
+
+  function clearPresets() {
+    if (!presets.length) {
+      showToast('ℹ️ لا يوجد عروض محفوظة.');
+      return;
+    }
+
+    const confirmed = confirm('⚠️ هل تريد مسح كل العروض والأسعار المحفوظة؟');
+
+    if (!confirmed) return;
+
+    pushDeleted('presets', [...presets], 'كل العروض المحفوظة');
+
+    presets = [];
+    savePresets();
+    renderPresets();
+
+    showToast('✅ تم مسح العروض المحفوظة. يمكنك استرجاعها.');
+  }
+
+  function getSelectedPreset() {
+    const select = document.getElementById('presetSelect');
+    const index = select.value;
+
+    if (index === '') {
+      alert('اختار عرض من القائمة الأول.');
+      return null;
+    }
+
+    return presets[Number(index)] || null;
+  }
+
+  function addSelectedPresetToRows() {
+    const preset = getSelectedPreset();
+
+    if (!preset) return;
+
+    rows.push(createRowObject(today(), preset.item, preset.offer, preset.paid, preset.deducted));
+    saveRows();
+    render();
+
+    showToast('✅ تم إضافة العرض المختار للجدول بتاريخ اليوم.');
+  }
+
+  function fillManualFromPreset() {
+    const preset = getSelectedPreset();
+
+    if (!preset) return;
+
+    document.getElementById('dateInput').value = today();
+    document.getElementById('itemInput').value = preset.item;
+    document.getElementById('offerInput').value = preset.offer;
+    document.getElementById('paidInput').value = preset.paid;
+    document.getElementById('deductedInput').value = preset.deducted;
+
+    showToast('✅ تم تعبئة بيانات العرض في الإدخال اليدوي بتاريخ اليوم.');
+  }
+
+  function saveCurrentManualAsPreset() {
+    const itemInput = document.getElementById('itemInput');
+    const offerInput = document.getElementById('offerInput');
+    const paidInput = document.getElementById('paidInput');
+    const deductedInput = document.getElementById('deductedInput');
+
+    const item = itemInput.value.trim();
+    const offer = offerInput.value.trim();
+    const paid = parseFloat(paidInput.value);
+    const deducted = parseFloat(deductedInput.value);
+
+    if (!item) {
+      alert('اكتب الحاجة اللي اتشحنت الأول.');
+      itemInput.focus();
+      return;
+    }
+
+    if (Number.isNaN(paid) || paid < 0) {
+      alert('اكتب السعر المدفوع بشكل صحيح.');
+      paidInput.focus();
+      return;
+    }
+
+    if (Number.isNaN(deducted) || deducted < 0) {
+      alert('اكتب السعر المخصوم بشكل صحيح.');
+      deductedInput.focus();
+      return;
+    }
+
+    presets.push(createPresetObject(item, offer, paid, deducted));
+    savePresets();
+    renderPresets();
+
+    showToast('✅ تم حفظ الإدخال الحالي كعرض سريع.');
+  }
+
+  function renderExpenses() {
+    const body = document.getElementById('expenseBody');
+    body.innerHTML = '';
+
+    expenses.forEach((expense, index) => {
+      const tr = document.createElement('tr');
+
+      tr.innerHTML = `
+        <td>${index + 1}</td>
+
+        <td>
+          <input
+            class="editable"
+            value="${escapeHTML(expense.name)}"
+            onchange="updateExpense(${index}, 'name', this.value)"
+          >
+        </td>
+
+        <td>
+          <input
+            class="editable num expense-val"
+            type="number"
+            step="0.01"
+            value="${Number(expense.amount) || 0}"
+            onchange="updateExpense(${index}, 'amount', this.value)"
+          >
+        </td>
+
+        <td>
+          <button class="delete-btn" onclick="deleteExpense(${index})">حذف</button>
+        </td>
+      `;
+
+      body.appendChild(tr);
+    });
+  }
+
+  function addExpense() {
+    const nameInput = document.getElementById('expenseNameInput');
+    const amountInput = document.getElementById('expenseAmountInput');
+
+    const name = nameInput.value.trim();
+    const amount = parseFloat(amountInput.value);
+
+    if (!name) {
+      alert('اكتب اسم المصروف.');
+      nameInput.focus();
+      return;
+    }
+
+    if (Number.isNaN(amount) || amount < 0) {
+      alert('اكتب قيمة المصروف بشكل صحيح.');
+      amountInput.focus();
+      return;
+    }
+
+    expenses.push({
+      id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      name,
+      amount,
+      createdAt: new Date().toISOString()
+    });
+
+    saveExpenses();
+    renderExpenses();
+    render();
+
+    nameInput.value = '';
+    amountInput.value = '';
+
+    showToast('✅ تم إضافة المصروف.');
+  }
+
+  function updateExpense(index, key, value) {
+    if (!expenses[index]) return;
+
+    if (key === 'amount') {
+      expenses[index][key] = parseFloat(value) || 0;
+    } else {
+      expenses[index][key] = value;
+    }
+
+    saveExpenses();
+    renderExpenses();
+    render();
+  }
+
+  function deleteExpense(index) {
+    if (!expenses[index]) return;
+
+    const confirmed = confirm('⚠️ هل تريد حذف هذا المصروف؟');
+
+    if (!confirmed) return;
+
+    const deleted = expenses.splice(index, 1);
+    pushDeleted('expenses', deleted, 'مصروف');
+
+    saveExpenses();
+    renderExpenses();
+    render();
+
+    showToast('✅ تم حذف المصروف. يمكنك استرجاعه.');
+  }
+
+  function clearExpenses() {
+    if (!expenses.length) {
+      showToast('ℹ️ لا يوجد مصاريف لمسحها.');
+      return;
+    }
+
+    const confirmed = confirm('⚠️ هل تريد مسح كل المصاريف؟');
+
+    if (!confirmed) return;
+
+    pushDeleted('expenses', [...expenses], 'كل المصاريف');
+
+    expenses = [];
+    saveExpenses();
+    renderExpenses();
+    render();
+
+    showToast('✅ تم مسح المصاريف. يمكنك استرجاعها.');
+  }
+
+  function totalExpenses() {
+    return expenses.reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0);
+  }
+
+  function render() {
+    const body = document.getElementById('tableBody');
+    const emptyState = document.getElementById('emptyState');
+
+    body.innerHTML = '';
+
+    let totalPaid = 0;
+    let rowsDeducted = 0;
+
+    rows.forEach((row, index) => {
+      const paid = Number(row.paid) || 0;
+      const deducted = Number(row.deducted) || 0;
+      const profit = deducted - paid;
+
+      totalPaid += paid;
+      rowsDeducted += deducted;
+
+      const profitClass = profit >= 0 ? 'profit-val' : 'loss-val';
+
+      const tr = document.createElement('tr');
+
+      tr.innerHTML = `
+        <td>${index + 1}</td>
+
+        <td>
+          <input
+            class="editable"
+            type="date"
+            value="${escapeHTML(row.date || '')}"
+            onchange="updateRow(${index}, 'date', this.value)"
+          >
+        </td>
+
+        <td>
+          <input
+            class="editable"
+            value="${escapeHTML(row.item)}"
+            onchange="updateRow(${index}, 'item', this.value)"
+          >
+        </td>
+
+        <td>
+          <input
+            class="editable"
+            value="${escapeHTML(row.offer)}"
+            onchange="updateRow(${index}, 'offer', this.value)"
+          >
+        </td>
+
+        <td>
+          <input
+            class="editable num paid-val"
+            type="number"
+            step="0.01"
+            value="${paid}"
+            onchange="updateRow(${index}, 'paid', this.value)"
+          >
+        </td>
+
+        <td>
+          <input
+            class="editable num deducted-val"
+            type="number"
+            step="0.01"
+            value="${deducted}"
+            onchange="updateRow(${index}, 'deducted', this.value)"
+          >
+        </td>
+
+        <td>
+          <span class="num ${profitClass}">${fmt(profit)}</span>
+          <span class="unit">EGP</span>
+        </td>
+
+        <td>
+          <button class="delete-btn" onclick="deleteRow(${index})">حذف</button>
+        </td>
+      `;
+
+      body.appendChild(tr);
+    });
+
+    const expensesSum = totalExpenses();
+    const totalDeducted = rowsDeducted + expensesSum;
+    const totalProfit = totalDeducted - totalPaid;
+
+    const paidDollarRate = parseFloat(document.getElementById('paidDollarRate').value) || 0;
+    const deductedDollarRate = parseFloat(document.getElementById('deductedDollarRate').value) || 0;
+
+    const totalPaidUsd = paidDollarRate > 0 ? totalPaid / paidDollarRate : 0;
+    const totalDeductedUsd = deductedDollarRate > 0 ? totalDeducted / deductedDollarRate : 0;
+
+    document.getElementById('countTotal').textContent = rows.length;
+    document.getElementById('paidTotal').innerHTML = `${fmt(totalPaid)}<span class="unit">EGP</span>`;
+    document.getElementById('expensesTotal').innerHTML = `${fmt(expensesSum)}<span class="unit">EGP</span>`;
+    document.getElementById('deductedTotal').innerHTML = `${fmt(totalDeducted)}<span class="unit">EGP</span>`;
+    document.getElementById('paidUsdTotal').innerHTML = `${fmt(totalPaidUsd)}<span class="unit">USD</span>`;
+    document.getElementById('deductedUsdTotal').innerHTML = `${fmt(totalDeductedUsd)}<span class="unit">USD</span>`;
+
+    const profitTotalEl = document.getElementById('profitTotal');
+    profitTotalEl.innerHTML = `${fmt(totalProfit)}<span class="unit">EGP</span>`;
+    profitTotalEl.className = totalProfit >= 0 ? 'value profit' : 'value loss';
+
+    emptyState.style.display = rows.length ? 'none' : 'block';
+  }
+
+  function addRow() {
+    const dateInput = document.getElementById('dateInput');
+    const itemInput = document.getElementById('itemInput');
+    const offerInput = document.getElementById('offerInput');
+    const paidInput = document.getElementById('paidInput');
+    const deductedInput = document.getElementById('deductedInput');
+
+    const date = dateInput.value || today();
+    const item = itemInput.value.trim();
+    const offer = offerInput.value.trim();
+    const paid = parseFloat(paidInput.value);
+    const deducted = parseFloat(deductedInput.value);
+
+    if (!item) {
+      alert('اكتب الحاجة اللي اتشحنت.');
+      itemInput.focus();
+      return;
+    }
+
+    if (Number.isNaN(paid) || paid < 0) {
+      alert('اكتب السعر المدفوع بشكل صحيح.');
+      paidInput.focus();
+      return;
+    }
+
+    if (Number.isNaN(deducted) || deducted < 0) {
+      alert('اكتب السعر المخصوم بشكل صحيح.');
+      deductedInput.focus();
+      return;
+    }
+
+    rows.push(createRowObject(date, item, offer, paid, deducted));
+
+    saveRows();
+    render();
+
+    dateInput.value = today();
+    itemInput.value = '';
+    offerInput.value = '';
+    paidInput.value = '';
+    deductedInput.value = '';
+
+    itemInput.focus();
+
+    showToast('✅ تم إضافة العملية بنجاح.');
+  }
+
+  function updateRow(index, key, value) {
+    if (!rows[index]) return;
+
+    if (key === 'paid' || key === 'deducted') {
+      rows[index][key] = parseFloat(value) || 0;
+    } else {
+      rows[index][key] = value;
+    }
+
+    saveRows();
+    render();
+  }
+
+  function deleteRow(index) {
+    if (!rows[index]) return;
+
+    const confirmed = confirm('⚠️ هل تريد حذف هذه العملية؟');
+
+    if (!confirmed) return;
+
+    const deleted = rows.splice(index, 1);
+    pushDeleted('rows', deleted, 'عملية من الجدول');
+
+    saveRows();
+    render();
+
+    showToast('✅ تم حذف العملية. يمكنك استرجاعها.');
+  }
+
+  function clearAll() {
+    if (!rows.length) {
+      showToast('ℹ️ لا يوجد بيانات لمسحها.');
+      return;
+    }
+
+    const confirmed = confirm('⚠️ هل تريد مسح كل عمليات الجدول؟');
+
+    if (!confirmed) return;
+
+    pushDeleted('rows', [...rows], 'كل عمليات الجدول');
+
+    rows = [];
+    saveRows();
+    render();
+
+    showToast('✅ تم مسح كل العمليات. يمكنك استرجاعها.');
+  }
+
+  function exportCSV() {
+    if (!rows.length) {
+      showToast('⚠️ لا يوجد بيانات للتصدير.');
+      return;
+    }
+
+    const headers = [
+      'date',
+      'item',
+      'offer',
+      'paid_egp',
+      'deducted_egp',
+      'profit_egp'
+    ];
+
+    const csvRows = rows.map(row => {
+      const profit = calcProfit(row);
+
+      return [
+        row.date,
+        row.item,
+        row.offer,
+        row.paid,
+        row.deducted,
+        profit
+      ];
+    });
+
+    const csv = [headers, ...csvRows]
+      .map(row => row.map(value => `"${String(value ?? '').replaceAll('"', '""')}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `profit-report-${today()}.csv`;
+    link.click();
+
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadBackup() {
+    const backup = {
+      appName: 'Profit Calculator',
+      version: 3,
+      exportedAt: new Date().toISOString(),
+      rows,
+      presets,
+      expenses,
+      deletedStack: getDeletedStack(),
+      settings: {
+        paidDollarRate: document.getElementById('paidDollarRate').value,
+        deductedDollarRate: document.getElementById('deductedDollarRate').value
+      }
+    };
+
+    const json = JSON.stringify(backup, null, 2);
+    const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `profit-backup-${today()}.json`;
+    link.click();
+
+    URL.revokeObjectURL(url);
+
+    showToast('✅ تم تحميل النسخة الاحتياطية.');
+  }
+
+  function restoreBackup(event) {
+    const file = event.target.files[0];
+
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = function(e) {
+      try {
+        const backup = JSON.parse(e.target.result);
+
+        if (!backup || !Array.isArray(backup.rows)) {
+          showToast('⚠️ ملف النسخة الاحتياطية غير صحيح.');
+          return;
+        }
+
+        const confirmed = confirm('⚠️ هل تريد استرجاع النسخة؟ سيتم استبدال البيانات الحالية.');
+
+        if (!confirmed) {
+          event.target.value = '';
+          return;
+        }
+
+        rows = backup.rows;
+        presets = Array.isArray(backup.presets) ? backup.presets : [];
+        expenses = Array.isArray(backup.expenses) ? backup.expenses : [];
+
+        if (Array.isArray(backup.deletedStack)) {
+          setDeletedStack(backup.deletedStack);
+        }
+
+        if (backup.settings) {
+          if (backup.settings.paidDollarRate) {
+            document.getElementById('paidDollarRate').value = backup.settings.paidDollarRate;
+          }
+
+          if (backup.settings.deductedDollarRate) {
+            document.getElementById('deductedDollarRate').value = backup.settings.deductedDollarRate;
+          }
+        }
+
+        saveRows();
+        savePresets();
+        saveExpenses();
+        saveDollarRates();
+
+        renderPresets();
+        renderExpenses();
+        render();
+
+        showToast('✅ تم استرجاع النسخة الاحتياطية بنجاح.');
+      } catch (error) {
+        showToast('⚠️ حصل خطأ أثناء قراءة الملف.');
+      }
+
+      event.target.value = '';
+    };
+
+    reader.readAsText(file);
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    document.getElementById('dateInput').value = today();
+
+    loadRows();
+    loadPresets();
+    loadExpenses();
+    loadDollarRates();
+
+    renderPresets();
+    renderExpenses();
+    render();
+
+    document.getElementById('paidDollarRate').addEventListener('input', function () {
+      saveDollarRates();
+      render();
+    });
+
+    document.getElementById('deductedDollarRate').addEventListener('input', function () {
+      saveDollarRates();
+      render();
+    });
+
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'Enter' && event.ctrlKey) {
+        addRow();
+      }
+    });
+  });
+</script>
+
+</body>
+</html>
