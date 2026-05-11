@@ -1230,6 +1230,127 @@
       }
     }
 
+
+    /* ===== ألوان الخدمات في مكتبة العروض السريعة ===== */
+    .service-color-panel {
+      margin: .85rem 0 1rem;
+      padding: .85rem;
+      border: 1px solid rgba(79,142,247,.20);
+      border-radius: 16px;
+      background: rgba(17,20,33,.56);
+    }
+
+    .service-color-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .7rem;
+      flex-wrap: wrap;
+      margin-bottom: .7rem;
+    }
+
+    .service-color-title {
+      font-weight: 900;
+      color: var(--accent);
+      font-size: .86rem;
+    }
+
+    .service-color-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: .55rem;
+    }
+
+    .service-color-item {
+      display: grid;
+      grid-template-columns: 32px 1fr 46px;
+      align-items: center;
+      gap: .55rem;
+      border: 1px solid rgba(148,163,184,.15);
+      background: rgba(26,29,46,.62);
+      border-radius: 14px;
+      padding: .52rem;
+      border-right: 5px solid var(--service-color, var(--accent));
+    }
+
+    .service-dot {
+      width: 14px;
+      height: 14px;
+      display: inline-block;
+      border-radius: 999px;
+      background: var(--service-color, var(--accent));
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--service-color, var(--accent)) 18%, transparent);
+      vertical-align: middle;
+      flex: 0 0 auto;
+    }
+
+    .service-name-cell {
+      display: flex;
+      align-items: center;
+      gap: .45rem;
+    }
+
+    .service-color-name {
+      font-size: .78rem;
+      font-weight: 900;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .color-input {
+      width: 44px;
+      height: 34px;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .preset-list tbody tr {
+      border-right: 5px solid var(--service-color, transparent);
+    }
+
+    #presetSelect {
+      border-right: 5px solid var(--selected-service-color, var(--border));
+    }
+
+    .preset-color-preview {
+      display: flex;
+      align-items: center;
+      gap: .45rem;
+      margin: .55rem 0 .15rem;
+      color: var(--muted);
+      font-size: .75rem;
+      font-weight: 800;
+    }
+
+    @media(max-width: 760px) {
+      .service-color-panel {
+        padding: .65rem;
+        border-radius: 14px;
+      }
+
+      .service-color-grid {
+        grid-template-columns: 1fr;
+        gap: .45rem;
+      }
+
+      .service-color-item {
+        grid-template-columns: 28px 1fr 42px;
+        padding: .45rem;
+      }
+
+      .service-color-name {
+        font-size: .74rem;
+      }
+
+      .preset-color-preview {
+        font-size: .7rem;
+      }
+    }
+
   </style>
 </head>
 
@@ -1479,9 +1600,21 @@
 
       <div class="field" style="margin-bottom:.9rem">
         <label>القائمة المختصرة للعروض</label>
-        <select id="presetSelect">
+        <select id="presetSelect" onchange="updatePresetSelectColorPreview()">
           <option value="">— اختار عرض محفوظ —</option>
         </select>
+        <div id="presetSelectColorPreview" class="preset-color-preview hidden-section"></div>
+      </div>
+
+      <div class="service-color-panel">
+        <div class="service-color-head">
+          <div>
+            <div class="service-color-title">🎨 ألوان الخدمات</div>
+            <div class="filter-note" style="margin:0">اختار لون لكل خدمة عشان تميز العروض بسرعة. اللون بيتحفظ ويتزامن مع باقي الأجهزة.</div>
+          </div>
+          <button class="small-btn" type="button" onclick="resetServiceColors()">إعادة ألوان تلقائية</button>
+        </div>
+        <div id="serviceColorEditor" class="service-color-grid"></div>
       </div>
 
       <div class="preset-tools">
@@ -1740,6 +1873,7 @@
   const STORAGE_SYNC_ENABLED = 'profit_sync_enabled_v1';
   const STORAGE_SYNC_DEVICE_ID = 'profit_sync_device_id_v1';
   const STORAGE_LAST_SYNC_AT = 'profit_last_sync_at_v1';
+  const STORAGE_SERVICE_COLORS = 'profit_service_colors_v1';
   // إعدادات المزامنة الافتراضية — عشان الموقع يفتح ويزامن مباشرة بدون إدخال الكود كل مرة
   const DEFAULT_SYNC_CODE = 'MOX-258-989';
   const DEFAULT_FIREBASE_CONFIG = {
@@ -1756,6 +1890,7 @@
   let rows = [];
   let presets = [];
   let expenses = [];
+  let serviceColors = {};
 
   let cloudDb = null;
   let cloudDocRef = null;
@@ -2019,6 +2154,155 @@
 
   function calcProfit(row) {
     return (Number(row.paid) || 0) - (Number(row.deducted) || 0);
+  }
+
+
+  const SERVICE_COLOR_PALETTE = [
+    '#4f8ef7', '#22c55e', '#a78bfa', '#f59e0b', '#ef4444',
+    '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#14b8a6',
+    '#8b5cf6', '#eab308', '#10b981', '#60a5fa', '#fb7185'
+  ];
+
+  function normalizeServiceName(name) {
+    return String(name || '').trim();
+  }
+
+  function hashString(value) {
+    const text = String(value || '');
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+      hash = ((hash << 5) - hash) + text.charCodeAt(i);
+      hash |= 0;
+    }
+    return Math.abs(hash);
+  }
+
+  function colorForService(name) {
+    const normalized = normalizeServiceName(name);
+    if (!normalized) return '#4f8ef7';
+    return SERVICE_COLOR_PALETTE[hashString(normalized) % SERVICE_COLOR_PALETTE.length];
+  }
+
+  function normalizeColor(value, fallback) {
+    const text = String(value || '').trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(text)) return text;
+    return fallback || '#4f8ef7';
+  }
+
+  function hexToRgba(hex, alpha) {
+    const color = normalizeColor(hex, '#4f8ef7').replace('#', '');
+    const r = parseInt(color.slice(0, 2), 16);
+    const g = parseInt(color.slice(2, 4), 16);
+    const b = parseInt(color.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  function loadServiceColors() {
+    try {
+      serviceColors = JSON.parse(localStorage.getItem(STORAGE_SERVICE_COLORS)) || {};
+    } catch (e) {
+      serviceColors = {};
+    }
+  }
+
+  function saveServiceColors() {
+    localStorage.setItem(STORAGE_SERVICE_COLORS, JSON.stringify(serviceColors));
+    scheduleCloudSync('service-colors');
+  }
+
+  function getServiceColor(name) {
+    const normalized = normalizeServiceName(name);
+    if (!normalized) return '#4f8ef7';
+    if (!serviceColors[normalized]) {
+      serviceColors[normalized] = colorForService(normalized);
+      localStorage.setItem(STORAGE_SERVICE_COLORS, JSON.stringify(serviceColors));
+    }
+    return normalizeColor(serviceColors[normalized], colorForService(normalized));
+  }
+
+  function setServiceColor(name, color) {
+    const normalized = normalizeServiceName(name);
+    if (!normalized) return;
+    serviceColors[normalized] = normalizeColor(color, colorForService(normalized));
+    saveServiceColors();
+    renderPresets();
+    render();
+    showToast(`✅ تم تحديث لون خدمة ${normalized}.`);
+  }
+
+  function getServiceNames() {
+    return [...new Set([
+      ...presets.map(preset => normalizeServiceName(preset.item)),
+      ...rows.map(row => normalizeServiceName(row.item))
+    ].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ar', { sensitivity: 'base', numeric: true }));
+  }
+
+  function ensureServiceColorsForCurrentData() {
+    let changed = false;
+    getServiceNames().forEach(name => {
+      if (!serviceColors[name]) {
+        serviceColors[name] = colorForService(name);
+        changed = true;
+      }
+    });
+    if (changed) localStorage.setItem(STORAGE_SERVICE_COLORS, JSON.stringify(serviceColors));
+  }
+
+  function renderServiceColorEditor() {
+    const wrap = document.getElementById('serviceColorEditor');
+    if (!wrap) return;
+
+    ensureServiceColorsForCurrentData();
+    const names = getServiceNames();
+
+    if (!names.length) {
+      wrap.innerHTML = '<div class="filter-note">لا توجد خدمات بعد. عند إضافة عروض هتظهر هنا لاختيار ألوانها.</div>';
+      return;
+    }
+
+    wrap.innerHTML = names.map(name => {
+      const color = getServiceColor(name);
+      return `
+        <div class="service-color-item" style="--service-color:${color}">
+          <span class="service-dot" style="--service-color:${color}"></span>
+          <div class="service-color-name" title="${escapeHTML(name)}">${escapeHTML(name)}</div>
+          <input class="color-input" type="color" value="${color}" title="تغيير لون ${escapeHTML(name)}" onchange="setServiceColor('${escapeHTML(name).replaceAll('\\', '\\\\')}', this.value)">
+        </div>
+      `;
+    }).join('');
+  }
+
+  function resetServiceColors() {
+    const confirmed = confirm('هل تريد إعادة ألوان كل الخدمات تلقائيًا؟');
+    if (!confirmed) return;
+
+    serviceColors = {};
+    getServiceNames().forEach(name => {
+      serviceColors[name] = colorForService(name);
+    });
+    saveServiceColors();
+    renderPresets();
+    render();
+    showToast('✅ تم إعادة تعيين ألوان الخدمات.');
+  }
+
+  function updatePresetSelectColorPreview() {
+    const select = document.getElementById('presetSelect');
+    const preview = document.getElementById('presetSelectColorPreview');
+    if (!select || !preview) return;
+
+    const preset = presets[Number(select.value)];
+    if (!preset) {
+      preview.classList.add('hidden-section');
+      preview.innerHTML = '';
+      select.style.setProperty('--selected-service-color', 'var(--border)');
+      return;
+    }
+
+    const color = getServiceColor(preset.item);
+    select.style.setProperty('--selected-service-color', color);
+    preview.classList.remove('hidden-section');
+    preview.innerHTML = `<span class="service-dot" style="--service-color:${color}"></span><span>${escapeHTML(preset.item)} — ${escapeHTML(preset.offer)}</span>`;
   }
 
   function createRowObject(date, item, offer, paid, deducted) {
@@ -2678,22 +2962,28 @@
   }
 
   function renderPresetSelect() {
-    const searchValue = document.getElementById('presetSearchInput')?.value.trim().toLowerCase() || '';
+    const searchValue = normalizeText(document.getElementById('presetSearchInput')?.value || '');
     const select = document.getElementById('presetSelect');
 
+    if (!select) return;
     select.innerHTML = '<option value="">— اختار عرض محفوظ —</option>';
 
     presets.forEach((preset, index) => {
-      const label = `${preset.item} — ${preset.offer} | دخل ${fmt(preset.paid)} | تكلفة ${fmt(preset.deducted)}`;
-      const searchable = label.toLowerCase();
+      const label = `${preset.item} — ${preset.offer}`;
+      const searchable = normalizeText(`${preset.item || ''} ${preset.offer || ''} ${preset.paid || ''} ${preset.deducted || ''} ${calcProfit(preset)}`);
 
       if (searchValue && !searchable.includes(searchValue)) return;
 
+      const color = getServiceColor(preset.item);
       const option = document.createElement('option');
       option.value = index;
       option.textContent = label;
+      option.style.background = hexToRgba(color, .18);
+      option.style.color = '#e2e8f0';
       select.appendChild(option);
     });
+
+    updatePresetSelectColorPreview();
   }
 
   function renderPresetList() {
@@ -2703,18 +2993,23 @@
     presets.forEach((preset, index) => {
       const profit = calcProfit(preset);
       const profitClass = profit >= 0 ? 'profit-val' : 'loss-val';
+      const serviceColor = getServiceColor(preset.item);
 
       const tr = document.createElement('tr');
+      tr.style.setProperty('--service-color', serviceColor);
 
       tr.innerHTML = `
         <td data-label="#">${index + 1}</td>
 
         <td data-label="المنتج / الخدمة">
-          <input
-            class="editable preset-edit-input"
-            value="${escapeHTML(preset.item)}"
-            onchange="updatePreset(${index}, 'item', this.value)"
-          >
+          <div class="service-name-cell">
+            <span class="service-dot" style="--service-color:${serviceColor}"></span>
+            <input
+              class="editable preset-edit-input"
+              value="${escapeHTML(preset.item)}"
+              onchange="updatePreset(${index}, 'item', this.value)"
+            >
+          </div>
         </td>
 
         <td data-label="العرض">
@@ -2766,6 +3061,7 @@
   function renderPresets() {
     renderPresetSelect();
     renderPresetList();
+    renderServiceColorEditor();
   }
 
   function getPresetFormValues() {
@@ -2811,6 +3107,8 @@
     if (!values) return;
 
     presets.push(createPresetObject(values.item, values.offer, values.paid, values.deducted));
+    getServiceColor(values.item);
+    saveServiceColors();
 
     savePresets();
     renderPresets();
@@ -2865,6 +3163,11 @@
       presets[index][key] = parseFloat(value) || 0;
     } else {
       presets[index][key] = value;
+    }
+
+    if (key === 'item') {
+      getServiceColor(value);
+      saveServiceColors();
     }
 
     presets[index].updatedAt = new Date().toISOString();
@@ -3020,6 +3323,8 @@
     }
 
     presets.push(createPresetObject(item, offer, paid, deducted));
+    getServiceColor(item);
+    saveServiceColors();
     savePresets();
     renderPresets();
 
@@ -4046,7 +4351,7 @@
     return {
       appName: 'Profit Calculator',
       format: 'mox-v2-cloud-full-backup-sync',
-      version: 13,
+      version: 14,
       reason: reason || 'sync',
       updatedAt: new Date().toISOString(),
       clientId: getOrCreateDeviceId(),
@@ -4059,6 +4364,7 @@
       rows,
       presets,
       expenses,
+      serviceColors,
       deletedStack: getDeletedStack(),
       settings: {
         walletDollarRate: document.getElementById('walletDollarRate')?.value || localStorage.getItem(STORAGE_WALLET_DOLLAR_RATE) || '53',
@@ -4111,6 +4417,11 @@
 
       if (Array.isArray(data.expenses)) {
         localStorage.setItem(STORAGE_EXPENSES, JSON.stringify(data.expenses));
+        applied = true;
+      }
+
+      if (data.serviceColors && typeof data.serviceColors === 'object') {
+        localStorage.setItem(STORAGE_SERVICE_COLORS, JSON.stringify(data.serviceColors));
         applied = true;
       }
 
@@ -4376,12 +4687,13 @@
     return {
       appName: 'Profit Calculator',
       format: 'mox-v2-full-backup',
-      version: 11,
+      version: 14,
       label: label || 'backup',
       exportedAt: new Date().toISOString(),
       rows,
       presets,
       expenses,
+      serviceColors,
       deletedStack: getDeletedStack(),
       settings: {
         walletDollarRate: document.getElementById('walletDollarRate')?.value || localStorage.getItem(STORAGE_WALLET_DOLLAR_RATE) || '53',
@@ -4445,6 +4757,10 @@
       localStorage.setItem(STORAGE_EXPENSES, JSON.stringify(backup.expenses));
     }
 
+    if (backup.serviceColors && typeof backup.serviceColors === 'object') {
+      localStorage.setItem(STORAGE_SERVICE_COLORS, JSON.stringify(backup.serviceColors));
+    }
+
     if (Array.isArray(backup.deletedStack)) {
       setDeletedStack(backup.deletedStack);
     }
@@ -4463,6 +4779,7 @@
     loadPresets();
     loadExpenses();
     loadDollarRates();
+    loadServiceColors();
 
     renderPresets();
     renderExpenses();
@@ -4611,6 +4928,7 @@
     loadPresets();
     loadExpenses();
     loadDollarRates();
+    loadServiceColors();
 
     renderPresets();
     renderExpenses();
