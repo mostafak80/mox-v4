@@ -1351,6 +1351,285 @@
       }
     }
 
+
+
+    /* ===== اختيارات شكل سجل العمليات ===== */
+    .view-options-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+      gap: .6rem;
+      margin-top: .65rem;
+      padding-top: .65rem;
+      border-top: 1px solid rgba(148,163,184,.12);
+    }
+
+    .view-hint {
+      color: var(--muted2);
+      font-size: .68rem;
+      line-height: 1.65;
+      margin-top: .35rem;
+    }
+
+    #tableContent {
+      --rows-font-scale: 1;
+      --rows-padding-scale: 1;
+      transition: background .18s ease, border-color .18s ease;
+    }
+
+    #tableContent.rows-size-small {
+      --rows-font-scale: .86;
+      --rows-padding-scale: .78;
+    }
+
+    #tableContent.rows-size-medium {
+      --rows-font-scale: 1;
+      --rows-padding-scale: 1;
+    }
+
+    #tableContent.rows-size-large {
+      --rows-font-scale: 1.12;
+      --rows-padding-scale: 1.16;
+    }
+
+    #tableContent table {
+      font-size: calc(.88rem * var(--rows-font-scale));
+    }
+
+    #tableContent td {
+      padding: calc(.65rem * var(--rows-padding-scale)) calc(.8rem * var(--rows-padding-scale));
+    }
+
+    #tableContent .editable {
+      font-size: calc(.86rem * var(--rows-font-scale));
+      padding: calc(.35rem * var(--rows-padding-scale)) calc(.4rem * var(--rows-padding-scale));
+    }
+
+    #tableContent tbody tr {
+      border-right: 5px solid var(--row-service-color, transparent);
+    }
+
+    #tableContent.rows-view-compact table {
+      min-width: 780px;
+      font-size: calc(.76rem * var(--rows-font-scale));
+    }
+
+    #tableContent.rows-view-compact td,
+    #tableContent.rows-view-compact th {
+      padding: calc(.45rem * var(--rows-padding-scale)) calc(.55rem * var(--rows-padding-scale));
+    }
+
+    #tableContent.rows-view-compact .editable {
+      min-width: 80px;
+      min-height: 32px;
+    }
+
+    #tableContent.rows-view-cards,
+    #tableContent.rows-view-mini,
+    #tableContent.rows-view-grid,
+    #tableContent.rows-view-timeline {
+      overflow: visible;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+      backdrop-filter: none;
+    }
+
+    #tableContent.rows-view-cards table,
+    #tableContent.rows-view-mini table,
+    #tableContent.rows-view-grid table,
+    #tableContent.rows-view-timeline table {
+      min-width: 0;
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0 .65rem;
+    }
+
+    #tableContent.rows-view-cards thead,
+    #tableContent.rows-view-mini thead,
+    #tableContent.rows-view-grid thead,
+    #tableContent.rows-view-timeline thead {
+      display: none;
+    }
+
+    #tableContent.rows-view-cards tbody,
+    #tableContent.rows-view-cards tr,
+    #tableContent.rows-view-cards td,
+    #tableContent.rows-view-mini tbody,
+    #tableContent.rows-view-mini tr,
+    #tableContent.rows-view-mini td,
+    #tableContent.rows-view-grid tbody,
+    #tableContent.rows-view-grid tr,
+    #tableContent.rows-view-grid td,
+    #tableContent.rows-view-timeline tbody,
+    #tableContent.rows-view-timeline tr,
+    #tableContent.rows-view-timeline td {
+      display: block;
+      width: 100%;
+    }
+
+    #tableContent.rows-view-cards tbody,
+    #tableContent.rows-view-mini tbody,
+    #tableContent.rows-view-grid tbody {
+      display: grid;
+      gap: .75rem;
+    }
+
+    #tableContent.rows-view-cards tbody {
+      grid-template-columns: repeat(auto-fit, minmax(315px, 1fr));
+    }
+
+    #tableContent.rows-view-mini tbody {
+      grid-template-columns: repeat(auto-fit, minmax(255px, 1fr));
+    }
+
+    #tableContent.rows-view-grid tbody {
+      grid-template-columns: repeat(auto-fit, minmax(205px, 1fr));
+    }
+
+    #tableContent.rows-view-cards tbody tr,
+    #tableContent.rows-view-mini tbody tr,
+    #tableContent.rows-view-grid tbody tr,
+    #tableContent.rows-view-timeline tbody tr {
+      position: relative;
+      border: 1px solid rgba(148,163,184,.16);
+      border-right: 6px solid var(--row-service-color, var(--accent));
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(26,29,46,.9), rgba(17,20,33,.75));
+      box-shadow: 0 12px 28px rgba(0,0,0,.14);
+      padding: calc(.72rem * var(--rows-padding-scale));
+      overflow: hidden;
+    }
+
+    #tableContent.rows-view-cards td,
+    #tableContent.rows-view-mini td,
+    #tableContent.rows-view-grid td,
+    #tableContent.rows-view-timeline td {
+      border-top: 0;
+      white-space: normal;
+      padding: calc(.34rem * var(--rows-padding-scale)) .1rem;
+      font-size: calc(.82rem * var(--rows-font-scale));
+    }
+
+    #tableContent.rows-view-cards td::before,
+    #tableContent.rows-view-mini td::before,
+    #tableContent.rows-view-grid td::before,
+    #tableContent.rows-view-timeline td::before {
+      content: attr(data-label);
+      display: block;
+      color: var(--muted2);
+      font-size: calc(.65rem * var(--rows-font-scale));
+      font-weight: 900;
+      margin-bottom: .12rem;
+    }
+
+    #tableContent.rows-view-cards td:not([data-label])::before,
+    #tableContent.rows-view-mini td:not([data-label])::before,
+    #tableContent.rows-view-grid td:not([data-label])::before,
+    #tableContent.rows-view-timeline td:not([data-label])::before {
+      display: none;
+    }
+
+    #tableContent.rows-view-cards .editable,
+    #tableContent.rows-view-mini .editable,
+    #tableContent.rows-view-grid .editable,
+    #tableContent.rows-view-timeline .editable {
+      width: 100%;
+      min-width: 0;
+      min-height: 38px;
+      border-color: rgba(148,163,184,.13);
+      background: rgba(17,20,33,.66);
+    }
+
+    #tableContent.rows-view-mini td,
+    #tableContent.rows-view-grid td {
+      padding: calc(.22rem * var(--rows-padding-scale)) .05rem;
+      font-size: calc(.75rem * var(--rows-font-scale));
+    }
+
+    #tableContent.rows-view-mini .editable,
+    #tableContent.rows-view-grid .editable {
+      min-height: 32px;
+      padding: .25rem .35rem;
+    }
+
+    #tableContent.rows-view-grid td[data-label="مصروف العملية"],
+    #tableContent.rows-view-grid td[data-label="إجراء"] {
+      display: none;
+    }
+
+    #tableContent.rows-view-timeline tbody {
+      display: grid;
+      gap: .7rem;
+      position: relative;
+      padding-right: .85rem;
+      border-right: 2px solid rgba(79,142,247,.18);
+    }
+
+    #tableContent.rows-view-timeline tbody tr::before {
+      content: '';
+      position: absolute;
+      right: -1.05rem;
+      top: 1rem;
+      width: .8rem;
+      height: .8rem;
+      border-radius: 999px;
+      background: var(--row-service-color, var(--accent));
+      box-shadow: 0 0 0 5px rgba(79,142,247,.10);
+    }
+
+    #tableContent.rows-view-mini td[data-label="#"],
+    #tableContent.rows-view-grid td[data-label="#"] {
+      position: absolute;
+      left: .65rem;
+      top: .55rem;
+      width: auto;
+      color: var(--muted2);
+      font-size: .7rem;
+      font-weight: 900;
+    }
+
+    #tableContent.rows-view-mini td[data-label="#"]::before,
+    #tableContent.rows-view-grid td[data-label="#"]::before {
+      display: none;
+    }
+
+    #tableContent.rows-view-grid td[data-label="المنتج / الخدمة"] input,
+    #tableContent.rows-view-mini td[data-label="المنتج / الخدمة"] input {
+      font-weight: 900;
+      color: var(--text);
+    }
+
+    @media(max-width: 760px) {
+      .view-options-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: .5rem;
+      }
+
+      #tableContent.rows-view-cards tbody,
+      #tableContent.rows-view-mini tbody,
+      #tableContent.rows-view-grid tbody {
+        grid-template-columns: 1fr;
+      }
+
+      #tableContent.rows-view-grid tbody {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      #tableContent.rows-view-grid td[data-label="التاريخ"] {
+        display: none;
+      }
+    }
+
+    @media(max-width: 380px) {
+      .view-options-grid {
+        grid-template-columns: 1fr;
+      }
+
+      #tableContent.rows-view-grid tbody {
+        grid-template-columns: 1fr;
+      }
+    }
+
   </style>
 </head>
 
@@ -1814,6 +2093,32 @@
         </div>
         <button class="btn btn-export" type="button" onclick="clearRowTextFilters()">مسح بحث المنتج</button>
       </div>
+
+      <div class="view-options-grid">
+        <div class="field">
+          <label>شكل سجل العمليات</label>
+          <select id="rowsViewModeSelect" onchange="setRowsViewMode(this.value)">
+            <option value="table">جدول كامل</option>
+            <option value="compact">جدول مضغوط</option>
+            <option value="cards">كروت كبيرة</option>
+            <option value="mini">كروت صغيرة</option>
+            <option value="grid">مربعات مختصرة</option>
+            <option value="timeline">تايم لاين</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>حجم السجل</label>
+          <select id="rowsViewSizeSelect" onchange="setRowsViewSize(this.value)">
+            <option value="small">صغير</option>
+            <option value="medium">متوسط</option>
+            <option value="large">كبير</option>
+          </select>
+        </div>
+
+        <button class="btn btn-purple" type="button" onclick="resetRowsViewOptions()">إعادة الشكل الافتراضي</button>
+      </div>
+      <div class="view-hint">اختيارات شكل وحجم سجل العمليات محفوظة تلقائيًا، وهتفضل زي ما سيبتها بعد قفل وفتح الموقع.</div>
     </div>
 
     <div id="tableContent" class="table-wrap">
@@ -1874,6 +2179,9 @@
   const STORAGE_SYNC_DEVICE_ID = 'profit_sync_device_id_v1';
   const STORAGE_LAST_SYNC_AT = 'profit_last_sync_at_v1';
   const STORAGE_SERVICE_COLORS = 'profit_service_colors_v1';
+  const STORAGE_ROWS_VIEW_MODE = 'profit_rows_view_mode_v1';
+  const STORAGE_ROWS_VIEW_SIZE = 'profit_rows_view_size_v1';
+  const STORAGE_SECTION_STATE = 'profit_section_state_v1';
   // إعدادات المزامنة الافتراضية — عشان الموقع يفتح ويزامن مباشرة بدون إدخال الكود كل مرة
   const DEFAULT_SYNC_CODE = 'MOX-258-989';
   const DEFAULT_FIREBASE_CONFIG = {
@@ -1891,6 +2199,8 @@
   let presets = [];
   let expenses = [];
   let serviceColors = {};
+  let rowsViewMode = 'table';
+  let rowsViewSize = 'medium';
 
   let cloudDb = null;
   let cloudDocRef = null;
@@ -1972,6 +2282,7 @@
 
     setSectionButtonLabelByChild(ids[0], 'إخفاء');
     setMobileNavActive(id);
+    saveSectionState();
   }
 
   function closeSectionGroupForTarget(id) {
@@ -1989,6 +2300,7 @@
 
     setSectionButtonLabelByChild(ids[0], 'إظهار');
     setMobileNavActive('');
+    saveSectionState();
   }
 
   function setMobileNavActive(id) {
@@ -2091,6 +2403,8 @@
     if (button) {
       button.textContent = section.classList.contains('hidden-section') ? 'إظهار' : 'إخفاء';
     }
+
+    saveSectionState();
   }
 
   function toggleMultiSection(ids, button) {
@@ -2106,6 +2420,8 @@
     if (button) {
       button.textContent = shouldShow ? 'إخفاء' : 'إظهار';
     }
+
+    saveSectionState();
   }
 
   function collapseAllSectionsOnStart() {
@@ -2121,6 +2437,146 @@
       button.textContent = 'إظهار';
     });
 
+    setMobileNavActive('');
+  }
+
+
+  function getSafeJsonFromStorage(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (e) {
+      return fallback;
+    }
+  }
+
+  function loadRowsViewOptions() {
+    const allowedModes = ['table', 'compact', 'cards', 'mini', 'grid', 'timeline'];
+    const allowedSizes = ['small', 'medium', 'large'];
+
+    const savedMode = localStorage.getItem(STORAGE_ROWS_VIEW_MODE) || 'table';
+    const savedSize = localStorage.getItem(STORAGE_ROWS_VIEW_SIZE) || 'medium';
+
+    rowsViewMode = allowedModes.includes(savedMode) ? savedMode : 'table';
+    rowsViewSize = allowedSizes.includes(savedSize) ? savedSize : 'medium';
+
+    const modeSelect = document.getElementById('rowsViewModeSelect');
+    const sizeSelect = document.getElementById('rowsViewSizeSelect');
+
+    if (modeSelect) modeSelect.value = rowsViewMode;
+    if (sizeSelect) sizeSelect.value = rowsViewSize;
+
+    applyRowsViewOptions();
+  }
+
+  function saveRowsViewOptions() {
+    localStorage.setItem(STORAGE_ROWS_VIEW_MODE, rowsViewMode);
+    localStorage.setItem(STORAGE_ROWS_VIEW_SIZE, rowsViewSize);
+    scheduleCloudSync('rows-view-options');
+  }
+
+  function applyRowsViewOptions() {
+    const tableWrap = document.getElementById('tableContent');
+    if (!tableWrap) return;
+
+    tableWrap.classList.remove(
+      'rows-view-table',
+      'rows-view-compact',
+      'rows-view-cards',
+      'rows-view-mini',
+      'rows-view-grid',
+      'rows-view-timeline',
+      'rows-size-small',
+      'rows-size-medium',
+      'rows-size-large'
+    );
+
+    tableWrap.classList.add(`rows-view-${rowsViewMode}`);
+    tableWrap.classList.add(`rows-size-${rowsViewSize}`);
+  }
+
+  function setRowsViewMode(value) {
+    const allowed = ['table', 'compact', 'cards', 'mini', 'grid', 'timeline'];
+    rowsViewMode = allowed.includes(value) ? value : 'table';
+    applyRowsViewOptions();
+    saveRowsViewOptions();
+    showToast('✅ تم حفظ شكل سجل العمليات.');
+  }
+
+  function setRowsViewSize(value) {
+    const allowed = ['small', 'medium', 'large'];
+    rowsViewSize = allowed.includes(value) ? value : 'medium';
+    applyRowsViewOptions();
+    saveRowsViewOptions();
+    showToast('✅ تم حفظ حجم سجل العمليات.');
+  }
+
+  function resetRowsViewOptions() {
+    rowsViewMode = 'table';
+    rowsViewSize = 'medium';
+
+    const modeSelect = document.getElementById('rowsViewModeSelect');
+    const sizeSelect = document.getElementById('rowsViewSizeSelect');
+    if (modeSelect) modeSelect.value = rowsViewMode;
+    if (sizeSelect) sizeSelect.value = rowsViewSize;
+
+    applyRowsViewOptions();
+    saveRowsViewOptions();
+    showToast('✅ تم رجوع شكل سجل العمليات للوضع الافتراضي.');
+  }
+
+  function saveSectionState() {
+    const state = {};
+
+    COLLAPSIBLE_CONTENT_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) state[id] = !el.classList.contains('hidden-section');
+    });
+
+    localStorage.setItem(STORAGE_SECTION_STATE, JSON.stringify(state));
+    scheduleCloudSync('section-state');
+  }
+
+  function updateSectionButtonsFromState() {
+    const handled = new Set();
+
+    COLLAPSIBLE_CONTENT_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+
+      const section = el.closest('.section');
+      if (!section || handled.has(section)) return;
+      handled.add(section);
+
+      const button = section.querySelector('.section-head .toggle-btn');
+      if (!button) return;
+
+      const sectionContent = [...section.querySelectorAll('.panel, .summary, .table-wrap')]
+        .filter(node => node.id && COLLAPSIBLE_CONTENT_IDS.includes(node.id));
+      const hasVisible = sectionContent.some(node => !node.classList.contains('hidden-section'));
+      button.textContent = hasVisible ? 'إخفاء' : 'إظهار';
+    });
+  }
+
+  function applySavedSectionState() {
+    const saved = getSafeJsonFromStorage(STORAGE_SECTION_STATE, null);
+
+    if (!saved) {
+      collapseAllSectionsOnStart();
+      saveSectionState();
+      return;
+    }
+
+    COLLAPSIBLE_CONTENT_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.toggle('hidden-section', saved[id] !== true);
+    });
+
+    const preview = document.getElementById('latestRowsPreview');
+    if (preview) preview.classList.add('hidden-section');
+
+    updateSectionButtonsFromState();
     setMobileNavActive('');
   }
 
@@ -2795,6 +3251,8 @@
     if (isHidden) {
       renderLatestRowsPreview();
     }
+
+    saveSectionState();
   }
 
   function renderLatestRowsPreview() {
@@ -3332,6 +3790,7 @@
   }
 
   function render() {
+    applyRowsViewOptions();
     const body = document.getElementById('tableBody');
     const emptyState = document.getElementById('emptyState');
     const visibleRows = getFilteredRowsWithIndexes();
@@ -3350,8 +3809,10 @@
       operationExpensesTotal += deducted;
 
       const profitClass = profit >= 0 ? 'profit-val' : 'loss-val';
+      const rowServiceColor = getServiceColor(row.item);
 
       const tr = document.createElement('tr');
+      tr.style.setProperty('--row-service-color', rowServiceColor);
 
       tr.innerHTML = `
         <td data-label="#">${displayIndex + 1}</td>
@@ -4780,6 +5241,8 @@
     loadExpenses();
     loadDollarRates();
     loadServiceColors();
+    loadRowsViewOptions();
+    applySavedSectionState();
 
     renderPresets();
     renderExpenses();
@@ -4929,11 +5392,12 @@
     loadExpenses();
     loadDollarRates();
     loadServiceColors();
+    loadRowsViewOptions();
 
     renderPresets();
     renderExpenses();
     render();
-    collapseAllSectionsOnStart();
+    applySavedSectionState();
     saveSafetyBackupIfUseful();
 
     document.getElementById('walletDollarRate').addEventListener('input', function () {
