@@ -620,7 +620,7 @@
     <div class="section-head">
       <div>
         <div class="section-title">📊 لوحة ملخص الأرباح</div>
-        <div class="section-subtitle">المصاريف الثابتة لا تظهر في إجمالي مصاريف العمليات، لكنها تُخصم من صافي المكسب فقط</div>
+        <div class="section-subtitle">عند عرض كل الأيام يتم خصم المصاريف الثابتة، وعند فلترة يوم أو فترة يظهر صافي مكسب العمليات فقط بدون المصاريف الثابتة</div>
       </div>
       <button class="toggle-btn" type="button" onclick="toggleSection('summaryContent', this)">إخفاء</button>
     </div>
@@ -672,7 +672,7 @@
       </div>
 
       <div class="card">
-        <div class="label">صافي المكسب</div>
+        <div class="label" id="profitLabel">صافي المكسب</div>
         <div class="value profit" id="profitTotal">0.00<span class="unit">EGP</span></div>
       </div>
 
@@ -1224,7 +1224,7 @@
     const toLabel = to ? formatDateLabel(to) : 'نهاية السجل';
     const filteredCount = getFilteredRowsWithIndexes().length;
 
-    note.textContent = `الملخص وسجل العمليات محسوبين للفترة من ${fromLabel} إلى ${toLabel} — عدد العمليات: ${filteredCount}.`;
+    note.textContent = `الملخص وسجل العمليات محسوبين للفترة من ${fromLabel} إلى ${toLabel} — عدد العمليات: ${filteredCount}. صافي المكسب هنا بدون خصم المصاريف الثابتة.`;
   }
 
   function applyFilters(keepQuickValue = false) {
@@ -1890,12 +1890,16 @@
     });
 
     const fixedExpensesTotal = totalFixedExpenses();
+    const activeDateFilter = hasActiveDateFilter();
 
     // إجمالي المصاريف المعروض = مصاريف العمليات داخل الفلتر فقط
     const visibleExpensesTotal = operationExpensesTotal;
 
-    // صافي المكسب = الداخل للمحفظة - مصاريف العمليات - المصاريف الثابتة
-    const profitTotal = walletTotal - operationExpensesTotal - fixedExpensesTotal;
+    // عند فلترة يوم أو فترة: صافي المكسب = دخل العمليات - مصاريف العمليات فقط
+    // عند عرض كل الأيام: صافي المكسب الكامل = دخل العمليات - مصاريف العمليات - المصاريف الثابتة
+    const profitTotal = activeDateFilter
+      ? walletTotal - operationExpensesTotal
+      : walletTotal - operationExpensesTotal - fixedExpensesTotal;
 
     const walletDollarRate = parseFloat(document.getElementById('walletDollarRate').value) || 0;
     const expensesDollarRate = parseFloat(document.getElementById('expensesDollarRate').value) || 0;
@@ -1916,6 +1920,13 @@
 
     document.getElementById('expensesUsdTotal').innerHTML =
       `${fmt(expensesUsdTotal)}<span class="unit">USD</span>`;
+
+    const profitLabelEl = document.getElementById('profitLabel');
+    if (profitLabelEl) {
+      profitLabelEl.textContent = activeDateFilter
+        ? 'صافي مكسب الفترة بدون المصاريف الثابتة'
+        : 'صافي المكسب بعد المصاريف الثابتة';
+    }
 
     const profitTotalEl = document.getElementById('profitTotal');
     profitTotalEl.innerHTML = `${fmt(profitTotal)}<span class="unit">EGP</span>`;
