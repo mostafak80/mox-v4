@@ -841,6 +841,7 @@
         <button class="btn btn-export" type="button" onclick="downloadBackup()">💾 نسخة احتياطية</button>
         <button class="btn btn-export" type="button" onclick="document.getElementById('backupInput').click()">📥 استرجاع نسخة</button>
         <input id="backupInput" type="file" accept="application/json" style="display:none" onchange="restoreBackup(event)">
+        <button class="btn btn-amber" type="button" onclick="restoreSafetyBackup()">🛟 استرجاع نسخة الأمان</button>
         <button class="btn btn-clear" type="button" onclick="clearAll()">🗑️ مسح العمليات</button>
       </div>
     </div>
@@ -939,6 +940,8 @@
   const STORAGE_DELETED_STACK = 'profit_calculator_deleted_stack_v2';
   const STORAGE_WALLET_DOLLAR_RATE = 'profit_wallet_dollar_rate_v2';
   const STORAGE_EXPENSES_DOLLAR_RATE = 'profit_expenses_dollar_rate_v2';
+  const STORAGE_SAFETY_BACKUP = 'profit_calculator_safety_backup_v1';
+  const STORAGE_BEFORE_RESTORE_BACKUP = 'profit_calculator_before_restore_backup_v1';
 
   let rows = [];
   let presets = [];
@@ -2055,8 +2058,7 @@
 
     const csv = [headers, ...csvRows]
       .map(row => row.map(value => `"${String(value ?? '').replaceAll('"', '""')}"`).join(','))
-      .join('
-');
+      .join('\n');
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -2067,6 +2069,131 @@
     link.click();
 
     URL.revokeObjectURL(url);
+  }
+
+  function makeBackupObject(label) {
+    return {
+      appName: 'Profit Calculator',
+      format: 'mox-v2-full-backup',
+      version: 11,
+      label: label || 'backup',
+      exportedAt: new Date().toISOString(),
+      rows,
+      presets,
+      expenses,
+      deletedStack: getDeletedStack(),
+      settings: {
+        walletDollarRate: document.getElementById('walletDollarRate')?.value || localStorage.getItem(STORAGE_WALLET_DOLLAR_RATE) || '53',
+        expensesDollarRate: document.getElementById('expensesDollarRate')?.value || localStorage.getItem(STORAGE_EXPENSES_DOLLAR_RATE) || '53'
+      },
+      storageSnapshot: getAppLocalStorageSnapshot()
+    };
+  }
+
+  function backupItemCount(backup) {
+    if (!backup) return 0;
+    return (Array.isArray(backup.rows) ? backup.rows.length : 0) +
+      (Array.isArray(backup.presets) ? backup.presets.length : 0) +
+      (Array.isArray(backup.expenses) ? backup.expenses.length : 0);
+  }
+
+  function saveSafetyBackupIfUseful() {
+    const currentCount = rows.length + presets.length + expenses.length;
+    if (!currentCount) return;
+
+    let oldCount = 0;
+    try {
+      oldCount = backupItemCount(JSON.parse(localStorage.getItem(STORAGE_SAFETY_BACKUP)));
+    } catch (e) {
+      oldCount = 0;
+    }
+
+    if (currentCount >= oldCount) {
+      localStorage.setItem(STORAGE_SAFETY_BACKUP, JSON.stringify(makeBackupObject('auto-safety-backup')));
+    }
+  }
+
+  function saveBeforeRestoreBackup() {
+    localStorage.setItem(STORAGE_BEFORE_RESTORE_BACKUP, JSON.stringify(makeBackupObject('before-restore-backup')));
+  }
+
+  function applyBackupObject(backup) {
+    if (!backup || typeof backup !== 'object') return false;
+
+    if (backup.storageSnapshot && typeof backup.storageSnapshot === 'object') {
+      Object.entries(backup.storageSnapshot).forEach(([key, value]) => {
+        if (key.startsWith('profit_')) {
+          if (value === null || value === undefined) {
+            localStorage.removeItem(key);
+          } else {
+            localStorage.setItem(key, String(value));
+          }
+        }
+      });
+    }
+
+    if (Array.isArray(backup.rows)) {
+      localStorage.setItem(STORAGE_ROWS, JSON.stringify(backup.rows));
+    }
+
+    if (Array.isArray(backup.presets)) {
+      localStorage.setItem(STORAGE_PRESETS, JSON.stringify(backup.presets));
+    }
+
+    if (Array.isArray(backup.expenses)) {
+      localStorage.setItem(STORAGE_EXPENSES, JSON.stringify(backup.expenses));
+    }
+
+    if (Array.isArray(backup.deletedStack)) {
+      setDeletedStack(backup.deletedStack);
+    }
+
+    if (backup.settings) {
+      if (backup.settings.walletDollarRate !== undefined) {
+        localStorage.setItem(STORAGE_WALLET_DOLLAR_RATE, backup.settings.walletDollarRate);
+      }
+
+      if (backup.settings.expensesDollarRate !== undefined) {
+        localStorage.setItem(STORAGE_EXPENSES_DOLLAR_RATE, backup.settings.expensesDollarRate);
+      }
+    }
+
+    loadRows();
+    loadPresets();
+    loadExpenses();
+    loadDollarRates();
+
+    renderPresets();
+    renderExpenses();
+    render();
+
+    return true;
+  }
+
+  function restoreSafetyBackup() {
+    const safetyRaw = localStorage.getItem(STORAGE_BEFORE_RESTORE_BACKUP) || localStorage.getItem(STORAGE_SAFETY_BACKUP);
+
+    if (!safetyRaw) {
+      showToast('ℹ️ لا توجد نسخة أمان محفوظة على هذا المتصفح.');
+      return;
+    }
+
+    const confirmed = confirm('⚠️ هل تريد استرجاع نسخة الأمان المحفوظة على نفس المتصفح؟ سيتم استبدال البيانات الحالية.');
+    if (!confirmed) return;
+
+    try {
+      const backup = JSON.parse(safetyRaw);
+      const restored = applyBackupObject(backup);
+
+      if (restored) {
+        showToast('✅ تم استرجاع نسخة الأمان بنجاح.');
+      } else {
+        showToast('⚠️ نسخة الأمان غير صحيحة.');
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('⚠️ حصل خطأ أثناء استرجاع نسخة الأمان.');
+    }
   }
 
   function getAppLocalStorageSnapshot() {
@@ -2083,25 +2210,7 @@
 
   function downloadBackup() {
     // حفظ كل بيانات التطبيق الموجودة في localStorage + نسخة واضحة من البيانات الحالية
-    const backup = {
-      appName: 'Profit Calculator',
-      format: 'mox-v2-full-backup',
-      version: 10,
-      exportedAt: new Date().toISOString(),
-
-      rows,
-      presets,
-      expenses,
-      deletedStack: getDeletedStack(),
-
-      settings: {
-        walletDollarRate: document.getElementById('walletDollarRate').value,
-        expensesDollarRate: document.getElementById('expensesDollarRate').value
-      },
-
-      // ده أهم جزء: بياخد لقطة كاملة من كل مفاتيح التخزين الخاصة بالتطبيق
-      storageSnapshot: getAppLocalStorageSnapshot()
-    };
+    const backup = makeBackupObject('manual-download-backup');
 
     const json = JSON.stringify(backup, null, 2);
     const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
@@ -2151,55 +2260,11 @@
           return;
         }
 
-        // استرجاع اللقطة الكاملة لو موجودة
-        if (backup.storageSnapshot && typeof backup.storageSnapshot === 'object') {
-          Object.entries(backup.storageSnapshot).forEach(([key, value]) => {
-            if (key.startsWith('profit_')) {
-              if (value === null || value === undefined) {
-                localStorage.removeItem(key);
-              } else {
-                localStorage.setItem(key, String(value));
-              }
-            }
-          });
-        }
+        // قبل أي استرجاع بنحفظ نسخة أمان من البيانات الحالية، عشان لو الملف غلط تقدر ترجعها
+        saveBeforeRestoreBackup();
 
-        // دعم النسخ القديمة أو أي ملف Backup مفيهوش storageSnapshot
-        if (Array.isArray(backup.rows)) {
-          localStorage.setItem(STORAGE_ROWS, JSON.stringify(backup.rows));
-        }
-
-        if (Array.isArray(backup.presets)) {
-          localStorage.setItem(STORAGE_PRESETS, JSON.stringify(backup.presets));
-        }
-
-        if (Array.isArray(backup.expenses)) {
-          localStorage.setItem(STORAGE_EXPENSES, JSON.stringify(backup.expenses));
-        }
-
-        if (Array.isArray(backup.deletedStack)) {
-          setDeletedStack(backup.deletedStack);
-        }
-
-        if (backup.settings) {
-          if (backup.settings.walletDollarRate !== undefined) {
-            localStorage.setItem(STORAGE_WALLET_DOLLAR_RATE, backup.settings.walletDollarRate);
-          }
-
-          if (backup.settings.expensesDollarRate !== undefined) {
-            localStorage.setItem(STORAGE_EXPENSES_DOLLAR_RATE, backup.settings.expensesDollarRate);
-          }
-        }
-
-        // إعادة تحميل كل البيانات من التخزين بعد الاسترجاع
-        loadRows();
-        loadPresets();
-        loadExpenses();
-        loadDollarRates();
-
-        renderPresets();
-        renderExpenses();
-        render();
+        applyBackupObject(backup);
+        saveSafetyBackupIfUseful();
 
         showToast('✅ تم استرجاع النسخة الاحتياطية الكاملة بنجاح.');
       } catch (error) {
@@ -2224,6 +2289,7 @@
     renderPresets();
     renderExpenses();
     render();
+    saveSafetyBackupIfUseful();
 
     document.getElementById('walletDollarRate').addEventListener('input', function () {
       saveDollarRates();
