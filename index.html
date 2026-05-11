@@ -639,6 +639,13 @@
       border: 1px solid rgba(239,68,68,.35);
     }
 
+
+    .btn-whatsapp {
+      background: rgba(37, 211, 102, .16);
+      color: #25d366;
+      border: 1px solid rgba(37, 211, 102, .38);
+    }
+
     .preset-list,
     .expense-list {
       margin-top: .9rem;
@@ -2015,6 +2022,7 @@
         <button class="btn btn-purple" type="button" onclick="setOrChangePassword()">🔐 كلمة مرور</button>
         <button class="btn btn-purple" type="button" onclick="lockNow()">🔒 قفل الآن</button>
         <button class="btn btn-export" type="button" onclick="downloadBackup()">💾 نسخة احتياطية</button>
+        <button class="btn btn-whatsapp" type="button" onclick="sendBackupToWhatsApp()">🟢 إرسال نسخة واتساب</button>
         <button class="btn btn-export" type="button" onclick="document.getElementById('backupInput').click()">📥 استرجاع نسخة</button>
         <input id="backupInput" type="file" accept="application/json" style="display:none" onchange="restoreBackup(event)">
         <button class="btn btn-amber" type="button" onclick="restoreSafetyBackup()">🛟 استرجاع نسخة الأمان</button>
@@ -5309,6 +5317,63 @@
     URL.revokeObjectURL(url);
 
     showToast('✅ تم تحميل النسخة الاحتياطية الكاملة.');
+  }
+
+
+  const WHATSAPP_BACKUP_PHONE = '201064870491';
+
+  function buildBackupFile(label = 'whatsapp-backup') {
+    const backup = makeBackupObject(label);
+    const json = JSON.stringify(backup, null, 2);
+    const safeTime = new Date().toISOString().replaceAll(':', '-').replaceAll('.', '-');
+    const fileName = `profit-backup-full-${today()}-${safeTime}.json`;
+    const file = new File([json], fileName, { type: 'application/json' });
+
+    return { backup, json, fileName, file };
+  }
+
+  function downloadBackupJson(json, fileName) {
+    const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    URL.revokeObjectURL(url);
+  }
+
+  async function sendBackupToWhatsApp() {
+    const { backup, json, fileName, file } = buildBackupFile('whatsapp-share-backup');
+    const countText = `${Array.isArray(backup.rows) ? backup.rows.length : 0} عملية، ${Array.isArray(backup.presets) ? backup.presets.length : 0} عرض، ${Array.isArray(backup.expenses) ? backup.expenses.length : 0} مصروف`;
+    const message = `نسخة احتياطية MOX-V2\nالملف: ${fileName}\nالمحتوى: ${countText}\nالتاريخ: ${new Date().toLocaleString('ar-EG')}`;
+
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+        await navigator.share({
+          title: 'نسخة احتياطية MOX-V2',
+          text: `${message}\n\nاختر WhatsApp وأرسل الملف إلى الرقم: +${WHATSAPP_BACKUP_PHONE}`,
+          files: [file]
+        });
+
+        showToast('✅ تم تجهيز ملف النسخة. اختر واتساب وأرسله للرقم المطلوب.');
+        return;
+      }
+    } catch (error) {
+      console.warn('Web Share failed, falling back to WhatsApp link:', error);
+    }
+
+    downloadBackupJson(json, fileName);
+
+    const whatsappMessage = encodeURIComponent(
+      `${message}\n\nتم تحميل ملف النسخة الاحتياطية على الجهاز. افتح المحادثة وأرفق ملف ${fileName}.`
+    );
+
+    window.open(`https://wa.me/${WHATSAPP_BACKUP_PHONE}?text=${whatsappMessage}`, '_blank');
+    showToast('✅ تم تحميل ملف النسخة وفتح واتساب على الرقم المطلوب. أرفق الملف في المحادثة.');
   }
 
   function restoreBackup(event) {
