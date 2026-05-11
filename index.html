@@ -432,6 +432,62 @@
       margin-top: .55rem;
     }
 
+
+    .sync-status {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      border: 1px solid rgba(79,142,247,.35);
+      background: rgba(79,142,247,.12);
+      color: var(--accent);
+      border-radius: 999px;
+      padding: .32rem .7rem;
+      font-size: .72rem;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .sync-status.ok {
+      border-color: rgba(34,197,94,.35);
+      background: rgba(34,197,94,.1);
+      color: var(--green);
+    }
+
+    .sync-status.warn {
+      border-color: rgba(245,158,11,.35);
+      background: rgba(245,158,11,.1);
+      color: var(--amber);
+    }
+
+    .sync-status.error {
+      border-color: rgba(239,68,68,.35);
+      background: rgba(239,68,68,.1);
+      color: var(--red);
+    }
+
+    .textarea-input {
+      width: 100%;
+      min-height: 115px;
+      resize: vertical;
+      background: #111421;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      padding: .72rem .82rem;
+      outline: none;
+      font-family: 'Courier New', monospace;
+      direction: ltr;
+      text-align: left;
+      line-height: 1.6;
+    }
+
+    .sync-actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: .6rem;
+      margin-top: .8rem;
+    }
+
     .lock-screen {
       position: fixed;
       inset: 0;
@@ -726,6 +782,62 @@
   </div>
 
   <div id="toast" class="toast"></div>
+
+
+  <div class="section">
+    <div class="section-head">
+      <div>
+        <div class="section-title">☁️ مزامنة الأجهزة</div>
+        <div class="section-subtitle">خلي الكمبيوتر والفون يقرأوا نفس البيانات من Firebase باستخدام كود مزامنة خاص بيك</div>
+      </div>
+      <div style="display:flex;gap:.55rem;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+        <span id="cloudSyncStatus" class="sync-status warn">غير متصل</span>
+        <button class="toggle-btn" type="button" onclick="toggleSection('cloudSyncContent', this)">إظهار</button>
+      </div>
+    </div>
+
+    <div id="cloudSyncContent" class="panel hidden-section">
+      <div class="filter-grid">
+        <div class="field">
+          <label>كود المزامنة الخاص</label>
+          <input id="syncCodeInput" type="text" placeholder="مثال: MOX-9K7Q-52HD">
+        </div>
+
+        <div class="field">
+          <label>آخر مزامنة</label>
+          <input id="lastSyncDisplay" type="text" value="لم تتم بعد" readonly>
+        </div>
+
+        <button class="btn btn-purple" type="button" onclick="saveFirebaseSettings()">💾 حفظ الإعدادات</button>
+      </div>
+
+      <div class="field">
+        <label>Firebase config</label>
+        <textarea id="firebaseConfigInput" class="textarea-input" placeholder='الصق هنا كود firebaseConfig من Firebase Console، مثال:
+{
+  apiKey: "...",
+  authDomain: "...firebaseapp.com",
+  projectId: "...",
+  storageBucket: "...appspot.com",
+  messagingSenderId: "...",
+  appId: "..."
+}'></textarea>
+      </div>
+
+      <div class="sync-actions">
+        <button class="btn btn-add" type="button" onclick="enableCloudSync()">☁️ تشغيل المزامنة</button>
+        <button class="btn btn-amber" type="button" onclick="disableCloudSync()">⏸️ إيقاف المزامنة</button>
+        <button class="btn btn-export" type="button" onclick="uploadLocalDataToCloud(true)">⬆️ رفع بيانات الجهاز</button>
+        <button class="btn btn-export" type="button" onclick="downloadCloudDataToLocal()">⬇️ تنزيل بيانات السحابة</button>
+        <button class="btn btn-purple" type="button" onclick="syncNow()">🔄 مزامنة الآن</button>
+      </div>
+
+      <div class="security-note">
+        أول مرة: اعمل مشروع Firebase وخد كود <b>firebaseConfig</b>، حطه هنا مع كود مزامنة قوي، واضغط حفظ ثم رفع بيانات الجهاز. على الموبايل افتح نفس الموقع وحط نفس الإعدادات واضغط تنزيل بيانات السحابة أو تشغيل المزامنة.
+        لا يتم رفع كلمة مرور الموقع المحلية إلى Firebase.
+      </div>
+    </div>
+  </div>
 
   <div class="section">
     <div class="section-head">
@@ -1125,6 +1237,9 @@
 
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+
 <script>
   const STORAGE_ROWS = 'profit_calculator_rows_v7';
   const STORAGE_PRESETS = 'profit_calculator_presets_v7';
@@ -1135,10 +1250,22 @@
   const STORAGE_SAFETY_BACKUP = 'profit_calculator_safety_backup_v1';
   const STORAGE_BEFORE_RESTORE_BACKUP = 'profit_calculator_before_restore_backup_v1';
   const STORAGE_APP_PASSWORD = 'profit_app_password_v1';
+  const STORAGE_FIREBASE_CONFIG = 'profit_firebase_config_v1';
+  const STORAGE_SYNC_CODE = 'profit_sync_code_v1';
+  const STORAGE_SYNC_ENABLED = 'profit_sync_enabled_v1';
+  const STORAGE_SYNC_DEVICE_ID = 'profit_sync_device_id_v1';
+  const STORAGE_LAST_SYNC_AT = 'profit_last_sync_at_v1';
 
   let rows = [];
   let presets = [];
   let expenses = [];
+
+  let cloudDb = null;
+  let cloudDocRef = null;
+  let cloudUnsubscribe = null;
+  let isApplyingCloudData = false;
+  let cloudSyncTimer = null;
+  let cloudSyncEnabled = false;
 
   const defaultExpenses = [
     { name: 'إعلانات', amount: 12500 },
@@ -1217,6 +1344,7 @@
 
   function saveRows() {
     localStorage.setItem(STORAGE_ROWS, JSON.stringify(rows));
+    scheduleCloudSync('rows');
   }
 
   function loadRows() {
@@ -1229,6 +1357,7 @@
 
   function savePresets() {
     localStorage.setItem(STORAGE_PRESETS, JSON.stringify(presets));
+    scheduleCloudSync('presets');
   }
 
   function loadPresets() {
@@ -1241,6 +1370,7 @@
 
   function saveExpenses() {
     localStorage.setItem(STORAGE_EXPENSES, JSON.stringify(expenses));
+    scheduleCloudSync('expenses');
   }
 
   function loadExpenses() {
@@ -1275,6 +1405,7 @@
 
   function setDeletedStack(stack) {
     localStorage.setItem(STORAGE_DELETED_STACK, JSON.stringify(stack));
+    scheduleCloudSync('deletedStack');
   }
 
   function pushDeleted(type, items, label) {
@@ -1330,6 +1461,7 @@
   function saveDollarRates() {
     localStorage.setItem(STORAGE_WALLET_DOLLAR_RATE, document.getElementById('walletDollarRate').value);
     localStorage.setItem(STORAGE_EXPENSES_DOLLAR_RATE, document.getElementById('expensesDollarRate').value);
+    scheduleCloudSync('settings');
   }
 
   function loadDollarRates() {
@@ -2718,6 +2850,394 @@
     }
   }
 
+
+  function getOrCreateDeviceId() {
+    let id = localStorage.getItem(STORAGE_SYNC_DEVICE_ID);
+    if (!id) {
+      id = `device_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      localStorage.setItem(STORAGE_SYNC_DEVICE_ID, id);
+    }
+    return id;
+  }
+
+  function setCloudStatus(message, type) {
+    const el = document.getElementById('cloudSyncStatus');
+    if (!el) return;
+    el.textContent = message;
+    el.className = `sync-status ${type || 'warn'}`.trim();
+  }
+
+  function updateLastSyncDisplay(value) {
+    const input = document.getElementById('lastSyncDisplay');
+    const stored = value || localStorage.getItem(STORAGE_LAST_SYNC_AT) || '';
+    if (!input) return;
+    input.value = stored ? new Date(stored).toLocaleString('ar-EG') : 'لم تتم بعد';
+  }
+
+  function fillFirebaseSettingsForm() {
+    const configInput = document.getElementById('firebaseConfigInput');
+    const syncCodeInput = document.getElementById('syncCodeInput');
+
+    const savedConfig = localStorage.getItem(STORAGE_FIREBASE_CONFIG) || '';
+    const savedSyncCode = localStorage.getItem(STORAGE_SYNC_CODE) || '';
+
+    if (configInput && savedConfig) {
+      try {
+        configInput.value = JSON.stringify(JSON.parse(savedConfig), null, 2);
+      } catch (e) {
+        configInput.value = savedConfig;
+      }
+    }
+
+    if (syncCodeInput) {
+      syncCodeInput.value = savedSyncCode;
+    }
+
+    updateLastSyncDisplay();
+  }
+
+  function extractFirebaseConfigText(raw) {
+    const text = String(raw || '').trim();
+    if (!text) return '';
+
+    const match = text.match(/firebaseConfig\s*=\s*({[\s\S]*?})\s*;?/);
+    if (match) return match[1];
+
+    return text;
+  }
+
+  function parseFirebaseConfig(raw) {
+    const text = extractFirebaseConfigText(raw);
+    if (!text) return null;
+
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      try {
+        // بيسمح بلصق كود Firebase العادي اللي مفاتيحه بدون علامات تنصيص
+        return Function(`"use strict"; return (${text});`)();
+      } catch (error) {
+        return null;
+      }
+    }
+  }
+
+  function getFirebaseConfig() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_FIREBASE_CONFIG) || 'null');
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function normalizeSyncCode(value) {
+    return String(value || '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-zA-Z0-9_-]/g, '')
+      .slice(0, 80);
+  }
+
+  function saveFirebaseSettings() {
+    const configInput = document.getElementById('firebaseConfigInput');
+    const syncCodeInput = document.getElementById('syncCodeInput');
+
+    const config = parseFirebaseConfig(configInput?.value || '');
+    const syncCode = normalizeSyncCode(syncCodeInput?.value || '');
+
+    if (!config || !config.apiKey || !config.projectId) {
+      showToast('⚠️ Firebase config غير صحيح. لازم يحتوي على apiKey و projectId على الأقل.');
+      return false;
+    }
+
+    if (syncCode.length < 10) {
+      showToast('⚠️ كود المزامنة قصير. استخدم كود قوي لا يقل عن 10 أحرف.');
+      return false;
+    }
+
+    localStorage.setItem(STORAGE_FIREBASE_CONFIG, JSON.stringify(config));
+    localStorage.setItem(STORAGE_SYNC_CODE, syncCode);
+
+    if (syncCodeInput) syncCodeInput.value = syncCode;
+    if (configInput) configInput.value = JSON.stringify(config, null, 2);
+
+    showToast('✅ تم حفظ إعدادات المزامنة.');
+    return true;
+  }
+
+  function getCloudDocPath() {
+    const syncCode = normalizeSyncCode(localStorage.getItem(STORAGE_SYNC_CODE));
+    if (!syncCode) return null;
+    return { collection: 'moxSync', doc: syncCode };
+  }
+
+  async function initializeFirebaseSync() {
+    const config = getFirebaseConfig();
+    const path = getCloudDocPath();
+
+    if (!config || !path) {
+      setCloudStatus('الإعدادات ناقصة', 'warn');
+      return false;
+    }
+
+    if (!window.firebase || !window.firebase.firestore) {
+      setCloudStatus('Firebase غير محمل', 'error');
+      showToast('⚠️ مكتبات Firebase لم يتم تحميلها. تأكد أن الجهاز متصل بالإنترنت.');
+      return false;
+    }
+
+    try {
+      const app = window.firebase.apps.length ? window.firebase.app() : window.firebase.initializeApp(config);
+      cloudDb = window.firebase.firestore(app);
+
+      if (!window.__moxPersistenceTried) {
+        window.__moxPersistenceTried = true;
+        try {
+          await cloudDb.enablePersistence({ synchronizeTabs: true });
+        } catch (e) {
+          console.warn('Firestore persistence warning:', e);
+        }
+      }
+
+      cloudDocRef = cloudDb.collection(path.collection).doc(path.doc);
+      return true;
+    } catch (e) {
+      console.error(e);
+      setCloudStatus('خطأ اتصال', 'error');
+      showToast('⚠️ حصل خطأ في تهيئة Firebase. راجع config.');
+      return false;
+    }
+  }
+
+  function makeCloudPayload(reason) {
+    return {
+      appName: 'Profit Calculator',
+      format: 'mox-v2-cloud-sync',
+      version: 12,
+      reason: reason || 'sync',
+      updatedAt: new Date().toISOString(),
+      clientId: getOrCreateDeviceId(),
+      rows,
+      presets,
+      expenses,
+      deletedStack: getDeletedStack(),
+      settings: {
+        walletDollarRate: document.getElementById('walletDollarRate')?.value || localStorage.getItem(STORAGE_WALLET_DOLLAR_RATE) || '53',
+        expensesDollarRate: document.getElementById('expensesDollarRate')?.value || localStorage.getItem(STORAGE_EXPENSES_DOLLAR_RATE) || '53'
+      }
+    };
+  }
+
+  function applyCloudPayload(data) {
+    if (!data || typeof data !== 'object') return false;
+
+    isApplyingCloudData = true;
+
+    try {
+      if (Array.isArray(data.rows)) {
+        localStorage.setItem(STORAGE_ROWS, JSON.stringify(data.rows));
+      }
+
+      if (Array.isArray(data.presets)) {
+        localStorage.setItem(STORAGE_PRESETS, JSON.stringify(data.presets));
+      }
+
+      if (Array.isArray(data.expenses)) {
+        localStorage.setItem(STORAGE_EXPENSES, JSON.stringify(data.expenses));
+      }
+
+      if (Array.isArray(data.deletedStack)) {
+        localStorage.setItem(STORAGE_DELETED_STACK, JSON.stringify(data.deletedStack));
+      }
+
+      if (data.settings) {
+        if (data.settings.walletDollarRate !== undefined) {
+          localStorage.setItem(STORAGE_WALLET_DOLLAR_RATE, data.settings.walletDollarRate);
+        }
+
+        if (data.settings.expensesDollarRate !== undefined) {
+          localStorage.setItem(STORAGE_EXPENSES_DOLLAR_RATE, data.settings.expensesDollarRate);
+        }
+      }
+
+      if (data.updatedAt) {
+        localStorage.setItem(STORAGE_LAST_SYNC_AT, data.updatedAt);
+      }
+
+      loadRows();
+      loadPresets();
+      loadExpenses();
+      loadDollarRates();
+      renderPresets();
+      renderExpenses();
+      render();
+      updateLastSyncDisplay(data.updatedAt);
+
+      return true;
+    } finally {
+      isApplyingCloudData = false;
+    }
+  }
+
+  async function uploadLocalDataToCloud(manual) {
+    if (manual && !saveFirebaseSettings()) return;
+
+    if (!cloudDocRef) {
+      const ok = await initializeFirebaseSync();
+      if (!ok) return;
+    }
+
+    try {
+      const payload = makeCloudPayload(manual ? 'manual-upload' : 'auto-sync');
+      await cloudDocRef.set(payload, { merge: true });
+      localStorage.setItem(STORAGE_LAST_SYNC_AT, payload.updatedAt);
+      updateLastSyncDisplay(payload.updatedAt);
+      setCloudStatus('متزامن', 'ok');
+      if (manual) showToast('✅ تم رفع بيانات هذا الجهاز للسحابة.');
+    } catch (e) {
+      console.error(e);
+      setCloudStatus('فشل الرفع', 'error');
+      if (manual) showToast('⚠️ فشل رفع البيانات. راجع الإنترنت أو صلاحيات Firestore.');
+    }
+  }
+
+  async function downloadCloudDataToLocal() {
+    if (!saveFirebaseSettings()) return;
+
+    if (!cloudDocRef) {
+      const ok = await initializeFirebaseSync();
+      if (!ok) return;
+    }
+
+    try {
+      const snap = await cloudDocRef.get();
+      if (!snap.exists) {
+        showToast('ℹ️ لا توجد بيانات على السحابة بهذا الكود.');
+        return;
+      }
+
+      saveBeforeRestoreBackup();
+      const applied = applyCloudPayload(snap.data());
+
+      if (applied) {
+        saveSafetyBackupIfUseful();
+        setCloudStatus('تم التنزيل', 'ok');
+        showToast('✅ تم تنزيل بيانات السحابة على هذا الجهاز.');
+      } else {
+        showToast('⚠️ بيانات السحابة غير مناسبة.');
+      }
+    } catch (e) {
+      console.error(e);
+      setCloudStatus('فشل التنزيل', 'error');
+      showToast('⚠️ فشل تنزيل البيانات. راجع الإنترنت أو صلاحيات Firestore.');
+    }
+  }
+
+  async function enableCloudSync() {
+    if (!saveFirebaseSettings()) return;
+
+    const ok = await initializeFirebaseSync();
+    if (!ok) return;
+
+    localStorage.setItem(STORAGE_SYNC_ENABLED, '1');
+    cloudSyncEnabled = true;
+
+    if (cloudUnsubscribe) {
+      cloudUnsubscribe();
+      cloudUnsubscribe = null;
+    }
+
+    setCloudStatus('جاري الاتصال', 'warn');
+
+    cloudUnsubscribe = cloudDocRef.onSnapshot(async (snap) => {
+      try {
+        if (!snap.exists) {
+          setCloudStatus('إنشاء نسخة سحابية', 'warn');
+          await uploadLocalDataToCloud(false);
+          return;
+        }
+
+        const data = snap.data();
+        const localLast = localStorage.getItem(STORAGE_LAST_SYNC_AT) || '';
+        const remoteUpdatedAt = data.updatedAt || '';
+        const sameDevice = data.clientId && data.clientId === getOrCreateDeviceId();
+
+        if (sameDevice) {
+          if (remoteUpdatedAt) {
+            localStorage.setItem(STORAGE_LAST_SYNC_AT, remoteUpdatedAt);
+            updateLastSyncDisplay(remoteUpdatedAt);
+          }
+          setCloudStatus('متزامن', 'ok');
+          return;
+        }
+
+        if (!localLast || remoteUpdatedAt > localLast) {
+          saveBeforeRestoreBackup();
+          applyCloudPayload(data);
+          saveSafetyBackupIfUseful();
+          setCloudStatus('استقبل تحديث', 'ok');
+          showToast('✅ تم استلام تحديث من جهاز آخر.');
+        } else {
+          setCloudStatus('متزامن', 'ok');
+        }
+      } catch (e) {
+        console.error(e);
+        setCloudStatus('خطأ مزامنة', 'error');
+      }
+    }, (error) => {
+      console.error(error);
+      setCloudStatus('غير مصرح/خطأ', 'error');
+      showToast('⚠️ فشل الاستماع للمزامنة. راجع Firestore Rules وكود المزامنة.');
+    });
+
+    showToast('✅ تم تشغيل المزامنة السحابية.');
+  }
+
+  function disableCloudSync() {
+    localStorage.setItem(STORAGE_SYNC_ENABLED, '0');
+    cloudSyncEnabled = false;
+
+    if (cloudUnsubscribe) {
+      cloudUnsubscribe();
+      cloudUnsubscribe = null;
+    }
+
+    setCloudStatus('متوقف', 'warn');
+    showToast('⏸️ تم إيقاف المزامنة على هذا الجهاز فقط.');
+  }
+
+  function scheduleCloudSync(reason) {
+    if (isApplyingCloudData) return;
+    if (!cloudSyncEnabled && localStorage.getItem(STORAGE_SYNC_ENABLED) !== '1') return;
+
+    clearTimeout(cloudSyncTimer);
+    cloudSyncTimer = setTimeout(() => {
+      uploadLocalDataToCloud(false);
+    }, 900);
+  }
+
+  async function syncNow() {
+    if (!saveFirebaseSettings()) return;
+
+    if (localStorage.getItem(STORAGE_SYNC_ENABLED) !== '1') {
+      await enableCloudSync();
+      return;
+    }
+
+    await uploadLocalDataToCloud(true);
+  }
+
+  async function autoStartCloudSyncIfEnabled() {
+    fillFirebaseSettingsForm();
+
+    if (localStorage.getItem(STORAGE_SYNC_ENABLED) === '1') {
+      cloudSyncEnabled = true;
+      await enableCloudSync();
+    } else {
+      setCloudStatus('غير متصل', 'warn');
+    }
+  }
+
   function makeBackupObject(label) {
     return {
       appName: 'Profit Calculator',
@@ -2813,6 +3333,7 @@
     renderPresets();
     renderExpenses();
     render();
+    scheduleCloudSync('restore-backup');
 
     return true;
   }
@@ -2957,6 +3478,7 @@
     });
 
     initializePasswordProtection();
+    autoStartCloudSyncIfEnabled();
   });
 </script>
 
