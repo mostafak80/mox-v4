@@ -11,8 +11,6 @@
   <style>
     :root {
       --bg: #0f1117;
-      --surface: #191d2d;
-      --surface2: #20263a;
       --card: rgba(26, 29, 46, .88);
       --border: #2a2d45;
       --accent: #4f8ef7;
@@ -30,10 +28,6 @@
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-    }
-
-    html {
-      scroll-behavior: smooth;
     }
 
     body {
@@ -77,7 +71,6 @@
       background: linear-gradient(135deg, var(--green), var(--accent), var(--purple));
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      letter-spacing: -.03em;
     }
 
     .header p {
@@ -95,23 +88,10 @@
       background: rgba(34,197,94,.1);
       color: var(--green);
       font-size: .85rem;
-      animation: toastIn .25s ease both;
     }
 
     .toast.show {
       display: block;
-    }
-
-    @keyframes toastIn {
-      from {
-        opacity: 0;
-        transform: translateY(-6px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
     }
 
     .section {
@@ -177,12 +157,6 @@
 
     .card {
       padding: 1rem;
-      transition: transform .18s ease, border-color .18s ease;
-    }
-
-    .card:hover {
-      transform: translateY(-2px);
-      border-color: rgba(79,142,247,.36);
     }
 
     .card .label {
@@ -284,10 +258,19 @@
       margin-top: .9rem;
     }
 
+    .expense-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr auto;
+      gap: .7rem;
+      align-items: end;
+      margin-bottom: .9rem;
+    }
+
     @media(max-width: 1000px) {
       .form-grid,
       .preset-grid,
-      .preset-add-grid {
+      .preset-add-grid,
+      .expense-grid {
         grid-template-columns: 1fr;
       }
     }
@@ -310,40 +293,18 @@
       padding: .72rem .82rem;
       outline: none;
       font-family: 'Cairo', sans-serif;
-      transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
     }
 
     .field select {
       cursor: pointer;
-      appearance: none;
-      background:
-        linear-gradient(45deg, transparent 50%, var(--accent) 50%),
-        linear-gradient(135deg, var(--accent) 50%, transparent 50%),
-        #111421;
-      background-position:
-        calc(100% - 20px) calc(1em + 6px),
-        calc(100% - 15px) calc(1em + 6px),
-        0 0;
-      background-size:
-        5px 5px,
-        5px 5px,
-        100% 100%;
-      background-repeat: no-repeat;
-      padding-right: 2.2rem;
     }
 
-    .field input:focus,
-    .field select:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(79,142,247,.15);
-      background-color: #12182a;
-    }
-
-    .quick-toolbar {
+    .quick-toolbar,
+    .actions {
       display: flex;
-      gap: .55rem;
+      gap: .6rem;
       flex-wrap: wrap;
-      margin: .75rem 0 .2rem;
+      margin-top: .8rem;
     }
 
     .btn {
@@ -353,19 +314,12 @@
       font-family: 'Cairo', sans-serif;
       font-weight: 900;
       cursor: pointer;
-      transition: transform .16s ease, opacity .16s ease, box-shadow .16s ease;
       white-space: nowrap;
-    }
-
-    .btn:hover {
-      opacity: .9;
-      transform: translateY(-1px);
     }
 
     .btn-add {
       background: var(--green);
       color: #06120b;
-      box-shadow: 0 10px 24px rgba(34,197,94,.14);
     }
 
     .btn-export {
@@ -392,37 +346,16 @@
       border: 1px solid rgba(239,68,68,.35);
     }
 
-    .actions {
-      display: flex;
-      gap: .6rem;
-      flex-wrap: wrap;
-      margin-top: .8rem;
-    }
-
-    .preset-list {
+    .preset-list,
+    .expense-list {
       margin-top: .9rem;
       overflow-x: auto;
       border: 1px solid var(--border);
       border-radius: 12px;
-      animation: panelIn .22s ease both;
-    }
-
-    .preset-list table {
-      min-width: 720px;
-      font-size: .82rem;
-    }
-
-    .preset-list th {
-      padding: .6rem .7rem;
-    }
-
-    .preset-list td {
-      padding: .55rem .7rem;
     }
 
     .table-wrap {
       overflow-x: auto;
-      animation: panelIn .22s ease both;
     }
 
     table {
@@ -443,13 +376,10 @@
       font-size: .72rem;
       font-weight: 900;
       white-space: nowrap;
-      position: sticky;
-      top: 0;
-      z-index: 1;
     }
 
-    th.col-paid { color: var(--amber); }
-    th.col-deducted { color: var(--purple); }
+    th.col-paid { color: var(--green); }
+    th.col-deducted { color: var(--red); }
     th.col-profit { color: var(--green); }
     th.col-date { color: var(--accent); }
 
@@ -458,10 +388,6 @@
       border-top: 1px solid var(--border);
       white-space: nowrap;
       vertical-align: middle;
-    }
-
-    tbody tr {
-      transition: background .15s ease;
     }
 
     tbody tr:hover {
@@ -531,10 +457,6 @@
         align-items: flex-start;
       }
 
-      .header h1 {
-        font-size: 2rem;
-      }
-
       .btn,
       .toggle-btn {
         width: 100%;
@@ -556,7 +478,7 @@
 
   <div class="header">
     <h1>حاسبة مكسب المشروع</h1>
-    <p>إدارة الشحنات والعروض وحساب الداخل للمحفظة والمصاريف وصافي الربح</p>
+    <p>إدارة الشحنات والعروض والمصاريف وحساب الربح الحقيقي</p>
   </div>
 
   <div id="toast" class="toast"></div>
@@ -565,7 +487,7 @@
     <div class="section-head">
       <div>
         <div class="section-title">📊 لوحة ملخص الأرباح</div>
-        <div class="section-subtitle">الداخل للمحفظة، المصاريف، وصافي المكسب</div>
+        <div class="section-subtitle">المصاريف الثابتة لا تظهر في إجمالي مصاريف العمليات، لكنها تُخصم من صافي المكسب فقط</div>
       </div>
       <button class="toggle-btn" type="button" onclick="toggleSection('summaryContent', this)">إخفاء</button>
     </div>
@@ -582,7 +504,7 @@
       </div>
 
       <div class="card">
-        <div class="label">إجمالي المصاريف</div>
+        <div class="label">إجمالي مصاريف العمليات</div>
         <div class="value expense" id="expensesTotal">0.00<span class="unit">EGP</span></div>
       </div>
 
@@ -601,12 +523,12 @@
       </div>
 
       <div class="card">
-        <div class="label">إجمالي المصاريف بالدولار</div>
+        <div class="label">مصاريف العمليات بالدولار</div>
         <div class="dollar-control">
           <span>سعر الدولار</span>
-          <input id="deductedDollarRate" class="dollar-input" type="number" step="0.01" min="0.01" value="53">
+          <input id="expensesDollarRate" class="dollar-input" type="number" step="0.01" min="0.01" value="53">
         </div>
-        <div class="value dollar" id="deductedUsdTotal">0.00<span class="unit">USD</span></div>
+        <div class="value dollar" id="expensesUsdTotal">0.00<span class="unit">USD</span></div>
       </div>
     </div>
   </div>
@@ -615,7 +537,7 @@
     <div class="section-head">
       <div>
         <div class="section-title">⚡ مكتبة العروض السريعة</div>
-        <div class="section-subtitle">احفظ عروضك المتكررة واختارها مباشرة بدل الكتابة كل مرة</div>
+        <div class="section-subtitle">احفظ العروض المتكررة واختارها مباشرة</div>
       </div>
       <button class="toggle-btn" type="button" onclick="toggleSection('presetsContent', this)">إخفاء</button>
     </div>
@@ -654,12 +576,12 @@
         </div>
 
         <div class="field">
-          <label>السعر المدفوع / الداخل للمحفظة</label>
+          <label>الداخل للمحفظة</label>
           <input id="presetPaidInput" type="number" step="0.01" min="0" placeholder="مثال: 35">
         </div>
 
         <div class="field">
-          <label>السعر المخصوم / المصاريف</label>
+          <label>مصروف العملية</label>
           <input id="presetDeductedInput" type="number" step="0.01" min="0" placeholder="مثال: 25">
         </div>
 
@@ -680,7 +602,7 @@
               <th>المنتج / الخدمة</th>
               <th>العرض</th>
               <th class="col-paid">الداخل للمحفظة</th>
-              <th class="col-deducted">المصاريف</th>
+              <th class="col-deducted">مصروف العملية</th>
               <th class="col-profit">ربح العملية</th>
               <th>إجراء</th>
             </tr>
@@ -718,12 +640,12 @@
         </div>
 
         <div class="field">
-          <label>السعر المدفوع / الداخل للمحفظة</label>
+          <label>الداخل للمحفظة</label>
           <input id="paidInput" type="number" step="0.01" min="0" placeholder="مثال: 35">
         </div>
 
         <div class="field">
-          <label>السعر المخصوم / المصاريف</label>
+          <label>مصروف العملية</label>
           <input id="deductedInput" type="number" step="0.01" min="0" placeholder="مثال: 25">
         </div>
 
@@ -738,6 +660,51 @@
         <button class="btn btn-export" type="button" onclick="document.getElementById('backupInput').click()">📥 استرجاع نسخة</button>
         <input id="backupInput" type="file" accept="application/json" style="display:none" onchange="restoreBackup(event)">
         <button class="btn btn-clear" type="button" onclick="clearAll()">🗑️ مسح العمليات</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <div>
+        <div class="section-title">💸 المصاريف الثابتة</div>
+        <div class="section-subtitle">إعلانات، رواتب، باقات نت، وعمولة سحب. لا تظهر في إجمالي مصاريف العمليات، لكنها تخصم من صافي المكسب فقط.</div>
+      </div>
+      <button class="toggle-btn" type="button" onclick="toggleSection('fixedExpensesContent', this)">إظهار</button>
+    </div>
+
+    <div id="fixedExpensesContent" class="panel hidden-section">
+      <div class="expense-grid">
+        <div class="field">
+          <label>اسم المصروف</label>
+          <input id="expenseNameInput" type="text" placeholder="مثال: إعلانات">
+        </div>
+
+        <div class="field">
+          <label>قيمة المصروف</label>
+          <input id="expenseAmountInput" type="number" step="0.01" min="0" placeholder="مثال: 12500">
+        </div>
+
+        <button class="btn btn-add" type="button" onclick="addExpense()">إضافة مصروف</button>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-amber" type="button" onclick="restoreLastDeleted()">↩️ استرجاع آخر حذف</button>
+        <button class="btn btn-clear" type="button" onclick="clearExpenses()">🗑️ مسح المصاريف</button>
+      </div>
+
+      <div class="preset-list">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>بند المصروف</th>
+              <th>القيمة</th>
+              <th>إجراء</th>
+            </tr>
+          </thead>
+          <tbody id="expenseBody"></tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -760,7 +727,7 @@
             <th>المنتج / الخدمة</th>
             <th>العرض</th>
             <th class="col-paid">الداخل للمحفظة</th>
-            <th class="col-deducted">المصاريف</th>
+            <th class="col-deducted">مصروف العملية</th>
             <th class="col-profit">ربح العملية</th>
             <th>إجراء</th>
           </tr>
@@ -776,20 +743,29 @@
   </div>
 
   <div class="footer-note">
-    البيانات والعروض وأسعار الدولار محفوظة تلقائيًا على نفس الجهاز والمتصفح.
+    البيانات والعروض والمصاريف وأسعار الدولار محفوظة تلقائيًا على نفس الجهاز والمتصفح.
   </div>
 
 </div>
 
 <script>
-  const STORAGE_ROWS = 'profit_calculator_rows_v5';
-  const STORAGE_PRESETS = 'profit_calculator_presets_v5';
-  const STORAGE_DELETED_STACK = 'profit_calculator_deleted_stack_v1';
-  const STORAGE_WALLET_DOLLAR_RATE = 'profit_wallet_dollar_rate_v1';
-  const STORAGE_DEDUCTED_DOLLAR_RATE = 'profit_deducted_dollar_rate_v1';
+  const STORAGE_ROWS = 'profit_calculator_rows_v7';
+  const STORAGE_PRESETS = 'profit_calculator_presets_v7';
+  const STORAGE_EXPENSES = 'profit_calculator_fixed_expenses_v2';
+  const STORAGE_DELETED_STACK = 'profit_calculator_deleted_stack_v2';
+  const STORAGE_WALLET_DOLLAR_RATE = 'profit_wallet_dollar_rate_v2';
+  const STORAGE_EXPENSES_DOLLAR_RATE = 'profit_expenses_dollar_rate_v2';
 
   let rows = [];
   let presets = [];
+  let expenses = [];
+
+  const defaultExpenses = [
+    { name: 'إعلانات', amount: 12500 },
+    { name: 'رواتب', amount: 3000 },
+    { name: 'باقات نت', amount: 1500 },
+    { name: 'عمولة سحب', amount: 4000 }
+  ];
 
   function today() {
     return new Date().toLocaleDateString('en-CA');
@@ -883,6 +859,32 @@
     }
   }
 
+  function saveExpenses() {
+    localStorage.setItem(STORAGE_EXPENSES, JSON.stringify(expenses));
+  }
+
+  function loadExpenses() {
+    try {
+      const saved = localStorage.getItem(STORAGE_EXPENSES);
+
+      if (saved === null) {
+        expenses = defaultExpenses.map(item => ({
+          id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+          name: item.name,
+          amount: item.amount,
+          createdAt: new Date().toISOString()
+        }));
+
+        saveExpenses();
+        return;
+      }
+
+      expenses = JSON.parse(saved) || [];
+    } catch (e) {
+      expenses = [];
+    }
+  }
+
   function getDeletedStack() {
     try {
       return JSON.parse(localStorage.getItem(STORAGE_DELETED_STACK)) || [];
@@ -931,9 +933,15 @@
       savePresets();
     }
 
+    if (last.type === 'expenses') {
+      expenses = [...expenses, ...last.items];
+      saveExpenses();
+    }
+
     setDeletedStack(stack);
 
     renderPresets();
+    renderExpenses();
     render();
 
     showToast(`✅ تم استرجاع: ${last.label || 'آخر حذف'}`);
@@ -941,20 +949,148 @@
 
   function saveDollarRates() {
     localStorage.setItem(STORAGE_WALLET_DOLLAR_RATE, document.getElementById('walletDollarRate').value);
-    localStorage.setItem(STORAGE_DEDUCTED_DOLLAR_RATE, document.getElementById('deductedDollarRate').value);
+    localStorage.setItem(STORAGE_EXPENSES_DOLLAR_RATE, document.getElementById('expensesDollarRate').value);
   }
 
   function loadDollarRates() {
-    const savedWalletRate = localStorage.getItem(STORAGE_WALLET_DOLLAR_RATE);
-    const savedDeductedRate = localStorage.getItem(STORAGE_DEDUCTED_DOLLAR_RATE);
+    const walletRate = localStorage.getItem(STORAGE_WALLET_DOLLAR_RATE);
+    const expensesRate = localStorage.getItem(STORAGE_EXPENSES_DOLLAR_RATE);
 
-    if (savedWalletRate) {
-      document.getElementById('walletDollarRate').value = savedWalletRate;
+    if (walletRate) {
+      document.getElementById('walletDollarRate').value = walletRate;
     }
 
-    if (savedDeductedRate) {
-      document.getElementById('deductedDollarRate').value = savedDeductedRate;
+    if (expensesRate) {
+      document.getElementById('expensesDollarRate').value = expensesRate;
     }
+  }
+
+  function totalFixedExpenses() {
+    return expenses.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  }
+
+  function renderExpenses() {
+    const body = document.getElementById('expenseBody');
+    if (!body) return;
+
+    body.innerHTML = '';
+
+    expenses.forEach((item, index) => {
+      const tr = document.createElement('tr');
+
+      tr.innerHTML = `
+        <td>${index + 1}</td>
+
+        <td>
+          <input
+            class="editable"
+            value="${escapeHTML(item.name)}"
+            onchange="updateExpense(${index}, 'name', this.value)"
+          >
+        </td>
+
+        <td>
+          <input
+            class="editable num deducted-val"
+            type="number"
+            step="0.01"
+            value="${Number(item.amount) || 0}"
+            onchange="updateExpense(${index}, 'amount', this.value)"
+          >
+        </td>
+
+        <td>
+          <button class="delete-btn" onclick="deleteExpense(${index})">حذف</button>
+        </td>
+      `;
+
+      body.appendChild(tr);
+    });
+  }
+
+  function addExpense() {
+    const nameInput = document.getElementById('expenseNameInput');
+    const amountInput = document.getElementById('expenseAmountInput');
+
+    const name = nameInput.value.trim();
+    const amount = parseFloat(amountInput.value);
+
+    if (!name) {
+      alert('اكتب اسم المصروف.');
+      nameInput.focus();
+      return;
+    }
+
+    if (Number.isNaN(amount) || amount < 0) {
+      alert('اكتب قيمة المصروف بشكل صحيح.');
+      amountInput.focus();
+      return;
+    }
+
+    expenses.push({
+      id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      name,
+      amount,
+      createdAt: new Date().toISOString()
+    });
+
+    saveExpenses();
+    renderExpenses();
+    render();
+
+    nameInput.value = '';
+    amountInput.value = '';
+
+    showToast('✅ تم إضافة المصروف.');
+  }
+
+  function updateExpense(index, key, value) {
+    if (!expenses[index]) return;
+
+    if (key === 'amount') {
+      expenses[index][key] = parseFloat(value) || 0;
+    } else {
+      expenses[index][key] = value;
+    }
+
+    saveExpenses();
+    renderExpenses();
+    render();
+  }
+
+  function deleteExpense(index) {
+    if (!expenses[index]) return;
+
+    const confirmed = confirm('⚠️ هل تريد حذف هذا المصروف؟');
+    if (!confirmed) return;
+
+    const deleted = expenses.splice(index, 1);
+    pushDeleted('expenses', deleted, 'مصروف ثابت');
+
+    saveExpenses();
+    renderExpenses();
+    render();
+
+    showToast('✅ تم حذف المصروف. يمكنك استرجاعه.');
+  }
+
+  function clearExpenses() {
+    if (!expenses.length) {
+      showToast('ℹ️ لا يوجد مصاريف لمسحها.');
+      return;
+    }
+
+    const confirmed = confirm('⚠️ هل تريد مسح كل المصاريف الثابتة؟');
+    if (!confirmed) return;
+
+    pushDeleted('expenses', [...expenses], 'كل المصاريف الثابتة');
+
+    expenses = [];
+    saveExpenses();
+    renderExpenses();
+    render();
+
+    showToast('✅ تم مسح المصاريف. يمكنك استرجاعها.');
   }
 
   function renderPresetSelect() {
@@ -1031,13 +1167,13 @@
     }
 
     if (Number.isNaN(paid) || paid < 0) {
-      alert('اكتب السعر المدفوع / الداخل للمحفظة بشكل صحيح.');
+      alert('اكتب الداخل للمحفظة بشكل صحيح.');
       paidInput.focus();
       return null;
     }
 
     if (Number.isNaN(deducted) || deducted < 0) {
-      alert('اكتب السعر المخصوم / المصاريف بشكل صحيح.');
+      alert('اكتب مصروف العملية بشكل صحيح.');
       deductedInput.focus();
       return null;
     }
@@ -1155,13 +1291,13 @@
     }
 
     if (Number.isNaN(paid) || paid < 0) {
-      alert('اكتب السعر المدفوع / الداخل للمحفظة بشكل صحيح.');
+      alert('اكتب الداخل للمحفظة بشكل صحيح.');
       paidInput.focus();
       return;
     }
 
     if (Number.isNaN(deducted) || deducted < 0) {
-      alert('اكتب السعر المخصوم / المصاريف بشكل صحيح.');
+      alert('اكتب مصروف العملية بشكل صحيح.');
       deductedInput.focus();
       return;
     }
@@ -1179,18 +1315,16 @@
 
     body.innerHTML = '';
 
-    let totalWallet = 0;
-    let totalExpenses = 0;
-    let totalProfit = 0;
+    let walletTotal = 0;
+    let operationExpensesTotal = 0;
 
     rows.forEach((row, index) => {
       const paid = Number(row.paid) || 0;
       const deducted = Number(row.deducted) || 0;
       const profit = paid - deducted;
 
-      totalWallet += paid;
-      totalExpenses += deducted;
-      totalProfit += profit;
+      walletTotal += paid;
+      operationExpensesTotal += deducted;
 
       const profitClass = profit >= 0 ? 'profit-val' : 'loss-val';
 
@@ -1257,32 +1391,37 @@
       body.appendChild(tr);
     });
 
-    const walletDollarRate = parseFloat(document.getElementById('walletDollarRate').value) || 0;
-    const deductedDollarRate = parseFloat(document.getElementById('deductedDollarRate').value) || 0;
+    const fixedExpensesTotal = totalFixedExpenses();
 
-    const totalWalletUsd = walletDollarRate > 0 ? totalWallet / walletDollarRate : 0;
-    const totalDeductedUsd = deductedDollarRate > 0 ? totalExpenses / deductedDollarRate : 0;
+    // إجمالي المصاريف المعروض = مصاريف العمليات فقط
+    const visibleExpensesTotal = operationExpensesTotal;
+
+    // صافي المكسب = الداخل للمحفظة - مصاريف العمليات - المصاريف الثابتة
+    const profitTotal = walletTotal - operationExpensesTotal - fixedExpensesTotal;
+
+    const walletDollarRate = parseFloat(document.getElementById('walletDollarRate').value) || 0;
+    const expensesDollarRate = parseFloat(document.getElementById('expensesDollarRate').value) || 0;
+
+    const walletUsdTotal = walletDollarRate > 0 ? walletTotal / walletDollarRate : 0;
+    const expensesUsdTotal = expensesDollarRate > 0 ? visibleExpensesTotal / expensesDollarRate : 0;
 
     document.getElementById('countTotal').textContent = rows.length;
 
     document.getElementById('walletTotal').innerHTML =
-      `${fmt(totalWallet)}<span class="unit">EGP</span>`;
+      `${fmt(walletTotal)}<span class="unit">EGP</span>`;
 
     document.getElementById('expensesTotal').innerHTML =
-      `${fmt(totalExpenses)}<span class="unit">EGP</span>`;
+      `${fmt(visibleExpensesTotal)}<span class="unit">EGP</span>`;
 
     document.getElementById('walletUsdTotal').innerHTML =
-      `${fmt(totalWalletUsd)}<span class="unit">USD</span>`;
+      `${fmt(walletUsdTotal)}<span class="unit">USD</span>`;
 
-    document.getElementById('deductedUsdTotal').innerHTML =
-      `${fmt(totalDeductedUsd)}<span class="unit">USD</span>`;
+    document.getElementById('expensesUsdTotal').innerHTML =
+      `${fmt(expensesUsdTotal)}<span class="unit">USD</span>`;
 
     const profitTotalEl = document.getElementById('profitTotal');
-
-    profitTotalEl.innerHTML =
-      `${fmt(totalProfit)}<span class="unit">EGP</span>`;
-
-    profitTotalEl.className = totalProfit >= 0 ? 'value profit' : 'value loss';
+    profitTotalEl.innerHTML = `${fmt(profitTotal)}<span class="unit">EGP</span>`;
+    profitTotalEl.className = profitTotal >= 0 ? 'value profit' : 'value loss';
 
     emptyState.style.display = rows.length ? 'none' : 'block';
   }
@@ -1313,13 +1452,13 @@
     }
 
     if (Number.isNaN(paid) || paid < 0) {
-      alert('اكتب السعر المدفوع / الداخل للمحفظة بشكل صحيح.');
+      alert('اكتب الداخل للمحفظة بشكل صحيح.');
       paidInput.focus();
       return;
     }
 
     if (Number.isNaN(deducted) || deducted < 0) {
-      alert('اكتب السعر المخصوم / المصاريف بشكل صحيح.');
+      alert('اكتب مصروف العملية بشكل صحيح.');
       deductedInput.focus();
       return;
     }
@@ -1397,8 +1536,8 @@
       'item',
       'offer',
       'wallet_egp',
-      'expenses_egp',
-      'profit_egp'
+      'operation_expense_egp',
+      'operation_profit_egp'
     ];
 
     const csvRows = rows.map(row => {
@@ -1432,14 +1571,15 @@
   function downloadBackup() {
     const backup = {
       appName: 'Profit Calculator',
-      version: 7,
+      version: 9,
       exportedAt: new Date().toISOString(),
       rows,
       presets,
+      expenses,
       deletedStack: getDeletedStack(),
       settings: {
         walletDollarRate: document.getElementById('walletDollarRate').value,
-        deductedDollarRate: document.getElementById('deductedDollarRate').value
+        expensesDollarRate: document.getElementById('expensesDollarRate').value
       }
     };
 
@@ -1481,6 +1621,7 @@
 
         rows = backup.rows;
         presets = Array.isArray(backup.presets) ? backup.presets : [];
+        expenses = Array.isArray(backup.expenses) ? backup.expenses : [];
 
         if (Array.isArray(backup.deletedStack)) {
           setDeletedStack(backup.deletedStack);
@@ -1491,16 +1632,18 @@
             document.getElementById('walletDollarRate').value = backup.settings.walletDollarRate;
           }
 
-          if (backup.settings.deductedDollarRate) {
-            document.getElementById('deductedDollarRate').value = backup.settings.deductedDollarRate;
+          if (backup.settings.expensesDollarRate) {
+            document.getElementById('expensesDollarRate').value = backup.settings.expensesDollarRate;
           }
         }
 
         saveRows();
         savePresets();
+        saveExpenses();
         saveDollarRates();
 
         renderPresets();
+        renderExpenses();
         render();
 
         showToast('✅ تم استرجاع النسخة الاحتياطية بنجاح.');
@@ -1519,9 +1662,11 @@
 
     loadRows();
     loadPresets();
+    loadExpenses();
     loadDollarRates();
 
     renderPresets();
+    renderExpenses();
     render();
 
     document.getElementById('walletDollarRate').addEventListener('input', function () {
@@ -1529,15 +1674,9 @@
       render();
     });
 
-    document.getElementById('deductedDollarRate').addEventListener('input', function () {
+    document.getElementById('expensesDollarRate').addEventListener('input', function () {
       saveDollarRates();
       render();
-    });
-
-    document.addEventListener('keydown', function(event) {
-      if (event.key === 'Enter' && event.ctrlKey) {
-        addRow();
-      }
     });
   });
 </script>
