@@ -1611,19 +1611,38 @@
     URL.revokeObjectURL(url);
   }
 
+  function getAppLocalStorageSnapshot() {
+    const snapshot = {};
+
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('profit_')) {
+        snapshot[key] = localStorage.getItem(key);
+      }
+    });
+
+    return snapshot;
+  }
+
   function downloadBackup() {
+    // حفظ كل بيانات التطبيق الموجودة في localStorage + نسخة واضحة من البيانات الحالية
     const backup = {
       appName: 'Profit Calculator',
-      version: 9,
+      format: 'mox-v2-full-backup',
+      version: 10,
       exportedAt: new Date().toISOString(),
+
       rows,
       presets,
       expenses,
       deletedStack: getDeletedStack(),
+
       settings: {
         walletDollarRate: document.getElementById('walletDollarRate').value,
         expensesDollarRate: document.getElementById('expensesDollarRate').value
-      }
+      },
+
+      // ده أهم جزء: بياخد لقطة كاملة من كل مفاتيح التخزين الخاصة بالتطبيق
+      storageSnapshot: getAppLocalStorageSnapshot()
     };
 
     const json = JSON.stringify(backup, null, 2);
@@ -1632,12 +1651,14 @@
 
     const link = document.createElement('a');
     link.href = url;
-    link.download = `profit-backup-${today()}.json`;
+    link.download = `profit-backup-full-${today()}.json`;
+    document.body.appendChild(link);
     link.click();
+    link.remove();
 
     URL.revokeObjectURL(url);
 
-    showToast('✅ تم تحميل النسخة الاحتياطية.');
+    showToast('✅ تم تحميل النسخة الاحتياطية الكاملة.');
   }
 
   function restoreBackup(event) {
@@ -1651,8 +1672,18 @@
       try {
         const backup = JSON.parse(e.target.result);
 
-        if (!backup || !Array.isArray(backup.rows)) {
+        const hasValidData =
+          backup &&
+          (
+            Array.isArray(backup.rows) ||
+            Array.isArray(backup.presets) ||
+            Array.isArray(backup.expenses) ||
+            (backup.storageSnapshot && typeof backup.storageSnapshot === 'object')
+          );
+
+        if (!hasValidData) {
           showToast('⚠️ ملف النسخة الاحتياطية غير صحيح.');
+          event.target.value = '';
           return;
         }
 
@@ -1662,35 +1693,59 @@
           return;
         }
 
-        rows = backup.rows;
-        presets = Array.isArray(backup.presets) ? backup.presets : [];
-        expenses = Array.isArray(backup.expenses) ? backup.expenses : [];
+        // استرجاع اللقطة الكاملة لو موجودة
+        if (backup.storageSnapshot && typeof backup.storageSnapshot === 'object') {
+          Object.entries(backup.storageSnapshot).forEach(([key, value]) => {
+            if (key.startsWith('profit_')) {
+              if (value === null || value === undefined) {
+                localStorage.removeItem(key);
+              } else {
+                localStorage.setItem(key, String(value));
+              }
+            }
+          });
+        }
+
+        // دعم النسخ القديمة أو أي ملف Backup مفيهوش storageSnapshot
+        if (Array.isArray(backup.rows)) {
+          localStorage.setItem(STORAGE_ROWS, JSON.stringify(backup.rows));
+        }
+
+        if (Array.isArray(backup.presets)) {
+          localStorage.setItem(STORAGE_PRESETS, JSON.stringify(backup.presets));
+        }
+
+        if (Array.isArray(backup.expenses)) {
+          localStorage.setItem(STORAGE_EXPENSES, JSON.stringify(backup.expenses));
+        }
 
         if (Array.isArray(backup.deletedStack)) {
           setDeletedStack(backup.deletedStack);
         }
 
         if (backup.settings) {
-          if (backup.settings.walletDollarRate) {
-            document.getElementById('walletDollarRate').value = backup.settings.walletDollarRate;
+          if (backup.settings.walletDollarRate !== undefined) {
+            localStorage.setItem(STORAGE_WALLET_DOLLAR_RATE, backup.settings.walletDollarRate);
           }
 
-          if (backup.settings.expensesDollarRate) {
-            document.getElementById('expensesDollarRate').value = backup.settings.expensesDollarRate;
+          if (backup.settings.expensesDollarRate !== undefined) {
+            localStorage.setItem(STORAGE_EXPENSES_DOLLAR_RATE, backup.settings.expensesDollarRate);
           }
         }
 
-        saveRows();
-        savePresets();
-        saveExpenses();
-        saveDollarRates();
+        // إعادة تحميل كل البيانات من التخزين بعد الاسترجاع
+        loadRows();
+        loadPresets();
+        loadExpenses();
+        loadDollarRates();
 
         renderPresets();
         renderExpenses();
         render();
 
-        showToast('✅ تم استرجاع النسخة الاحتياطية بنجاح.');
+        showToast('✅ تم استرجاع النسخة الاحتياطية الكاملة بنجاح.');
       } catch (error) {
+        console.error(error);
         showToast('⚠️ حصل خطأ أثناء قراءة الملف.');
       }
 
