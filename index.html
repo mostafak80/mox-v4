@@ -8105,6 +8105,620 @@
     });
   }
 
+
+
+  /* ===== MOX-V3.4: رجوع جدول تصدير Excel بفترات جاهزة + XLSX مناسب لـ Google Sheets ===== */
+  function injectMoxExcelExportProStyles() {
+    if (document.getElementById('moxExcelExportProStyles')) return;
+    const style = document.createElement('style');
+    style.id = 'moxExcelExportProStyles';
+    style.textContent = `
+      .excel-export-panel-pro {
+        border: 1px solid rgba(34,197,94,.28);
+        background: linear-gradient(135deg, rgba(34,197,94,.10), rgba(79,142,247,.08));
+      }
+
+      .excel-export-actions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: .55rem;
+        margin: .75rem 0;
+      }
+
+      .excel-month-buttons {
+        display: flex;
+        gap: .45rem;
+        flex-wrap: wrap;
+        margin-top: .5rem;
+      }
+
+      .excel-month-btn {
+        border: 1px solid rgba(34,197,94,.35);
+        background: rgba(34,197,94,.10);
+        color: var(--green);
+        border-radius: 999px;
+        padding: .38rem .7rem;
+        font-family: 'Cairo', sans-serif;
+        font-weight: 900;
+        font-size: .72rem;
+        cursor: pointer;
+      }
+
+      .excel-month-btn.active {
+        background: var(--green);
+        color: #06120b;
+      }
+
+      .excel-export-preview-box {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+        gap: .55rem;
+        margin-top: .75rem;
+      }
+
+      .excel-export-preview-box .mini-card {
+        border: 1px solid rgba(148,163,184,.16);
+        background: rgba(17,20,33,.55);
+        border-radius: 14px;
+        padding: .75rem;
+      }
+
+      .excel-export-preview-box .mini-card .label {
+        color: var(--muted2);
+        font-size: .66rem;
+        font-weight: 900;
+        margin-bottom: .2rem;
+      }
+
+      .excel-export-preview-box .mini-card .value {
+        font-size: 1rem;
+        font-weight: 900;
+      }
+
+      .excel-export-table-preview {
+        margin-top: .8rem;
+        border: 1px solid rgba(34,197,94,.24);
+        border-radius: 14px;
+        overflow-x: auto;
+        background: rgba(17,20,33,.45);
+      }
+
+      .excel-export-table-preview table {
+        min-width: 900px;
+      }
+
+      .excel-export-table-preview thead tr,
+      .excel-export-table-preview .summary-row {
+        background: #20ff00 !important;
+        color: #000 !important;
+        font-weight: 900;
+      }
+
+      @media(max-width:760px) {
+        .excel-export-actions-grid { grid-template-columns: 1fr 1fr; }
+        .excel-month-buttons { display: grid; grid-template-columns: 1fr 1fr; }
+        .excel-month-btn { border-radius: 12px; min-height: 40px; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function ensureExcelExportSection() {
+    injectMoxExcelExportProStyles();
+
+    if (document.getElementById('excelExportProSection')) {
+      renderExcelExportPresetButtons();
+      updateExcelExportPreview();
+      return;
+    }
+
+    const reportsSection = document.getElementById('reportsContent')?.closest('.section');
+    const manualSection = document.getElementById('manualContent')?.closest('.section');
+    const anchor = reportsSection || manualSection || document.querySelector('.section');
+    if (!anchor) return;
+
+    anchor.insertAdjacentHTML('afterend', `
+      <div class="section" id="excelExportProSection">
+        <div class="section-head">
+          <div>
+            <div class="section-title">📗 تصدير Excel احترافي</div>
+            <div class="section-subtitle">حدد الفترة يدويًا، أو اختار اليوم/أمس/الشهر الحالي/السابق/أي شهر محفوظ في الموقع.</div>
+          </div>
+          <button class="toggle-btn" type="button" onclick="toggleSection('excelExportProContent', this)">إخفاء</button>
+        </div>
+
+        <div id="excelExportProContent" class="panel excel-export-panel-pro">
+          <div class="panel-title">تحديد فترة التصدير</div>
+          <div class="filter-grid">
+            <div class="field">
+              <label>من تاريخ</label>
+              <input id="excelExportFromDate" type="date" onchange="updateExcelExportPreview()">
+            </div>
+            <div class="field">
+              <label>إلى تاريخ</label>
+              <input id="excelExportToDate" type="date" onchange="updateExcelExportPreview()">
+            </div>
+            <button class="btn btn-add" type="button" onclick="exportExcelGreenStyle()">📗 تصدير Excel</button>
+            <button class="btn btn-export" type="button" onclick="setExcelExportPreset('all')">كل السجل</button>
+          </div>
+
+          <div class="panel-title" style="margin-top:.8rem">اختيارات جاهزة</div>
+          <div id="excelExportQuickButtons" class="excel-export-actions-grid"></div>
+
+          <div class="panel-title" style="margin-top:.8rem">الشهور المحفوظة داخل الموقع</div>
+          <div id="excelExportMonthButtons" class="excel-month-buttons"></div>
+          <div id="excelExportRangeNote" class="filter-note">اختار فترة للتصدير.</div>
+          <div id="excelExportPreview" class="excel-export-preview-box"></div>
+          <div id="excelExportTablePreview" class="excel-export-table-preview"></div>
+        </div>
+      </div>
+    `);
+
+    if (!COLLAPSIBLE_CONTENT_IDS.includes('excelExportProContent')) COLLAPSIBLE_CONTENT_IDS.push('excelExportProContent');
+    renderExcelExportPresetButtons();
+    setExcelExportPreset('today', true);
+  }
+
+  function openExcelExportPanel() {
+    ensureExcelExportSection();
+    openSectionGroupForTarget('excelExportProContent');
+    renderExcelExportPresetButtons();
+    updateExcelExportPreview();
+    setTimeout(() => document.getElementById('excelExportProSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 40);
+  }
+
+  function exportExcel() {
+    openExcelExportPanel();
+  }
+
+  function parseISODateLocal(value) {
+    const m = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return null;
+    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  function toISODateLocal(date) {
+    return date.toLocaleDateString('en-CA');
+  }
+
+  function startOfMonth(date) {
+    return new Date(date.getFullYear(), date.getMonth(), 1);
+  }
+
+  function endOfMonth(date) {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  }
+
+  function addMonthsLocal(date, months) {
+    return new Date(date.getFullYear(), date.getMonth() + months, 1);
+  }
+
+  function toEnglishDigits(value) {
+    return String(value ?? '')
+      .replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+      .replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+      .replace(/[٫]/g, '.')
+      .replace(/[٬]/g, ',');
+  }
+
+  function formatMonthButtonLabel(yearMonth, includeYear) {
+    const [year, month] = String(yearMonth).split('-');
+    if (!year || !month) return yearMonth;
+    return includeYear ? `شهر ${Number(month)} - ${year}` : `شهر ${Number(month)}`;
+  }
+
+  function getSavedExcelMonths() {
+    const map = new Map();
+    rows.map(normalizeRow).forEach(row => {
+      const date = String(row.date || '').slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+      const key = date.slice(0, 7);
+      const current = map.get(key) || { key, count: 0, qty: 0 };
+      current.count += 1;
+      current.qty += getRowQuantity(row);
+      map.set(key, current);
+    });
+    return [...map.values()].sort((a, b) => a.key.localeCompare(b.key));
+  }
+
+  function renderExcelExportPresetButtons() {
+    const quickWrap = document.getElementById('excelExportQuickButtons');
+    const monthWrap = document.getElementById('excelExportMonthButtons');
+    if (!quickWrap || !monthWrap) return;
+
+    quickWrap.innerHTML = `
+      <button class="btn btn-add" type="button" onclick="setExcelExportPreset('today')">تصدير اليوم</button>
+      <button class="btn btn-export" type="button" onclick="setExcelExportPreset('yesterday')">تصدير أمس</button>
+      <button class="btn btn-purple" type="button" onclick="setExcelExportPreset('currentMonth')">الشهر الحالي</button>
+      <button class="btn btn-amber" type="button" onclick="setExcelExportPreset('previousMonth')">الشهر السابق</button>
+      <button class="btn btn-export" type="button" onclick="setExcelExportPreset('currentYear')">السنة الحالية</button>
+      <button class="btn btn-clear" type="button" onclick="setExcelExportPreset('all')">كل السجل</button>
+    `;
+
+    const months = getSavedExcelMonths();
+    if (!months.length) {
+      monthWrap.innerHTML = '<div class="filter-note">لا توجد شهور محفوظة بعد. لما تضيف عمليات، الشهور هتظهر هنا تلقائيًا.</div>';
+      return;
+    }
+
+    const years = new Set(months.map(item => item.key.slice(0, 4)));
+    const includeYear = years.size > 1;
+    monthWrap.innerHTML = months.map(item => `
+      <button class="excel-month-btn" type="button" data-month="${escapeHTML(item.key)}" onclick="setExcelExportMonth('${escapeHTML(item.key)}')">
+        ${escapeHTML(formatMonthButtonLabel(item.key, includeYear))} · ${excelQty(item.qty)} عملية
+      </button>
+    `).join('');
+  }
+
+  function setExcelExportRange(from, to, label) {
+    const fromInput = document.getElementById('excelExportFromDate');
+    const toInput = document.getElementById('excelExportToDate');
+    if (fromInput) fromInput.value = from || '';
+    if (toInput) toInput.value = to || '';
+    const note = document.getElementById('excelExportRangeNote');
+    if (note) note.textContent = label || buildExcelRangeLabel(from, to);
+    updateExcelMonthButtonActive(from, to);
+    updateExcelExportPreview();
+  }
+
+  function setExcelExportPreset(type, silent = false) {
+    const now = parseISODateLocal(today()) || new Date();
+    let from = '';
+    let to = '';
+    let label = '';
+
+    if (type === 'today') {
+      from = today();
+      to = today();
+      label = 'الفترة المختارة: اليوم.';
+    } else if (type === 'yesterday') {
+      const y = new Date(now);
+      y.setDate(y.getDate() - 1);
+      from = toISODateLocal(y);
+      to = from;
+      label = 'الفترة المختارة: أمس.';
+    } else if (type === 'currentMonth') {
+      from = toISODateLocal(startOfMonth(now));
+      to = toISODateLocal(endOfMonth(now));
+      label = 'الفترة المختارة: الشهر الحالي.';
+    } else if (type === 'previousMonth') {
+      const prev = addMonthsLocal(now, -1);
+      from = toISODateLocal(startOfMonth(prev));
+      to = toISODateLocal(endOfMonth(prev));
+      label = 'الفترة المختارة: الشهر السابق.';
+    } else if (type === 'currentYear') {
+      from = `${now.getFullYear()}-01-01`;
+      to = `${now.getFullYear()}-12-31`;
+      label = 'الفترة المختارة: السنة الحالية.';
+    } else if (type === 'all') {
+      from = '';
+      to = '';
+      label = 'الفترة المختارة: كل السجل.';
+    }
+
+    setExcelExportRange(from, to, label);
+    if (!silent) showToast('✅ تم تحديد فترة التصدير.');
+  }
+
+  function setExcelExportMonth(yearMonth) {
+    const [year, month] = String(yearMonth || '').split('-').map(Number);
+    if (!year || !month) return;
+    const d = new Date(year, month - 1, 1);
+    const from = toISODateLocal(startOfMonth(d));
+    const to = toISODateLocal(endOfMonth(d));
+    const months = getSavedExcelMonths();
+    const includeYear = new Set(months.map(item => item.key.slice(0, 4))).size > 1;
+    const label = formatMonthButtonLabel(yearMonth, includeYear);
+    setExcelExportRange(from, to, `الفترة المختارة: ${label}.`);
+    showToast(`✅ تم تحديد ${label} للتصدير.`);
+  }
+
+  function updateExcelMonthButtonActive(from, to) {
+    const buttons = document.querySelectorAll('#excelExportMonthButtons .excel-month-btn');
+    buttons.forEach(btn => {
+      const key = btn.dataset.month || '';
+      const [year, month] = key.split('-').map(Number);
+      if (!year || !month || !from || !to) {
+        btn.classList.remove('active');
+        return;
+      }
+      const d = new Date(year, month - 1, 1);
+      btn.classList.toggle('active', from === toISODateLocal(startOfMonth(d)) && to === toISODateLocal(endOfMonth(d)));
+    });
+  }
+
+  function getExcelExportRange() {
+    let from = document.getElementById('excelExportFromDate')?.value || '';
+    let to = document.getElementById('excelExportToDate')?.value || '';
+    if (from && to && from > to) {
+      const temp = from;
+      from = to;
+      to = temp;
+    }
+    return { from, to };
+  }
+
+  function buildExcelRangeLabel(from, to) {
+    if (!from && !to) return 'كل السجل';
+    if (from && to && from === to) return `يوم ${formatExcelDateShort(from, true)}`;
+    return `من ${from ? formatExcelDateShort(from, true) : 'بداية السجل'} إلى ${to ? formatExcelDateShort(to, true) : 'نهاية السجل'}`;
+  }
+
+  function getRowsForExcelRange(from, to) {
+    return rows
+      .map(normalizeRow)
+      .filter(row => {
+        const d = String(row.date || '').slice(0, 10);
+        if (!d) return false;
+        if (from && d < from) return false;
+        if (to && d > to) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        const keyA = `${String(a.date || '')} ${String(a.walletTime || '')} ${String(a.createdAt || '')} ${String(a.walletRef || '')}`;
+        const keyB = `${String(b.date || '')} ${String(b.walletTime || '')} ${String(b.createdAt || '')} ${String(b.walletRef || '')}`;
+        return keyA.localeCompare(keyB, 'en', { numeric: true });
+      });
+  }
+
+  function updateExcelExportPreview() {
+    const preview = document.getElementById('excelExportPreview');
+    const note = document.getElementById('excelExportRangeNote');
+    const tablePreview = document.getElementById('excelExportTablePreview');
+    if (!preview) return;
+
+    const { from, to } = getExcelExportRange();
+    const exportRows = getRowsForExcelRange(from, to);
+    const stats = getExcelExportStats(exportRows);
+
+    if (note) note.textContent = `الفترة الحالية: ${buildExcelRangeLabel(from, to)} — عدد السطور: ${exportRows.length} — إجمالي الكميات: ${excelQty(stats.qty)}.`;
+
+    preview.innerHTML = `
+      <div class="mini-card"><div class="label">عدد السطور</div><div class="value count">${exportRows.length}</div></div>
+      <div class="mini-card"><div class="label">إجمالي الكمية</div><div class="value count">${excelQty(stats.qty)}</div></div>
+      <div class="mini-card"><div class="label">إجمالي الداخل</div><div class="value wallet">${excelNumber(stats.income)} EGP</div></div>
+      <div class="mini-card"><div class="label">إجمالي المصروف</div><div class="value expense">${excelNumber(stats.cost)} EGP</div></div>
+      <div class="mini-card"><div class="label">صافي الربح</div><div class="value ${stats.profit >= 0 ? 'profit' : 'loss'}">${excelNumber(stats.profit)} EGP</div></div>
+    `;
+
+    if (tablePreview) {
+      const previewRows = exportRows.slice(0, 7);
+      const totalRowsNote = exportRows.length > previewRows.length ? `<div class="filter-note" style="padding:.5rem .7rem">يتم عرض أول ${previewRows.length} سطور فقط كمعاينة، والتصدير يحتوي على كل السطور.</div>` : '';
+      tablePreview.innerHTML = `
+        <table>
+          <thead><tr>${EXCEL_EXPORT_HEADERS.map(h => `<th>${escapeHTML(h)}</th>`).join('')}</tr></thead>
+          <tbody>
+            <tr class="summary-row">${getExcelSummaryRow(stats).map(v => `<td>${escapeHTML(v)}</td>`).join('')}</tr>
+            ${previewRows.map(row => `<tr>${getExcelDataRow(row).map(v => `<td>${escapeHTML(v)}</td>`).join('')}</tr>`).join('') || '<tr><td colspan="8">لا توجد بيانات في الفترة المختارة.</td></tr>'}
+          </tbody>
+        </table>
+        ${totalRowsNote}
+      `;
+    }
+  }
+
+  function getExcelExportStats(exportRows) {
+    return exportRows.reduce((acc, row) => {
+      const f = rowFinancials(row);
+      acc.qty += f.quantity;
+      acc.income += f.income;
+      acc.cost += f.operationCost;
+      acc.profit += f.profit;
+      return acc;
+    }, { qty: 0, income: 0, cost: 0, profit: 0 });
+  }
+
+  function excelNumber(value, digits = 2) {
+    const n = Number(value) || 0;
+    return n.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  }
+
+  function excelQty(value) {
+    const n = Number(value) || 0;
+    return Number.isInteger(n) ? String(n) : excelNumber(n, 2);
+  }
+
+  function formatExcelDateShort(value, includeYear = false) {
+    const date = parseISODateLocal(String(value || '').slice(0, 10));
+    if (!date) return toEnglishDigits(value || '');
+    const day = date.getDate();
+    const month = date.getMonth() + 1;
+    return includeYear ? `${day}/${month}/${date.getFullYear()}` : `${day}/${month}`;
+  }
+
+  const EXCEL_EXPORT_HEADERS = [
+    'اسم المنتج / الخدمة',
+    'العرض',
+    'الداخل / واحدة',
+    'مصروف / واحدة',
+    'ربح الإجمالي',
+    'الداخل للمحفظة بالدولار',
+    'مصاريف العمليات بالدولار',
+    'التاريخ'
+  ];
+
+  function getExcelRates() {
+    const walletRate = parseFloat(document.getElementById('walletDollarRate')?.value || localStorage.getItem(STORAGE_WALLET_DOLLAR_RATE) || '53') || 0;
+    const expensesRate = parseFloat(document.getElementById('expensesDollarRate')?.value || localStorage.getItem(STORAGE_EXPENSES_DOLLAR_RATE) || '53') || 0;
+    return { walletRate, expensesRate };
+  }
+
+  function getExcelSummaryRow(stats) {
+    const { walletRate, expensesRate } = getExcelRates();
+    const incomeUsd = walletRate > 0 ? stats.income / walletRate : 0;
+    const costUsd = expensesRate > 0 ? stats.cost / expensesRate : 0;
+    return [
+      'الإجمالي',
+      '',
+      excelNumber(stats.income),
+      excelNumber(stats.cost),
+      excelNumber(stats.profit),
+      excelNumber(incomeUsd),
+      excelNumber(costUsd),
+      ''
+    ];
+  }
+
+  function getExcelDataRow(row) {
+    const normalized = normalizeRow(row);
+    const f = rowFinancials(normalized);
+    const { walletRate, expensesRate } = getExcelRates();
+    const incomeUsd = walletRate > 0 ? f.income / walletRate : 0;
+    const costUsd = expensesRate > 0 ? f.operationCost / expensesRate : 0;
+    return [
+      toEnglishDigits(normalized.item || ''),
+      toEnglishDigits(normalized.offer || ''),
+      excelNumber(f.unitPaid),
+      excelNumber(f.unitCost),
+      excelNumber(f.profit),
+      excelNumber(incomeUsd),
+      excelNumber(costUsd),
+      formatExcelDateShort(normalized.date)
+    ];
+  }
+
+  function getExcelDownloadFileName(rangeLabel, extension = 'xlsx') {
+    return `mox-export-${String(rangeLabel || today()).replace(/[\\/:*?"<>|\s]+/g, '-').replace(/-+/g, '-')}.${extension}`;
+  }
+
+  function loadXlsxLibrary() {
+    if (window.XLSX && window.XLSX.utils && window.XLSX.writeFile) return Promise.resolve(true);
+
+    return new Promise((resolve, reject) => {
+      const existing = document.getElementById('moxXlsxStyleLib') || document.getElementById('moxXlsxLib');
+      if (existing) {
+        existing.addEventListener('load', () => resolve(true), { once: true });
+        existing.addEventListener('error', reject, { once: true });
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.id = 'moxXlsxStyleLib';
+      script.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => {
+        script.remove();
+        const fallback = document.createElement('script');
+        fallback.id = 'moxXlsxLib';
+        fallback.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+        fallback.onload = () => resolve(true);
+        fallback.onerror = reject;
+        document.head.appendChild(fallback);
+      };
+      document.head.appendChild(script);
+    });
+  }
+
+  function applyExcelSheetStyles(ws, rowCount) {
+    const greenFill = { patternType: 'solid', fgColor: { rgb: '20FF00' } };
+    const blackFont = { color: { rgb: '000000' }, bold: true, sz: 12 };
+    const border = {
+      top: { style: 'thin', color: { rgb: 'D9D9D9' } },
+      bottom: { style: 'thin', color: { rgb: 'D9D9D9' } },
+      left: { style: 'thin', color: { rgb: 'D9D9D9' } },
+      right: { style: 'thin', color: { rgb: 'D9D9D9' } }
+    };
+
+    for (let c = 0; c < EXCEL_EXPORT_HEADERS.length; c++) {
+      const headerAddress = XLSX.utils.encode_cell({ r: 0, c });
+      const summaryAddress = XLSX.utils.encode_cell({ r: 1, c });
+      if (ws[headerAddress]) ws[headerAddress].s = { fill: greenFill, font: blackFont, alignment: { horizontal: 'center', vertical: 'center', readingOrder: 2 }, border };
+      if (ws[summaryAddress]) ws[summaryAddress].s = { fill: greenFill, font: blackFont, alignment: { horizontal: 'center', vertical: 'center', readingOrder: 2 }, border };
+    }
+
+    for (let r = 2; r < rowCount; r++) {
+      for (let c = 0; c < EXCEL_EXPORT_HEADERS.length; c++) {
+        const address = XLSX.utils.encode_cell({ r, c });
+        if (!ws[address]) continue;
+        ws[address].s = { alignment: { horizontal: c === 0 || c === 1 ? 'right' : 'center', vertical: 'center', readingOrder: c === 0 || c === 1 ? 2 : 1 }, border };
+      }
+    }
+  }
+
+  async function exportExcelGreenStyle(mode) {
+    ensureExcelExportSection();
+    let from = '';
+    let to = '';
+    let rangeLabel = '';
+
+    if (mode === 'currentFilter') {
+      const filters = getDateFilters();
+      from = filters.from || '';
+      to = filters.to || '';
+      rangeLabel = buildExcelRangeLabel(from, to);
+    } else {
+      const range = getExcelExportRange();
+      from = range.from;
+      to = range.to;
+      rangeLabel = buildExcelRangeLabel(from, to);
+    }
+
+    const exportRows = getRowsForExcelRange(from, to);
+    if (!exportRows.length) {
+      showToast('⚠️ لا يوجد بيانات للتصدير في الفترة المختارة.');
+      return;
+    }
+
+    const stats = getExcelExportStats(exportRows);
+    const data = [
+      EXCEL_EXPORT_HEADERS,
+      getExcelSummaryRow(stats),
+      ...exportRows.map(getExcelDataRow)
+    ];
+
+    try {
+      await loadXlsxLibrary();
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      ws['!cols'] = [
+        { wch: 24 },
+        { wch: 18 },
+        { wch: 14 },
+        { wch: 14 },
+        { wch: 14 },
+        { wch: 22 },
+        { wch: 22 },
+        { wch: 12 }
+      ];
+      ws['!autofilter'] = { ref: `A1:H${Math.max(2, data.length)}` };
+      ws['!view'] = { rightToLeft: true };
+      ws['!rtl'] = true;
+      applyExcelSheetStyles(ws, data.length);
+
+      const wb = XLSX.utils.book_new();
+      wb.Workbook = { Views: [{ RTL: true }] };
+      XLSX.utils.book_append_sheet(wb, ws, 'MOX Export');
+      XLSX.writeFile(wb, getExcelDownloadFileName(rangeLabel, 'xlsx'));
+      showToast('✅ تم تصدير Excel بالفترة المختارة.');
+    } catch (error) {
+      console.warn('XLSX export failed, using HTML fallback:', error);
+      exportExcelHtmlFallback(data, rangeLabel);
+    }
+  }
+
+  function exportExcelHtmlFallback(data, rangeLabel) {
+    const rowsHtml = data.map((row, index) => {
+      const cells = row.map(cell => `<td style="border:1px solid #d9d9d9;padding:6px;text-align:center;mso-number-format:'\\@';">${escapeHTML(cell)}</td>`).join('');
+      const style = index <= 1 ? 'background:#20ff00;color:#000;font-weight:bold;' : '';
+      return `<tr style="${style}">${cells}</tr>`;
+    }).join('');
+    const html = `<!doctype html><html><head><meta charset="UTF-8"></head><body dir="rtl"><table>${rowsHtml}</table></body></html>`;
+    const blob = new Blob(['\ufeff', html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = getExcelDownloadFileName(rangeLabel, 'xls');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    showToast('✅ تم تصدير Excel. لو Google Sheets لم يقرأ التنسيق بالكامل، افتح الملف في Excel أولًا.');
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    ensureExcelExportSection();
+  });
+
   installGlobalSortableTables();
 </script>
 
