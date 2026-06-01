@@ -3103,6 +3103,15 @@
     return (Number(row.paid) || 0) - (Number(row.deducted) || 0);
   }
 
+  function presetDropdownLabel(preset) {
+    preset = preset || {};
+    const item = preset.item || 'بدون اسم';
+    const offer = preset.offer || 'بدون عرض';
+    const paid = fmt(preset.paid);
+
+    return `${item} + ${offer} + ${paid} EGP`;
+  }
+
 
   const SERVICE_COLOR_PALETTE = [
     '#4f8ef7', '#22c55e', '#a78bfa', '#f59e0b', '#ef4444',
@@ -3249,7 +3258,7 @@
     const color = getServiceColor(preset.item);
     select.style.setProperty('--selected-service-color', color);
     preview.classList.remove('hidden-section');
-    preview.innerHTML = `<span class="service-dot" style="--service-color:${color}"></span><span>${escapeHTML(preset.item)} — ${escapeHTML(preset.offer)}</span>`;
+    preview.innerHTML = `<span class="service-dot" style="--service-color:${color}"></span><span>${escapeHTML(presetDropdownLabel(preset))}</span>`;
   }
 
   function createRowObject(date, item, offer, paid, deducted) {
@@ -3915,10 +3924,10 @@
     const select = document.getElementById('presetSelect');
 
     if (!select) return;
-    select.innerHTML = '<option value="">— اختار عرض محفوظ —</option>';
+    select.innerHTML = '<option value="">— اختار عرض: المنتج / الخدمة + العرض + الداخل للمحفظة —</option>';
 
     presets.forEach((preset, index) => {
-      const label = `${preset.item} — ${preset.offer}`;
+      const label = presetDropdownLabel(preset);
       const searchable = normalizeText(`${preset.item || ''} ${preset.offer || ''} ${preset.paid || ''} ${preset.deducted || ''} ${calcProfit(preset)}`);
 
       if (searchValue && !searchable.includes(searchValue)) return;
@@ -3927,6 +3936,7 @@
       const option = document.createElement('option');
       option.value = index;
       option.textContent = label;
+      option.title = label;
       option.style.background = hexToRgba(color, .18);
       option.style.color = '#e2e8f0';
       select.appendChild(option);
