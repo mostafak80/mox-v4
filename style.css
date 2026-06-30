@@ -2365,3 +2365,219 @@ body.mox-show-archived-presets #presetListBody tr.mox-archived-row {
     grid-template-columns: 1fr;
   }
 }
+
+/* ===== MOX-V4.3: القوائم الرئيسية كمربعات / قوائم + إلغاء تأثير الاختيار على الجداول الداخلية ===== */
+body.mox-main-sections-grid .page {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(235px, 1fr));
+  gap: .85rem;
+  align-items: start;
+}
+
+body.mox-main-sections-grid .header,
+body.mox-main-sections-grid #toast,
+body.mox-main-sections-grid .app-top-hint,
+body.mox-main-sections-grid .mobile-bottom-nav,
+body.mox-main-sections-grid .mox-undo-bar,
+body.mox-main-sections-grid .mox-fab,
+body.mox-main-sections-grid .mox-modal-backdrop,
+body.mox-main-sections-grid #lockScreen {
+  grid-column: 1 / -1;
+}
+
+body.mox-main-sections-grid .section {
+  margin: 0;
+  min-width: 0;
+}
+
+body.mox-main-sections-grid .section-head {
+  min-height: 148px;
+  height: 100%;
+  margin-bottom: 0;
+  padding: 1rem .9rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-radius: 24px;
+  background:
+    linear-gradient(145deg, rgba(26,29,46,.94), rgba(17,20,33,.82)),
+    radial-gradient(circle at top, rgba(79,142,247,.16), transparent 55%);
+  border-color: rgba(79,142,247,.28);
+  box-shadow: 0 16px 36px rgba(0,0,0,.18);
+  cursor: pointer;
+  transition: transform .16s ease, border-color .16s ease, background .16s ease, box-shadow .16s ease;
+}
+
+body.mox-main-sections-grid .section-head:hover {
+  transform: translateY(-3px);
+  border-color: rgba(79,142,247,.55);
+  box-shadow: 0 22px 46px rgba(0,0,0,.24);
+}
+
+body.mox-main-sections-grid .section-title {
+  font-size: .96rem;
+  line-height: 1.55;
+}
+
+body.mox-main-sections-grid .section-title::first-letter {
+  font-size: 1.55rem;
+}
+
+body.mox-main-sections-grid .section-subtitle {
+  font-size: .68rem;
+  line-height: 1.65;
+  max-height: 3.4em;
+  overflow: hidden;
+}
+
+body.mox-main-sections-grid .section-head .toggle-btn {
+  width: min(160px, 100%);
+  margin-top: .18rem;
+}
+
+body.mox-main-sections-grid .section:has(.panel:not(.hidden-section)),
+body.mox-main-sections-grid .section:has(.summary:not(.hidden-section)),
+body.mox-main-sections-grid .section:has(.table-wrap:not(.hidden-section)),
+body.mox-main-sections-grid .section:has(.latest-preview:not(.hidden-section)) {
+  grid-column: 1 / -1;
+}
+
+body.mox-main-sections-grid .section:has(.panel:not(.hidden-section)) .section-head,
+body.mox-main-sections-grid .section:has(.summary:not(.hidden-section)) .section-head,
+body.mox-main-sections-grid .section:has(.table-wrap:not(.hidden-section)) .section-head,
+body.mox-main-sections-grid .section:has(.latest-preview:not(.hidden-section)) .section-head {
+  height: auto;
+  min-height: auto;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  text-align: right;
+  margin-bottom: .7rem;
+  border-radius: var(--radius);
+  cursor: default;
+  transform: none;
+}
+
+body.mox-main-sections-grid .section:has(.panel:not(.hidden-section)) .section-title::first-letter,
+body.mox-main-sections-grid .section:has(.summary:not(.hidden-section)) .section-title::first-letter,
+body.mox-main-sections-grid .section:has(.table-wrap:not(.hidden-section)) .section-title::first-letter {
+  font-size: inherit;
+}
+
+body.mox-main-sections-list .page {
+  display: block;
+}
+
+body.mox-main-sections-list .section {
+  margin-bottom: 1rem;
+}
+
+body.mox-legacy-rows #tableContent {
+  overflow-x: auto !important;
+  border: 1px solid var(--border) !important;
+  background: var(--card) !important;
+  box-shadow: 0 12px 35px rgba(0,0,0,.13) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+body.mox-legacy-rows #tableContent table {
+  min-width: 980px !important;
+  width: 100% !important;
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+  font-size: .88rem !important;
+}
+
+body.mox-legacy-rows #tableContent thead {
+  display: table-header-group !important;
+}
+
+body.mox-legacy-rows #tableContent tbody {
+  display: table-row-group !important;
+}
+
+body.mox-legacy-rows #tableContent tr {
+  display: table-row !important;
+  width: auto !important;
+  border: 0 !important;
+  border-right: 5px solid var(--row-service-color, transparent) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+body.mox-legacy-rows #tableContent td,
+body.mox-legacy-rows #tableContent th {
+  display: table-cell !important;
+  width: auto !important;
+  padding: .65rem .8rem !important;
+  border-top: 1px solid var(--border) !important;
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+}
+
+body.mox-legacy-rows #tableContent th {
+  border-top: 0 !important;
+}
+
+body.mox-legacy-rows #tableContent td::before,
+body.mox-legacy-rows #tableContent th::before {
+  display: none !important;
+  content: none !important;
+}
+
+body.mox-legacy-rows #tableContent .editable {
+  width: 100% !important;
+  min-width: 120px !important;
+  min-height: auto !important;
+  border-color: transparent !important;
+  background: transparent !important;
+}
+
+body.mox-legacy-rows #rowsFilterPanel .view-options-grid,
+body.mox-legacy-rows #rowsFilterPanel .view-hint {
+  display: none !important;
+}
+
+@media(max-width: 760px) {
+  body.mox-main-sections-grid .page {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .6rem;
+  }
+
+  body.mox-main-sections-grid .section-head {
+    min-height: 136px;
+    padding: .78rem .55rem;
+  }
+
+  body.mox-main-sections-grid .section-title {
+    font-size: .82rem;
+  }
+
+  body.mox-main-sections-grid .section-subtitle {
+    font-size: .6rem;
+    max-height: 3.2em;
+  }
+
+  body.mox-main-sections-grid .section-head .toggle-btn {
+    min-height: 38px;
+    font-size: .72rem;
+  }
+
+  body.mox-main-sections-grid .section:has(.panel:not(.hidden-section)) .section-head,
+  body.mox-main-sections-grid .section:has(.summary:not(.hidden-section)) .section-head,
+  body.mox-main-sections-grid .section:has(.table-wrap:not(.hidden-section)) .section-head {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: right;
+  }
+}
+
+@media(max-width: 390px) {
+  body.mox-main-sections-grid .page {
+    grid-template-columns: 1fr;
+  }
+}
+
