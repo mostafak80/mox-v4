@@ -1971,7 +1971,7 @@
 
 
     /* ===== MOX-V2: cashier mode, speed, safety, archiving, pagination ===== */
-    .mox-v4-panel {
+    .MOX-V2-panel {
       background: linear-gradient(135deg, rgba(34,197,94,.12), rgba(79,142,247,.10), rgba(167,139,250,.08));
       border: 1px solid rgba(79,142,247,.28);
     }
@@ -2215,7 +2215,7 @@
 }
 
 
-/* ===== MOX-V4.2 requested fixes: archive visibility + global list style + startup settings ===== */
+/* ===== MOX-V2.2 requested fixes: archive visibility + global list style + startup settings ===== */
 .site-settings-panel {
   background: linear-gradient(135deg, rgba(79,142,247,.10), rgba(167,139,250,.09));
   border: 1px solid rgba(79,142,247,.24);
