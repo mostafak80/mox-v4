@@ -8665,3 +8665,142 @@ document.addEventListener('DOMContentLoaded', function () {
     moxV44UpdateRowsCounter();
   }, 80);
 });
+
+
+/* ===== MOX-V4.5 FIX: إظهار لوحة تحكم سجل العمليات دائمًا مع السجل =====
+   سبب المشكلة القديمة: زر سجل العمليات كان يفتح tableContent فقط، ولو rowsFilterPanel اتخزن مخفي في localStorage
+   كان الجدول يظهر بدون لوحة الفلتر والتحكم. هذا التصحيح يربط الاثنين ببعض. */
+(function(){
+  const FIX_VERSION_KEY = 'mox_rows_panel_visible_fix_v45_applied';
+
+  function getRowsPanelParts() {
+    return {
+      panel: document.getElementById('rowsFilterPanel'),
+      table: document.getElementById('tableContent'),
+      preview: document.getElementById('latestRowsPreview'),
+      section: document.getElementById('tableContent')?.closest('.section') || document.getElementById('rowsFilterPanel')?.closest('.section')
+    };
+  }
+
+  function updateRowsSectionButton(isOpen) {
+    const { section } = getRowsPanelParts();
+    const button = section?.querySelector('.section-head .toggle-btn');
+    if (button) button.textContent = isOpen ? 'إخفاء' : 'إظهار';
+  }
+
+  function saveRowsPanelVisibleState(isOpen) {
+    try {
+      const state = typeof getSafeJsonFromStorage === 'function'
+        ? getSafeJsonFromStorage(STORAGE_SECTION_STATE, {})
+        : (JSON.parse(localStorage.getItem(STORAGE_SECTION_STATE) || '{}') || {});
+      state.rowsFilterPanel = Boolean(isOpen);
+      state.tableContent = Boolean(isOpen);
+      localStorage.setItem(STORAGE_SECTION_STATE, JSON.stringify(state));
+    } catch (e) {}
+  }
+
+  window.moxV45EnsureRowsControlPanel = function(forceOpen) {
+    const { panel, table, preview } = getRowsPanelParts();
+    if (!panel || !table) return;
+
+    // تأكد أن شكل اللوحة الجديد مركّب حتى لو ترتيب تحميل الجافاسكريبت اتغير
+    if (typeof moxV44InstallCompactRowsPanel === 'function' && !panel.classList.contains('mox-rows-compact-panel')) {
+      moxV44InstallCompactRowsPanel();
+    }
+
+    const shouldOpen = forceOpen === true || !table.classList.contains('hidden-section');
+    if (shouldOpen) {
+      panel.classList.remove('hidden-section');
+      table.classList.remove('hidden-section');
+      if (preview) preview.classList.add('hidden-section');
+      updateRowsSectionButton(true);
+      if (typeof setMobileNavActive === 'function') setMobileNavActive('tableContent');
+      saveRowsPanelVisibleState(true);
+    }
+
+    if (typeof moxV44UpdateRowsCounter === 'function') moxV44UpdateRowsCounter();
+  };
+
+  // استبدال زر إظهار/إخفاء الخاص بسجل العمليات ليعرض لوحة التحكم + الجدول معًا
+  window.toggleRowsSection = function(button) {
+    const { panel, table, preview } = getRowsPanelParts();
+    if (!panel || !table) return;
+
+    if (typeof moxV44InstallCompactRowsPanel === 'function' && !panel.classList.contains('mox-rows-compact-panel')) {
+      moxV44InstallCompactRowsPanel();
+    }
+
+    const isOpen = !table.classList.contains('hidden-section') || !panel.classList.contains('hidden-section');
+    const willOpen = !isOpen;
+
+    panel.classList.toggle('hidden-section', !willOpen);
+    table.classList.toggle('hidden-section', !willOpen);
+    if (preview) preview.classList.add('hidden-section');
+
+    if (button) button.textContent = willOpen ? 'إخفاء' : 'إظهار';
+    if (typeof setMobileNavActive === 'function') setMobileNavActive(willOpen ? 'tableContent' : '');
+    saveRowsPanelVisibleState(willOpen);
+
+    if (willOpen && typeof moxV44UpdateRowsCounter === 'function') moxV44UpdateRowsCounter();
+  };
+
+  // دعم الفتح من الشريط السفلي أو أي زر داخلي
+  const oldOpenSectionGroupForTarget = typeof window.openSectionGroupForTarget === 'function' ? window.openSectionGroupForTarget : null;
+  window.openSectionGroupForTarget = function(id) {
+    if (oldOpenSectionGroupForTarget) oldOpenSectionGroupForTarget(id);
+    if (id === 'tableContent' || id === 'rowsFilterPanel') {
+      setTimeout(function(){ window.moxV45EnsureRowsControlPanel(true); }, 0);
+    }
+  };
+
+  const oldToggleMobileBlock = typeof window.toggleMobileBlock === 'function' ? window.toggleMobileBlock : null;
+  window.toggleMobileBlock = function(id) {
+    if (id === 'tableContent' || id === 'rowsFilterPanel') {
+      const { panel, table, preview } = getRowsPanelParts();
+      if (!panel || !table) return;
+      const isOpen = !table.classList.contains('hidden-section') || !panel.classList.contains('hidden-section');
+      if (isOpen) {
+        panel.classList.add('hidden-section');
+        table.classList.add('hidden-section');
+        if (preview) preview.classList.add('hidden-section');
+        updateRowsSectionButton(false);
+        saveRowsPanelVisibleState(false);
+        if (typeof setMobileNavActive === 'function') setMobileNavActive('');
+      } else {
+        window.moxV45EnsureRowsControlPanel(true);
+        setTimeout(function(){ (panel || table).scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 35);
+      }
+      return;
+    }
+    if (oldToggleMobileBlock) oldToggleMobileBlock(id);
+  };
+
+  // بعد تطبيق حالة الأقسام المحفوظة: لو الجدول مفتوح خليه يفتح معه الفلتر تلقائيًا
+  const oldApplySavedSectionState = typeof window.applySavedSectionState === 'function' ? window.applySavedSectionState : null;
+  window.applySavedSectionState = function() {
+    if (oldApplySavedSectionState) oldApplySavedSectionState();
+    const { panel, table } = getRowsPanelParts();
+    if (panel && table && !table.classList.contains('hidden-section')) {
+      window.moxV45EnsureRowsControlPanel(true);
+    }
+  };
+
+  document.addEventListener('DOMContentLoaded', function(){
+    setTimeout(function(){
+      const { panel, table } = getRowsPanelParts();
+      if (!panel || !table) return;
+
+      if (typeof moxV44InstallCompactRowsPanel === 'function') moxV44InstallCompactRowsPanel();
+
+      // مرة واحدة فقط بعد التحديث: لو السجل ظاهر بدون اللوحة، افتح اللوحة معه.
+      // لكن لا نفتح السجل من نفسه لو المستخدم مختار أن كل القوائم تبدأ مخفية.
+      if (!table.classList.contains('hidden-section')) {
+        window.moxV45EnsureRowsControlPanel(true);
+      } else {
+        updateRowsSectionButton(false);
+      }
+
+      try { localStorage.setItem(FIX_VERSION_KEY, '1'); } catch (e) {}
+    }, 180);
+  });
+})();
