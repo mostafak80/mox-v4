@@ -2213,3 +2213,155 @@
   min-width: 68px;
   text-align: center;
 }
+
+
+/* ===== MOX-V4.2 requested fixes: archive visibility + global list style + startup settings ===== */
+.site-settings-panel {
+  background: linear-gradient(135deg, rgba(79,142,247,.10), rgba(167,139,250,.09));
+  border: 1px solid rgba(79,142,247,.24);
+}
+
+.mox-site-settings-grid,
+.mox-rows-date-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: .65rem;
+  align-items: end;
+}
+
+.mox-settings-title {
+  font-weight: 900;
+  color: var(--accent);
+  margin-bottom: .55rem;
+}
+
+.mox-settings-note {
+  color: var(--muted);
+  font-size: .74rem;
+  line-height: 1.75;
+  margin-top: .6rem;
+}
+
+body.mox-list-style-list .quick-offers-grid,
+body.mox-list-style-list .preview-list,
+body.mox-list-style-list .service-color-grid,
+body.mox-list-style-list .report-grid,
+body.mox-list-style-list .stats-grid,
+body.mox-list-style-list .pro-report-grid,
+body.mox-list-style-list .closing-grid,
+body.mox-list-style-list .audit-grid,
+body.mox-list-style-list .mox-recent-offers,
+body.mox-list-style-list .mox-cashier-results,
+body.mox-list-style-list .mox-package-actions,
+body.mox-list-style-list .mox-speed-grid,
+body.mox-list-style-list .mox-preset-filter-grid {
+  grid-template-columns: 1fr !important;
+}
+
+body.mox-list-style-grid .quick-offers-grid,
+body.mox-list-style-grid .preview-list,
+body.mox-list-style-grid .service-color-grid,
+body.mox-list-style-grid .report-grid,
+body.mox-list-style-grid .stats-grid,
+body.mox-list-style-grid .pro-report-grid,
+body.mox-list-style-grid .closing-grid,
+body.mox-list-style-grid .audit-grid,
+body.mox-list-style-grid .mox-recent-offers,
+body.mox-list-style-grid .mox-cashier-results {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+}
+
+body.mox-list-style-grid .preset-list table,
+body.mox-list-style-list .preset-list table,
+body.mox-list-style-grid .expense-list table,
+body.mox-list-style-list .expense-list table {
+  min-width: 0 !important;
+  width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0 .65rem !important;
+}
+
+body.mox-list-style-grid .preset-list thead,
+body.mox-list-style-list .preset-list thead,
+body.mox-list-style-grid .expense-list thead,
+body.mox-list-style-list .expense-list thead {
+  display: none !important;
+}
+
+body.mox-list-style-grid .preset-list tbody,
+body.mox-list-style-grid .expense-list tbody {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(255px, 1fr)) !important;
+  gap: .65rem !important;
+}
+
+body.mox-list-style-list .preset-list tbody,
+body.mox-list-style-list .expense-list tbody {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: .65rem !important;
+}
+
+body.mox-list-style-grid .preset-list tr,
+body.mox-list-style-list .preset-list tr,
+body.mox-list-style-grid .expense-list tr,
+body.mox-list-style-list .expense-list tr {
+  display: block !important;
+  width: 100% !important;
+  border: 1px solid rgba(148,163,184,.16) !important;
+  border-right: 6px solid var(--service-color, var(--row-service-color, var(--accent))) !important;
+  border-radius: 18px !important;
+  background: linear-gradient(135deg, rgba(26,29,46,.9), rgba(17,20,33,.75)) !important;
+  box-shadow: 0 12px 28px rgba(0,0,0,.12) !important;
+  padding: .72rem !important;
+  overflow: hidden !important;
+}
+
+body.mox-list-style-grid .preset-list td,
+body.mox-list-style-list .preset-list td,
+body.mox-list-style-grid .expense-list td,
+body.mox-list-style-list .expense-list td {
+  display: block !important;
+  width: 100% !important;
+  border-top: 0 !important;
+  white-space: normal !important;
+  padding: .34rem .1rem !important;
+}
+
+body.mox-list-style-grid .preset-list td::before,
+body.mox-list-style-list .preset-list td::before,
+body.mox-list-style-grid .expense-list td::before,
+body.mox-list-style-list .expense-list td::before {
+  content: attr(data-label);
+  display: block;
+  color: var(--muted2);
+  font-size: .66rem;
+  font-weight: 900;
+  margin-bottom: .12rem;
+}
+
+body.mox-list-style-grid .preset-list td:not([data-label])::before,
+body.mox-list-style-list .preset-list td:not([data-label])::before,
+body.mox-list-style-grid .expense-list td:not([data-label])::before,
+body.mox-list-style-list .expense-list td:not([data-label])::before {
+  display: none;
+}
+
+body:not(.mox-show-archived-rows) #tableBody tr.mox-archived-row,
+body:not(.mox-show-archived-presets) #presetListBody tr.mox-archived-row,
+body:not(.mox-show-archived-presets) .mox-offer-card.archived {
+  display: none !important;
+}
+
+body.mox-show-archived-rows #tableBody tr.mox-archived-row,
+body.mox-show-archived-presets #presetListBody tr.mox-archived-row {
+  opacity: .76;
+  filter: saturate(.75);
+}
+
+@media(max-width: 760px) {
+  .mox-site-settings-grid,
+  .mox-rows-date-filter-grid {
+    grid-template-columns: 1fr;
+  }
+}
