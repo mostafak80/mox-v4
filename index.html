@@ -1933,6 +1933,66 @@
       font-size: .68rem;
       line-height: 1.6;
     }
+
+
+    /* ===== MOX update: bulk date selection + easier quick offers ordering ===== */
+    .bulk-date-panel {
+      margin-top: .75rem;
+      padding: .85rem;
+      border: 1px solid rgba(79,142,247,.24);
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(79,142,247,.10), rgba(34,197,94,.07));
+      display: grid;
+      grid-template-columns: minmax(150px, .8fr) minmax(160px, .9fr) repeat(3, auto);
+      gap: .6rem;
+      align-items: end;
+    }
+
+    .bulk-selected-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      border: 1px solid rgba(34,197,94,.30);
+      background: rgba(34,197,94,.10);
+      color: var(--green);
+      border-radius: 14px;
+      padding: .5rem .75rem;
+      font-size: .82rem;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .bulk-check {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+      cursor: pointer;
+      vertical-align: middle;
+    }
+
+    .bulk-check-cell {
+      text-align: center;
+      width: 42px;
+      min-width: 42px;
+    }
+
+    .bulk-date-panel .btn {
+      min-height: 44px;
+    }
+
+    @media(max-width: 900px) {
+      .bulk-date-panel {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media(max-width: 520px) {
+      .bulk-date-panel {
+        grid-template-columns: 1fr;
+      }
+    }
+
 </style>
 </head>
 
@@ -8728,6 +8788,547 @@
   document.addEventListener('DOMContentLoaded', function () {
     ensureExcelExportSection();
   });
+
+
+
+  /* ===== MOX update: bulk date editing + automatic quick-offer ordering ===== */
+  let selectedRowIds = new Set();
+  let selectedVariableExpenseIds = new Set();
+
+  function moxNameCollator() {
+    return new Intl.Collator(['ar', 'en'], { numeric: true, sensitivity: 'base', ignorePunctuation: true });
+  }
+
+  function moxCleanSortText(value) {
+    return String(value || '').trim().replace(/\s+/g, ' ');
+  }
+
+  function sortPresetsByNames() {
+    const collator = moxNameCollator();
+    presets.sort((a, b) =>
+      collator.compare(moxCleanSortText(a.item), moxCleanSortText(b.item)) ||
+      collator.compare(moxCleanSortText(a.offer), moxCleanSortText(b.offer)) ||
+      (Number(a.paid) || 0) - (Number(b.paid) || 0) ||
+      (Number(a.deducted) || 0) - (Number(b.deducted) || 0)
+    );
+  }
+
+  function installBulkDateTools() {
+    const rowsPanel = document.getElementById('rowsFilterPanel');
+    if (rowsPanel && !document.getElementById('rowsBulkDatePanel')) {
+      rowsPanel.insertAdjacentHTML('beforeend', `
+        <div id="rowsBulkDatePanel" class="bulk-date-panel">
+          <div id="bulkRowsSelectedCount" class="bulk-selected-count">محدد: 0</div>
+          <div class="field">
+            <label>تاريخ جديد للعمليات المحددة</label>
+            <input id="bulkRowsDateInput" type="date">
+          </div>
+          <button class="btn btn-export" type="button" onclick="toggleAllVisibleRows(true)">تحديد الكل الظاهر</button>
+          <button class="btn btn-amber" type="button" onclick="toggleAllVisibleRows(false)">إلغاء التحديد</button>
+          <button class="btn btn-add" type="button" onclick="applyBulkRowsDate()">تعديل تاريخ المحدد</button>
+        </div>
+      `);
+    }
+
+    const variableContent = document.getElementById('variableExpensesContent');
+    const variableTableWrap = variableContent?.querySelector('.pro-table-wrap');
+    if (variableTableWrap && !document.getElementById('variableExpenseBulkDatePanel')) {
+      variableTableWrap.insertAdjacentHTML('beforebegin', `
+        <div id="variableExpenseBulkDatePanel" class="bulk-date-panel">
+          <div id="bulkVariableExpensesSelectedCount" class="bulk-selected-count">محدد: 0</div>
+          <div class="field">
+            <label>تاريخ جديد للمصاريف المحددة</label>
+            <input id="bulkVariableExpensesDateInput" type="date">
+          </div>
+          <button class="btn btn-export" type="button" onclick="toggleAllVariableExpenses(true)">تحديد الكل</button>
+          <button class="btn btn-amber" type="button" onclick="toggleAllVariableExpenses(false)">إلغاء التحديد</button>
+          <button class="btn btn-add" type="button" onclick="applyBulkVariableExpensesDate()">تعديل تاريخ المحدد</button>
+        </div>
+      `);
+    }
+
+    const rowsDate = document.getElementById('bulkRowsDateInput');
+    const variableDate = document.getElementById('bulkVariableExpensesDateInput');
+    if (rowsDate && !rowsDate.value) rowsDate.value = today();
+    if (variableDate && !variableDate.value) variableDate.value = today();
+    updateBulkDateUI();
+  }
+
+  function ensureVariableExpenseIds() {
+    let changed = false;
+    variableExpenses = variableExpenses.map(item => {
+      const normalized = item && typeof item === 'object' ? item : {};
+      if (!normalized.id) {
+        normalized.id = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+        changed = true;
+      }
+      return normalized;
+    });
+    if (changed) saveVariableExpenses();
+  }
+
+  function getVisibleRowIndexes() {
+    return getFilteredRowsWithIndexes().map(item => item.index);
+  }
+
+  function getSelectedRowIndexes() {
+    return rows.reduce((indexes, row, index) => {
+      const normalized = normalizeRow(row);
+      rows[index] = normalized;
+      if (selectedRowIds.has(normalized.id)) indexes.push(index);
+      return indexes;
+    }, []);
+  }
+
+  function getSelectedVariableExpenseIndexes() {
+    ensureVariableExpenseIds();
+    return variableExpenses.reduce((indexes, item, index) => {
+      if (selectedVariableExpenseIds.has(item.id)) indexes.push(index);
+      return indexes;
+    }, []);
+  }
+
+  function updateBulkDateUI() {
+    const visibleRowIndexes = getVisibleRowIndexes();
+    const visibleRowIds = visibleRowIndexes.map(index => normalizeRow(rows[index]).id);
+    const visibleSelectedRows = visibleRowIds.filter(id => selectedRowIds.has(id));
+    const rowCount = document.getElementById('bulkRowsSelectedCount');
+    if (rowCount) rowCount.textContent = `محدد: ${selectedRowIds.size}`;
+
+    const rowMaster = document.getElementById('selectAllVisibleRowsCheckbox');
+    if (rowMaster) {
+      rowMaster.checked = visibleRowIds.length > 0 && visibleSelectedRows.length === visibleRowIds.length;
+      rowMaster.indeterminate = visibleSelectedRows.length > 0 && visibleSelectedRows.length < visibleRowIds.length;
+    }
+
+    ensureVariableExpenseIds();
+    const variableCount = document.getElementById('bulkVariableExpensesSelectedCount');
+    if (variableCount) variableCount.textContent = `محدد: ${selectedVariableExpenseIds.size}`;
+
+    const visibleExpenseIds = variableExpenses.map(item => item.id);
+    const selectedVisibleExpenses = visibleExpenseIds.filter(id => selectedVariableExpenseIds.has(id));
+    const variableMaster = document.getElementById('selectAllVariableExpensesCheckbox');
+    if (variableMaster) {
+      variableMaster.checked = visibleExpenseIds.length > 0 && selectedVisibleExpenses.length === visibleExpenseIds.length;
+      variableMaster.indeterminate = selectedVisibleExpenses.length > 0 && selectedVisibleExpenses.length < visibleExpenseIds.length;
+    }
+  }
+
+  function toggleRowSelection(index, checked) {
+    const row = normalizeRow(rows[index]);
+    rows[index] = row;
+    if (checked) selectedRowIds.add(row.id);
+    else selectedRowIds.delete(row.id);
+    updateBulkDateUI();
+  }
+
+  function toggleAllVisibleRows(checked) {
+    getVisibleRowIndexes().forEach(index => {
+      const row = normalizeRow(rows[index]);
+      rows[index] = row;
+      if (checked) selectedRowIds.add(row.id);
+      else selectedRowIds.delete(row.id);
+    });
+    render();
+  }
+
+  function toggleVariableExpenseSelection(index, checked) {
+    ensureVariableExpenseIds();
+    const item = variableExpenses[index];
+    if (!item) return;
+    if (checked) selectedVariableExpenseIds.add(item.id);
+    else selectedVariableExpenseIds.delete(item.id);
+    updateBulkDateUI();
+  }
+
+  function toggleAllVariableExpenses(checked) {
+    ensureVariableExpenseIds();
+    variableExpenses.forEach(item => {
+      if (checked) selectedVariableExpenseIds.add(item.id);
+      else selectedVariableExpenseIds.delete(item.id);
+    });
+    renderVariableExpenses();
+    updateBulkDateUI();
+  }
+
+  function confirmBulkDateChange(oldDates, newDate, actionName) {
+    const closedDates = [...new Set([...oldDates, newDate].filter(date => isDateClosed(date)))];
+    if (!closedDates.length) return true;
+    return confirm(`⚠️ يوجد أيام مقفولة ضمن ${actionName}: ${closedDates.join('، ')}. هل تريد تنفيذ التعديل وتسجيله في سجل التعديلات؟`);
+  }
+
+  function applyBulkRowsDate() {
+    const newDate = document.getElementById('bulkRowsDateInput')?.value || '';
+    if (!newDate) { showToast('⚠️ اختار التاريخ الجديد الأول.'); return; }
+
+    const indexes = getSelectedRowIndexes();
+    if (!indexes.length) { showToast('⚠️ لم تحدد أي عملية.'); return; }
+
+    const oldDates = indexes.map(index => String(rows[index]?.date || '').slice(0, 10)).filter(Boolean);
+    if (!confirmBulkDateChange(oldDates, newDate, 'تعديل تاريخ العمليات المحددة')) return;
+
+    indexes.forEach(index => {
+      const before = JSON.parse(JSON.stringify(rows[index]));
+      rows[index].date = newDate;
+      rows[index].updatedAt = new Date().toISOString();
+      addAuditLog('تعديل تاريخ جماعي لعملية', before.date || newDate, before, rows[index]);
+    });
+
+    saveRows();
+    const changed = indexes.length;
+    selectedRowIds.clear();
+    render();
+    showToast(`✅ تم تعديل تاريخ ${changed} عملية إلى ${newDate}.`);
+  }
+
+  function applyBulkVariableExpensesDate() {
+    const newDate = document.getElementById('bulkVariableExpensesDateInput')?.value || '';
+    if (!newDate) { showToast('⚠️ اختار التاريخ الجديد الأول.'); return; }
+
+    const indexes = getSelectedVariableExpenseIndexes();
+    if (!indexes.length) { showToast('⚠️ لم تحدد أي مصروف متغير.'); return; }
+
+    const oldDates = indexes.map(index => String(variableExpenses[index]?.date || '').slice(0, 10)).filter(Boolean);
+    if (!confirmBulkDateChange(oldDates, newDate, 'تعديل تاريخ المصاريف المحددة')) return;
+
+    indexes.forEach(index => {
+      const before = JSON.parse(JSON.stringify(variableExpenses[index]));
+      variableExpenses[index].date = newDate;
+      variableExpenses[index].updatedAt = new Date().toISOString();
+      addAuditLog('تعديل تاريخ جماعي لمصروف متغير', before.date || newDate, before, variableExpenses[index]);
+    });
+
+    saveVariableExpenses();
+    const changed = indexes.length;
+    selectedVariableExpenseIds.clear();
+    render();
+    showToast(`✅ تم تعديل تاريخ ${changed} مصروف إلى ${newDate}.`);
+  }
+
+  function updateTableHeaderNoStatus() {
+    const header = document.querySelector('#tableContent thead tr');
+    if (!header) return;
+    header.innerHTML = `
+      <th class="bulk-check-cell"><input id="selectAllVisibleRowsCheckbox" class="bulk-check" type="checkbox" title="تحديد كل العمليات الظاهرة" onclick="event.stopPropagation()" onchange="toggleAllVisibleRows(this.checked)"></th>
+      <th>#</th>
+      <th class="col-date">التاريخ</th>
+      <th>المنتج / الخدمة</th>
+      <th>العرض</th>
+      <th>الكمية</th>
+      <th class="col-paid">الداخل / واحدة</th>
+      <th class="col-deducted">مصروف / واحدة</th>
+      <th class="col-profit">ربح الإجمالي</th>
+      <th>ملاحظة</th>
+      <th>إجراء</th>
+    `;
+  }
+
+  function render() {
+    installBulkDateTools();
+    applyRowsViewOptions();
+    updateTableHeaderNoStatus();
+    const body = document.getElementById('tableBody');
+    const emptyState = document.getElementById('emptyState');
+    if (!body || !emptyState) return;
+
+    const visibleRows = getFilteredRowsWithIndexes();
+    body.innerHTML = '';
+    let walletTotal = 0;
+    let operationExpensesTotal = 0;
+    let totalQuantity = 0;
+
+    visibleRows.forEach(({ row, index }, displayIndex) => {
+      row = normalizeRow(row);
+      rows[index] = row;
+      const f = rowFinancials(row);
+      walletTotal += f.income;
+      operationExpensesTotal += f.operationCost;
+      totalQuantity += f.quantity;
+      const profitClass = f.profit >= 0 ? 'profit-val' : 'loss-val';
+      const rowServiceColor = getServiceColor(row.item);
+      const tr = document.createElement('tr');
+      tr.style.setProperty('--row-service-color', rowServiceColor);
+      tr.innerHTML = `
+        <td data-label="اختيار" class="bulk-check-cell"><input class="bulk-check" type="checkbox" ${selectedRowIds.has(row.id) ? 'checked' : ''} onclick="event.stopPropagation()" onchange="toggleRowSelection(${index}, this.checked)"></td>
+        <td data-label="#">${displayIndex + 1}</td>
+        <td data-label="التاريخ"><input class="editable" type="date" value="${escapeHTML(row.date || '')}" onchange="updateRow(${index}, 'date', this.value)"></td>
+        <td data-label="المنتج / الخدمة"><input class="editable" value="${escapeHTML(row.item)}" onchange="updateRow(${index}, 'item', this.value)"></td>
+        <td data-label="العرض"><input class="editable" value="${escapeHTML(row.offer)}" onchange="updateRow(${index}, 'offer', this.value)"></td>
+        <td data-label="الكمية"><input class="editable num" type="number" min="1" step="1" value="${f.quantity}" onchange="updateRow(${index}, 'quantity', this.value)"></td>
+        <td data-label="الداخل / واحدة"><input class="editable num paid-val" type="number" step="0.01" value="${f.unitPaid}" onchange="updateRow(${index}, 'paid', this.value)"></td>
+        <td data-label="مصروف / واحدة"><input class="editable num deducted-val" type="number" step="0.01" value="${f.unitCost}" onchange="updateRow(${index}, 'deducted', this.value)"></td>
+        <td data-label="ربح الإجمالي"><span class="num ${profitClass}">${fmt(f.profit)}</span><span class="unit">EGP</span></td>
+        <td data-label="ملاحظة"><input class="editable note-input" value="${escapeHTML(row.note || '')}" onchange="updateRow(${index}, 'note', this.value)"></td>
+        <td data-label="إجراء"><button class="delete-btn" onclick="deleteRow(${index})">حذف</button></td>
+      `;
+      body.appendChild(tr);
+    });
+
+    const fixedExpensesTotal = totalFixedExpenses();
+    const variableExpensesTotal = getVariableExpensesTotalForCurrentFilter();
+    const activeDateFilter = hasActiveDateFilter();
+    const visibleExpensesTotal = operationExpensesTotal;
+    const profitTotal = walletTotal - operationExpensesTotal - variableExpensesTotal - (activeDateFilter ? 0 : fixedExpensesTotal);
+    const walletDollarRate = parseFloat(document.getElementById('walletDollarRate')?.value) || 0;
+    const expensesDollarRate = parseFloat(document.getElementById('expensesDollarRate')?.value) || 0;
+    const walletUsdTotal = walletDollarRate > 0 ? walletTotal / walletDollarRate : 0;
+    const expensesUsdTotal = expensesDollarRate > 0 ? (visibleExpensesTotal + variableExpensesTotal) / expensesDollarRate : 0;
+
+    document.getElementById('countTotal').textContent = totalQuantity;
+    document.getElementById('walletTotal').innerHTML = `${fmt(walletTotal)}<span class="unit">EGP</span>`;
+    document.getElementById('expensesTotal').innerHTML = `${fmt(visibleExpensesTotal + variableExpensesTotal)}<span class="unit">EGP</span>`;
+    document.getElementById('walletUsdTotal').innerHTML = `${fmt(walletUsdTotal)}<span class="unit">USD</span>`;
+    document.getElementById('expensesUsdTotal').innerHTML = `${fmt(expensesUsdTotal)}<span class="unit">USD</span>`;
+    const profitLabelEl = document.getElementById('profitLabel');
+    if (profitLabelEl) profitLabelEl.textContent = activeDateFilter ? 'صافي الفترة بعد مصاريف اليوم المتغيرة' : 'صافي المكسب بعد المصاريف الثابتة والمتغيرة';
+    const profitTotalEl = document.getElementById('profitTotal');
+    profitTotalEl.innerHTML = `${fmt(profitTotal)}<span class="unit">EGP</span>`;
+    profitTotalEl.className = profitTotal >= 0 ? 'value profit' : 'value loss';
+    emptyState.style.display = visibleRows.length ? 'none' : 'block';
+
+    renderProductFilterOptions();
+    updateFilterNote();
+    renderLatestRowsPreview();
+    renderDailyReport();
+    renderTopOffers();
+    renderAdvancedReport();
+    renderVariableExpenses();
+    renderClosings();
+    renderAuditLogs();
+    updateBulkDateUI();
+  }
+
+  function updateVariableExpenseHeader() {
+    const header = document.querySelector('#variableExpenseBody')?.closest('table')?.querySelector('thead tr');
+    if (!header) return;
+    header.innerHTML = `
+      <th class="bulk-check-cell"><input id="selectAllVariableExpensesCheckbox" class="bulk-check" type="checkbox" title="تحديد كل المصاريف" onclick="event.stopPropagation()" onchange="toggleAllVariableExpenses(this.checked)"></th>
+      <th>#</th>
+      <th>التاريخ</th>
+      <th>الاسم</th>
+      <th>التصنيف</th>
+      <th>القيمة</th>
+      <th>ملاحظة</th>
+      <th>إجراء</th>
+    `;
+  }
+
+  function renderVariableExpenses() {
+    installBulkDateTools();
+    ensureVariableExpenseIds();
+    updateVariableExpenseHeader();
+    const body = document.getElementById('variableExpenseBody');
+    if (!body) return;
+    body.innerHTML = '';
+    const items = variableExpenses.map((item, index) => ({ item, index })).sort((a, b) => String(b.item.date).localeCompare(String(a.item.date)));
+    if (!items.length) {
+      body.innerHTML = '<tr><td colspan="8" class="empty" style="display:table-cell;padding:1rem">لا يوجد مصاريف متغيرة حتى الآن.</td></tr>';
+      updateBulkDateUI();
+      return;
+    }
+
+    items.forEach(({ item, index }, displayIndex) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td data-label="اختيار" class="bulk-check-cell"><input class="bulk-check" type="checkbox" ${selectedVariableExpenseIds.has(item.id) ? 'checked' : ''} onclick="event.stopPropagation()" onchange="toggleVariableExpenseSelection(${index}, this.checked)"></td>
+        <td data-label="#">${displayIndex + 1}</td>
+        <td data-label="التاريخ"><input class="editable" type="date" value="${escapeHTML(item.date || '')}" onchange="updateVariableExpense(${index}, 'date', this.value)"></td>
+        <td data-label="الاسم"><input class="editable" value="${escapeHTML(item.name || '')}" onchange="updateVariableExpense(${index}, 'name', this.value)"></td>
+        <td data-label="التصنيف"><input class="editable" value="${escapeHTML(item.category || '')}" onchange="updateVariableExpense(${index}, 'category', this.value)"></td>
+        <td data-label="القيمة"><input class="editable num deducted-val" type="number" step="0.01" value="${Number(item.amount) || 0}" onchange="updateVariableExpense(${index}, 'amount', this.value)"></td>
+        <td data-label="ملاحظة"><input class="editable note-input" value="${escapeHTML(item.note || '')}" onchange="updateVariableExpense(${index}, 'note', this.value)"></td>
+        <td data-label="إجراء"><button class="delete-btn" onclick="deleteVariableExpense(${index})">حذف</button></td>
+      `;
+      body.appendChild(tr);
+    });
+    updateBulkDateUI();
+  }
+
+  function updateRow(index, key, value) {
+    if (!rows[index]) return;
+    const before = JSON.parse(JSON.stringify(rows[index]));
+    const originalDate = before.date || today();
+    const nextDate = key === 'date' ? String(value || '').slice(0, 10) : originalDate;
+    if (!confirmBulkDateChange([originalDate], nextDate, 'تعديل عملية')) return;
+    if (key === 'paid' || key === 'deducted') rows[index][key] = parseFloat(value) || 0;
+    else if (key === 'quantity') rows[index][key] = normalizeQuantity(value);
+    else if (key === 'status') rows[index][key] = 'done';
+    else rows[index][key] = value;
+    rows[index].status = 'done';
+    rows[index].updatedAt = new Date().toISOString();
+    saveRows();
+    addAuditLog('تعديل عملية', originalDate, before, rows[index]);
+    render();
+  }
+
+  function updateVariableExpense(index, key, value) {
+    ensureVariableExpenseIds();
+    if (!variableExpenses[index]) return;
+    const before = JSON.parse(JSON.stringify(variableExpenses[index]));
+    const originalDate = before.date || today();
+    const nextDate = key === 'date' ? String(value || '').slice(0, 10) : originalDate;
+    if (!confirmBulkDateChange([originalDate], nextDate, 'تعديل مصروف متغير')) return;
+    if (key === 'amount') variableExpenses[index][key] = parseFloat(value) || 0;
+    else variableExpenses[index][key] = value;
+    variableExpenses[index].updatedAt = new Date().toISOString();
+    saveVariableExpenses();
+    addAuditLog('تعديل مصروف متغير', originalDate, before, variableExpenses[index]);
+    render();
+  }
+
+  function deleteRow(index) {
+    if (!rows[index]) return;
+    const before = JSON.parse(JSON.stringify(rows[index]));
+    if (!confirmIfClosedDate(before.date, 'حذف عملية')) return;
+    const confirmed = confirm('⚠️ هل تريد حذف هذه العملية؟');
+    if (!confirmed) return;
+
+    selectedRowIds.delete(normalizeRow(rows[index]).id);
+    const deleted = rows.splice(index, 1);
+    pushDeleted('rows', deleted, 'عملية من سجل العمليات');
+    saveRows();
+    addAuditLog('حذف عملية', before.date, before, null);
+    render();
+    showToast('✅ تم حذف العملية. يمكنك استرجاعها.');
+  }
+
+  function deleteVariableExpense(index) {
+    ensureVariableExpenseIds();
+    if (!variableExpenses[index]) return;
+    const before = JSON.parse(JSON.stringify(variableExpenses[index]));
+    if (!confirmIfClosedDate(before.date, 'حذف مصروف متغير')) return;
+    if (!confirm('⚠️ هل تريد حذف هذا المصروف المتغير؟')) return;
+    selectedVariableExpenseIds.delete(variableExpenses[index].id);
+    variableExpenses.splice(index, 1);
+    saveVariableExpenses();
+    addAuditLog('حذف مصروف متغير', before.date, before, null);
+    render();
+    showToast('✅ تم حذف المصروف المتغير.');
+  }
+
+  function renderPresets() {
+    renderPresetSelect();
+    renderPresetList();
+    renderServiceColorEditor();
+    renderQuickOfferCards();
+  }
+
+  function addPreset() {
+    const values = getPresetFormValues();
+    if (!values) return;
+
+    const preset = createPresetObject(values.item, values.offer, values.paid, values.deducted);
+    presets.push(preset);
+    sortPresetsByNames();
+    getServiceColor(values.item);
+    saveServiceColors();
+    savePresets();
+    renderPresets();
+
+    document.getElementById('presetItemInput').value = '';
+    document.getElementById('presetOfferInput').value = '';
+    document.getElementById('presetPaidInput').value = '';
+    document.getElementById('presetDeductedInput').value = '';
+
+    const select = document.getElementById('presetSelect');
+    const newIndex = presets.findIndex(item => item.id && preset.id && item.id === preset.id);
+    if (select && newIndex >= 0) {
+      select.value = String(newIndex);
+      updatePresetSelectColorPreview();
+    }
+
+    showToast('✅ تم حفظ العرض وترتيبه تلقائيًا حسب اسم الخدمة ثم اسم العرض.');
+  }
+
+  function saveCurrentManualAsPreset() {
+    const itemInput = document.getElementById('itemInput');
+    const offerInput = document.getElementById('offerInput');
+    const paidInput = document.getElementById('paidInput');
+    const deductedInput = document.getElementById('deductedInput');
+
+    const item = itemInput.value.trim();
+    const offer = offerInput.value.trim();
+    const paid = parseFloat(paidInput.value);
+    const deducted = parseFloat(deductedInput.value);
+
+    if (!item) { alert('اكتب اسم المنتج / الخدمة الأول.'); itemInput.focus(); return; }
+    if (!offer) { alert('اكتب العرض الأول.'); offerInput.focus(); return; }
+    if (Number.isNaN(paid) || paid < 0) { alert('اكتب الداخل للمحفظة بشكل صحيح.'); paidInput.focus(); return; }
+    if (Number.isNaN(deducted) || deducted < 0) { alert('اكتب مصروف العملية بشكل صحيح.'); deductedInput.focus(); return; }
+
+    const preset = createPresetObject(item, offer, paid, deducted);
+    presets.push(preset);
+    sortPresetsByNames();
+    getServiceColor(item);
+    saveServiceColors();
+    savePresets();
+    renderPresets();
+
+    const select = document.getElementById('presetSelect');
+    const newIndex = presets.findIndex(saved => saved.id && preset.id && saved.id === preset.id);
+    if (select && newIndex >= 0) {
+      select.value = String(newIndex);
+      updatePresetSelectColorPreview();
+    }
+
+    showToast('✅ تم حفظ العملية الحالية كعرض سريع وترتيبها تلقائيًا.');
+  }
+
+  function updatePreset(index, key, value) {
+    if (!presets[index]) return;
+    const currentId = presets[index].id;
+
+    if (key === 'paid' || key === 'deducted') presets[index][key] = parseFloat(value) || 0;
+    else presets[index][key] = value;
+
+    if (key === 'item') {
+      getServiceColor(value);
+      saveServiceColors();
+    }
+
+    presets[index].updatedAt = new Date().toISOString();
+    if (key === 'item' || key === 'offer') sortPresetsByNames();
+    savePresets();
+    renderPresets();
+
+    const select = document.getElementById('presetSelect');
+    const newIndex = presets.findIndex(preset => preset.id && currentId && preset.id === currentId);
+    if (select && newIndex >= 0) {
+      select.value = String(newIndex);
+      updatePresetSelectColorPreview();
+    }
+
+    showToast(key === 'item' || key === 'offer' ? '✅ تم تعديل العرض وإعادة ترتيبه حسب الاسم.' : '✅ تم تعديل العرض المحفوظ.');
+  }
+
+  function sortPresets(type) {
+    if (!type || type === 'manual') return;
+    const collator = moxNameCollator();
+
+    presets.sort((a, b) => {
+      if (type === 'itemAsc') return collator.compare(a.item || '', b.item || '') || collator.compare(a.offer || '', b.offer || '');
+      if (type === 'offerAsc') return collator.compare(a.offer || '', b.offer || '') || collator.compare(a.item || '', b.item || '');
+      if (type === 'paidAsc') return (Number(a.paid) || 0) - (Number(b.paid) || 0);
+      if (type === 'paidDesc') return (Number(b.paid) || 0) - (Number(a.paid) || 0);
+      if (type === 'profitDesc') return calcProfit(b) - calcProfit(a);
+      if (type === 'profitAsc') return calcProfit(a) - calcProfit(b);
+      return 0;
+    });
+
+    savePresets();
+    renderPresets();
+    document.getElementById('presetSortSelect').value = 'manual';
+    showToast('✅ تم ترتيب العروض المحفوظة.');
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    installBulkDateTools();
+    sortPresetsByNames();
+    savePresets();
+    renderPresets();
+    render();
+  });
+
 
   installGlobalSortableTables();
 </script>
