@@ -6606,8 +6606,8 @@
   }
 
 
-  /* ===== MOX-V4 Pro complete upgrade layer: 28 improvements ===== */
-  var MOX_V4_VERSION = 'MOX-V4 Pro';
+  /* ===== MOX-V2 complete upgrade layer: 28 improvements ===== */
+  var MOX_V4_VERSION = 'MOX-V2';
   var MOX_V4_RECENT_KEY = 'profit_mox_v4_recent_presets_v1';
   var MOX_V4_UNDO_KEY = 'profit_mox_v4_undo_stack_v1';
   var MOX_V4_ROWS_PER_PAGE_KEY = 'profit_mox_v4_rows_per_page_v1';
@@ -6751,9 +6751,9 @@
   }
 
   function moxV4InstallLayout() {
-    document.title = 'MOX-V4 Pro';
+    document.title = 'MOX-V2';
     const h1 = document.querySelector('.header h1');
-    if (h1 && !h1.dataset.v4) { h1.textContent = 'MOX-V4 Pro'; h1.dataset.v4 = '1'; }
+    if (h1 && !h1.dataset.v4) { h1.textContent = 'MOX-V2'; h1.dataset.v4 = '1'; }
     const subtitle = document.querySelector('.header p');
     if (subtitle && !subtitle.dataset.v4) { subtitle.textContent = 'إدارة أسرع للعمليات والعروض والمصاريف مع وضع كاشير وأرشفة وحماية ونسخ تلقائي'; subtitle.dataset.v4 = '1'; }
 
