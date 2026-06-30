@@ -8079,3 +8079,311 @@ document.addEventListener('DOMContentLoaded', function () {
   moxV42UpdateArchiveBodyClasses();
   moxV42RefreshSettingsControls();
 });
+
+/* ===== MOX-V4.3 requested fix: القوائم الرئيسية مربعات/قوائم + إخفاء الكل عند الفتح + سجل العمليات بالنظام القديم ===== */
+var MOX_V43_DEFAULTS_APPLIED_KEY = 'profit_mox_v4_3_main_sections_defaults_applied_v1';
+
+(function moxV43ApplyRequestedDefaultsOnce() {
+  try {
+    if (!localStorage.getItem(MOX_V43_DEFAULTS_APPLIED_KEY)) {
+      localStorage.setItem(MOX_V4_REMEMBER_LAST_OPEN_KEY, '0');
+      localStorage.setItem(MOX_V4_START_COLLAPSED_KEY, '1');
+      localStorage.setItem(MOX_V4_GLOBAL_LIST_STYLE_KEY, 'grid');
+      localStorage.setItem(STORAGE_ROWS_VIEW_MODE, 'table');
+      localStorage.setItem(STORAGE_ROWS_VIEW_SIZE, 'medium');
+      localStorage.removeItem(STORAGE_SECTION_STATE);
+      localStorage.removeItem(MOX_V4_LAST_ACTIVE_SECTION_KEY);
+      localStorage.setItem(MOX_V43_DEFAULTS_APPLIED_KEY, '1');
+    }
+  } catch (e) {
+    console.warn('MOX V4.3 defaults skipped:', e);
+  }
+})();
+
+function moxV43RegisterAllCollapsibleContent() {
+  [
+    'moxSiteSettingsContent',
+    'moxCashierModeContent',
+    'quickEntryContent',
+    'walletImportContent',
+    'cloudSyncContent',
+    'summaryFilterPanel',
+    'summaryContent',
+    'reportsContent',
+    'excelExportProContent',
+    'presetsContent',
+    'manualContent',
+    'variableExpensesContent',
+    'closingContent',
+    'fixedExpensesContent',
+    'rowsFilterPanel',
+    'tableContent'
+  ].forEach(id => {
+    if (typeof COLLAPSIBLE_CONTENT_IDS !== 'undefined' && !COLLAPSIBLE_CONTENT_IDS.includes(id)) {
+      COLLAPSIBLE_CONTENT_IDS.push(id);
+    }
+  });
+}
+
+function moxV43IsContentOpen(el) {
+  return el && !el.classList.contains('hidden-section');
+}
+
+function moxV43UpdateOneSectionButton(section) {
+  if (!section) return;
+  const button = section.querySelector('.section-head .toggle-btn');
+  if (!button) return;
+  const contents = [...section.querySelectorAll('.panel, .summary, .table-wrap, .latest-preview')];
+  const hasOpen = contents.some(moxV43IsContentOpen);
+  button.textContent = hasOpen ? 'إخفاء' : 'إظهار';
+}
+
+function moxV43UpdateAllSectionButtons() {
+  document.querySelectorAll('.section').forEach(moxV43UpdateOneSectionButton);
+}
+
+function moxV43CollapseAllMainSections() {
+  moxV43RegisterAllCollapsibleContent();
+  const ids = new Set(COLLAPSIBLE_CONTENT_IDS || []);
+  document.querySelectorAll('.section .panel, .section .summary, .section .table-wrap, .section .latest-preview').forEach(el => {
+    if (!el.id || ids.has(el.id) || el.closest('.section')) el.classList.add('hidden-section');
+  });
+  const preview = document.getElementById('latestRowsPreview');
+  if (preview) preview.classList.add('hidden-section');
+  moxV43UpdateAllSectionButtons();
+  if (typeof setMobileNavActive === 'function') setMobileNavActive('');
+}
+
+function moxV43OpenAllMainSections() {
+  moxV43RegisterAllCollapsibleContent();
+  (COLLAPSIBLE_CONTENT_IDS || []).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('hidden-section');
+  });
+  const preview = document.getElementById('latestRowsPreview');
+  if (preview) preview.classList.add('hidden-section');
+  moxV43UpdateAllSectionButtons();
+  if (typeof setMobileNavActive === 'function') setMobileNavActive('');
+}
+
+function moxV43ForceLegacyRowsTable() {
+  try {
+    document.body.classList.add('mox-legacy-rows');
+    rowsViewMode = 'table';
+    rowsViewSize = 'medium';
+    localStorage.setItem(STORAGE_ROWS_VIEW_MODE, 'table');
+    localStorage.setItem(STORAGE_ROWS_VIEW_SIZE, 'medium');
+
+    const modeSelect = document.getElementById('rowsViewModeSelect');
+    const sizeSelect = document.getElementById('rowsViewSizeSelect');
+    if (modeSelect) modeSelect.value = 'table';
+    if (sizeSelect) sizeSelect.value = 'medium';
+
+    const wrap = document.getElementById('tableContent');
+    if (wrap) {
+      wrap.classList.remove(
+        'rows-view-table', 'rows-view-compact', 'rows-view-cards', 'rows-view-mini', 'rows-view-grid', 'rows-view-timeline',
+        'rows-size-small', 'rows-size-medium', 'rows-size-large'
+      );
+      wrap.classList.add('rows-view-table', 'rows-size-medium');
+    }
+  } catch (e) {
+    console.warn('MOX legacy rows skipped:', e);
+  }
+}
+
+var __moxV43OldApplyRowsViewOptions = typeof applyRowsViewOptions === 'function' ? applyRowsViewOptions : null;
+applyRowsViewOptions = function() {
+  moxV43ForceLegacyRowsTable();
+};
+
+loadRowsViewOptions = function() {
+  moxV43ForceLegacyRowsTable();
+};
+
+setRowsViewMode = function() {
+  moxV43ForceLegacyRowsTable();
+  showToast('✅ سجل العمليات رجع للنظام القديم: جدول ثابت، واختيار المربعات خاص بالقوائم الرئيسية فقط.');
+};
+
+setRowsViewSize = function() {
+  moxV43ForceLegacyRowsTable();
+};
+
+resetRowsViewOptions = function() {
+  moxV43ForceLegacyRowsTable();
+  showToast('✅ سجل العمليات الآن بالنظام القديم.');
+};
+
+moxV42ApplyGlobalListStyle = function(syncRowsView) {
+  const style = moxV42GetGlobalListStyle();
+
+  // إزالة الكلاسات القديمة التي كانت تغيّر الجداول والقوائم الداخلية بالغلط
+  document.body.classList.remove('mox-list-style-grid', 'mox-list-style-list');
+
+  // الكلاسات الجديدة خاصة بالقوائم الرئيسية فقط
+  document.body.classList.toggle('mox-main-sections-grid', style === 'grid');
+  document.body.classList.toggle('mox-main-sections-list', style === 'list');
+
+  const select = document.getElementById('moxGlobalListStyleSelect');
+  if (select) select.value = style;
+
+  moxV43ForceLegacyRowsTable();
+  moxV43UpdateAllSectionButtons();
+};
+
+moxV42SetGlobalListStyle = function(value) {
+  localStorage.setItem(MOX_V4_GLOBAL_LIST_STYLE_KEY, value === 'list' ? 'list' : 'grid');
+  moxV42ApplyGlobalListStyle(false);
+  showToast(value === 'list' ? '✅ القوائم الرئيسية أصبحت قوائم طولية.' : '✅ القوائم الرئيسية أصبحت مربعات مثل فولدرات الكمبيوتر.');
+};
+
+moxV42RememberLastEnabled = function() {
+  return moxV42BoolKey(MOX_V4_REMEMBER_LAST_OPEN_KEY, false);
+};
+
+moxV42StartCollapsedEnabled = function() {
+  return moxV42BoolKey(MOX_V4_START_COLLAPSED_KEY, true);
+};
+
+moxV42SetRememberLast = function(value) {
+  moxV42SetBoolKey(MOX_V4_REMEMBER_LAST_OPEN_KEY, value === '1');
+  const select = document.getElementById('moxRememberLastSelect');
+  if (select) select.value = value === '1' ? '1' : '0';
+  if (value === '0') {
+    localStorage.removeItem(STORAGE_SECTION_STATE);
+    localStorage.removeItem(MOX_V4_LAST_ACTIVE_SECTION_KEY);
+  }
+  showToast(value === '1' ? '✅ سيتم فتح الموقع على آخر قسم كنت فاتحه.' : '✅ سيتم تجاهل آخر حالة، والموقع سيفتح حسب إعداد الإخفاء.');
+};
+
+moxV42SetStartCollapsed = function(value) {
+  moxV42SetBoolKey(MOX_V4_START_COLLAPSED_KEY, value === '1');
+  const select = document.getElementById('moxStartCollapsedSelect');
+  if (select) select.value = value === '1' ? '1' : '0';
+  if (value === '1' && !moxV42RememberLastEnabled()) {
+    localStorage.removeItem(STORAGE_SECTION_STATE);
+  }
+  showToast(value === '1' ? '✅ كل القوائم ستكون مخفية عند فتح الموقع.' : '✅ القوائم ستظهر عند فتح الموقع إذا كان تذكر آخر حالة متوقف.');
+};
+
+var __moxV43OldApplySavedSectionState = typeof applySavedSectionState === 'function' ? applySavedSectionState : null;
+applySavedSectionState = function() {
+  moxV43RegisterAllCollapsibleContent();
+
+  if (moxV42RememberLastEnabled() && __moxV43OldApplySavedSectionState) {
+    __moxV43OldApplySavedSectionState();
+  } else if (moxV42StartCollapsedEnabled()) {
+    moxV43CollapseAllMainSections();
+  } else {
+    moxV43OpenAllMainSections();
+  }
+
+  const excel = document.getElementById('excelExportProContent');
+  if (excel && !moxV42RememberLastEnabled() && moxV42StartCollapsedEnabled()) {
+    excel.classList.add('hidden-section');
+  }
+
+  moxV43UpdateAllSectionButtons();
+  moxV42ApplyGlobalListStyle(false);
+};
+
+var __moxV43OldEnsureExcelExportSection = typeof ensureExcelExportSection === 'function' ? ensureExcelExportSection : null;
+ensureExcelExportSection = function() {
+  if (__moxV43OldEnsureExcelExportSection) __moxV43OldEnsureExcelExportSection();
+  moxV43RegisterAllCollapsibleContent();
+
+  const content = document.getElementById('excelExportProContent');
+  const section = content?.closest('.section');
+  if (content && !moxV42RememberLastEnabled() && moxV42StartCollapsedEnabled() && !window.__moxOpeningExcelPanel) {
+    content.classList.add('hidden-section');
+  }
+  if (section) moxV43UpdateOneSectionButton(section);
+  moxV42ApplyGlobalListStyle(false);
+};
+
+var __moxV43OldOpenExcelExportPanel = typeof openExcelExportPanel === 'function' ? openExcelExportPanel : null;
+openExcelExportPanel = function() {
+  window.__moxOpeningExcelPanel = true;
+  if (__moxV43OldOpenExcelExportPanel) __moxV43OldOpenExcelExportPanel();
+  const content = document.getElementById('excelExportProContent');
+  if (content) content.classList.remove('hidden-section');
+  moxV43UpdateAllSectionButtons();
+  window.__moxOpeningExcelPanel = false;
+};
+
+var __moxV43OldInstallSettingsAndDateFilter = typeof moxV42InstallSettingsAndDateFilter === 'function' ? moxV42InstallSettingsAndDateFilter : null;
+moxV42InstallSettingsAndDateFilter = function() {
+  if (__moxV43OldInstallSettingsAndDateFilter) __moxV43OldInstallSettingsAndDateFilter();
+  moxV43RegisterAllCollapsibleContent();
+
+  const label = document.querySelector('label[for="moxGlobalListStyleSelect"]') || document.querySelector('#moxGlobalListStyleSelect')?.closest('.field')?.querySelector('label');
+  if (label) label.textContent = 'شكل القوائم الرئيسية';
+  const note = document.querySelector('#moxSiteSettingsContent .mox-settings-note');
+  if (note) note.textContent = 'اختيار مربعات/قوائم يغيّر شكل الأقسام الرئيسية فقط مثل فولدرات الكمبيوتر، ولا يغيّر شكل سجل العمليات أو الجداول الداخلية.';
+
+  moxV43ForceLegacyRowsTable();
+  moxV42ApplyGlobalListStyle(false);
+  moxV43RefreshSettingsControlsSafe();
+};
+
+function moxV43RefreshSettingsControlsSafe() {
+  const listSelect = document.getElementById('moxGlobalListStyleSelect');
+  if (listSelect) listSelect.value = moxV42GetGlobalListStyle();
+  const rememberSelect = document.getElementById('moxRememberLastSelect');
+  if (rememberSelect) rememberSelect.value = moxV42RememberLastEnabled() ? '1' : '0';
+  const collapsedSelect = document.getElementById('moxStartCollapsedSelect');
+  if (collapsedSelect) collapsedSelect.value = moxV42StartCollapsedEnabled() ? '1' : '0';
+}
+
+var __moxV43OldRefreshSettingsControls = typeof moxV42RefreshSettingsControls === 'function' ? moxV42RefreshSettingsControls : null;
+moxV42RefreshSettingsControls = function() {
+  if (__moxV43OldRefreshSettingsControls) __moxV43OldRefreshSettingsControls();
+  moxV43RefreshSettingsControlsSafe();
+};
+
+moxV42ApplyStartupSettingsNow = function() {
+  if (moxV42RememberLastEnabled()) {
+    applySavedSectionState();
+  } else if (moxV42StartCollapsedEnabled()) {
+    moxV43CollapseAllMainSections();
+  } else {
+    moxV43OpenAllMainSections();
+  }
+  moxV42ApplyGlobalListStyle(false);
+  showToast('✅ تم تطبيق إعدادات بداية فتح الموقع الآن.');
+};
+
+// جعل كارت القسم نفسه قابل للفتح في وضع المربعات، وليس زر إظهار فقط
+if (!window.__moxV43FolderClickInstalled) {
+  window.__moxV43FolderClickInstalled = true;
+  document.addEventListener('click', function(event) {
+    if (!document.body.classList.contains('mox-main-sections-grid')) return;
+    if (event.target.closest('button, input, select, textarea, a')) return;
+    const head = event.target.closest('.section-head');
+    if (!head) return;
+    const btn = head.querySelector('.toggle-btn');
+    if (btn) btn.click();
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  moxV43RegisterAllCollapsibleContent();
+  moxV42InstallSettingsAndDateFilter();
+  ensureExcelExportSection();
+  applySavedSectionState();
+  moxV43ForceLegacyRowsTable();
+  moxV42ApplyGlobalListStyle(false);
+  moxV43RefreshSettingsControlsSafe();
+  moxV43UpdateAllSectionButtons();
+  setTimeout(function() {
+    moxV43RegisterAllCollapsibleContent();
+    if (!moxV42RememberLastEnabled() && moxV42StartCollapsedEnabled()) {
+      moxV43CollapseAllMainSections();
+    }
+    moxV43ForceLegacyRowsTable();
+    moxV42ApplyGlobalListStyle(false);
+    moxV43UpdateAllSectionButtons();
+  }, 450);
+});
+
