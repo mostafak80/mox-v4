@@ -2199,3 +2199,17 @@
       .mox-fab { bottom: calc(6.1rem + env(safe-area-inset-bottom, 0px)); width: 52px; height: 52px; }
     }
 
+
+
+/* ===== MOX fix: separate Archive and Delete buttons ===== */
+.archive-btn {
+  border-color: rgba(245,158,11,.42) !important;
+  background: rgba(245,158,11,.14) !important;
+  color: var(--amber) !important;
+}
+
+.inline-actions .archive-btn,
+.inline-actions .delete-btn {
+  min-width: 68px;
+  text-align: center;
+}
