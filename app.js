@@ -6768,7 +6768,7 @@
             </div>
             <button class="toggle-btn" type="button" onclick="toggleSection('moxCashierModeContent', this)">إخفاء</button>
           </div>
-          <div id="moxCashierModeContent" class="panel mox-v4-panel mox-sticky-cashier">
+          <div id="moxCashierModeContent" class="panel MOX-V2-panel mox-sticky-cashier">
             <div class="mox-cashier-grid">
               <div class="field"><label>بحث ذكي <span class="mox-kbd">Ctrl K</span></label><input id="moxCashierSearch" type="text" placeholder="مثال: ببجي 60 / netflix / 30" oninput="moxV4RenderCashier()"></div>
               <div class="field"><label>الخدمة</label><select id="moxCashierServiceFilter" onchange="moxV4RenderCashier()"><option value="">كل الخدمات</option></select></div>
@@ -7419,7 +7419,7 @@
     const lastDay = localStorage.getItem(MOX_V4_LAST_BACKUP_DAY_KEY);
     if (!manual && lastDay === day) return;
     const ring = moxV4SafeJSON(MOX_V4_BACKUP_RING_KEY, []);
-    const backup = makeBackupObject(manual ? 'mox-v4-manual-auto-backup' : 'mox-v4-daily-auto-backup');
+    const backup = makeBackupObject(manual ? 'MOX-V2-manual-auto-backup' : 'MOX-V2-daily-auto-backup');
     ring.push({ day, createdAt: new Date().toISOString(), backup });
     moxV4SetJSON(MOX_V4_BACKUP_RING_KEY, ring.slice(-14));
     localStorage.setItem(MOX_V4_LAST_BACKUP_DAY_KEY, day);
@@ -7433,7 +7433,7 @@
     if (!fresh) return;
     const blob = new Blob([JSON.stringify(fresh.backup, null, 2)], { type: 'application/json;charset=utf-8' });
     const url = URL.createObjectURL(blob); const a = document.createElement('a');
-    a.href = url; a.download = `mox-v4-auto-backup-${fresh.day}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    a.href = url; a.download = `MOX-V2-auto-backup-${fresh.day}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   }
 
   function moxV4MirrorToIndexedDB(manual) {
@@ -7458,8 +7458,8 @@
   }
 
   function moxV4ExportSplitFiles() {
-    const payload = makeBackupObject('mox-v4-organized-package');
-    moxV4DownloadTextFile(`mox-v4-data-${today()}.json`, JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
+    const payload = makeBackupObject('MOX-V2-organized-package');
+    moxV4DownloadTextFile(`MOX-V2-data-${today()}.json`, JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
     showToast('✅ تم تنزيل بيانات منظمة JSON. تقسيم HTML/CSS/JS الكامل يحتاج رفع على سيرفر بملفات منفصلة، والنسخة الحالية تظل ملف واحد سهل التشغيل.');
   }
 
@@ -7574,7 +7574,7 @@
   installGlobalSortableTables();
 
 
-/* ===== MOX-V4.2 requested fixes: archive visibility + site settings + rows quick date ===== */
+/* ===== MOX-V2.2 requested fixes: archive visibility + site settings + rows quick date ===== */
 var MOX_V4_GLOBAL_LIST_STYLE_KEY = 'profit_mox_v4_global_list_style_v2';
 var MOX_V4_REMEMBER_LAST_OPEN_KEY = 'profit_mox_v4_remember_last_open_v2';
 var MOX_V4_START_COLLAPSED_KEY = 'profit_mox_v4_start_collapsed_v2';
