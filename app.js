@@ -8387,3 +8387,281 @@ document.addEventListener('DOMContentLoaded', function() {
   }, 450);
 });
 
+
+
+/* ===== MOX-V4.4: ترتيب لوحة فلاتر سجل العمليات بشكل صغير ومنظم ===== */
+var MOX_V44_ROWS_COMPACT_INSTALLED = false;
+
+function moxV44EscapeAttr(value) {
+  return String(value || '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+}
+
+function moxV44GetAllowedRowsMode(value) {
+  const allowed = ['table', 'compact', 'cards', 'mini', 'grid', 'timeline'];
+  return allowed.includes(value) ? value : 'table';
+}
+
+function moxV44GetAllowedRowsSize(value) {
+  const allowed = ['small', 'medium', 'large'];
+  return allowed.includes(value) ? value : 'small';
+}
+
+function moxV44ApplyRowsViewOptions() {
+  const tableWrap = document.getElementById('tableContent');
+  if (!tableWrap) return;
+
+  rowsViewMode = moxV44GetAllowedRowsMode(rowsViewMode || localStorage.getItem(STORAGE_ROWS_VIEW_MODE) || 'table');
+  rowsViewSize = moxV44GetAllowedRowsSize(rowsViewSize || localStorage.getItem(STORAGE_ROWS_VIEW_SIZE) || 'small');
+
+  document.body.classList.toggle('mox-legacy-rows', rowsViewMode === 'table');
+
+  tableWrap.classList.remove(
+    'rows-view-table',
+    'rows-view-compact',
+    'rows-view-cards',
+    'rows-view-mini',
+    'rows-view-grid',
+    'rows-view-timeline',
+    'rows-size-small',
+    'rows-size-medium',
+    'rows-size-large'
+  );
+
+  tableWrap.classList.add(`rows-view-${rowsViewMode}`);
+  tableWrap.classList.add(`rows-size-${rowsViewSize}`);
+
+  const modeSelect = document.getElementById('rowsViewModeSelect');
+  const sizeSelect = document.getElementById('rowsViewSizeSelect');
+  if (modeSelect) modeSelect.value = rowsViewMode;
+  if (sizeSelect) sizeSelect.value = rowsViewSize;
+}
+
+if (typeof moxV43ForceLegacyRowsTable === 'function') {
+  moxV43ForceLegacyRowsTable = function() {
+    moxV44ApplyRowsViewOptions();
+  };
+}
+
+applyRowsViewOptions = function() {
+  moxV44ApplyRowsViewOptions();
+};
+
+loadRowsViewOptions = function() {
+  rowsViewMode = moxV44GetAllowedRowsMode(localStorage.getItem(STORAGE_ROWS_VIEW_MODE) || 'table');
+  rowsViewSize = moxV44GetAllowedRowsSize(localStorage.getItem(STORAGE_ROWS_VIEW_SIZE) || 'small');
+  moxV44ApplyRowsViewOptions();
+};
+
+setRowsViewMode = function(value) {
+  rowsViewMode = moxV44GetAllowedRowsMode(value);
+  localStorage.setItem(STORAGE_ROWS_VIEW_MODE, rowsViewMode);
+  moxV44ApplyRowsViewOptions();
+  if (typeof scheduleCloudSync === 'function') scheduleCloudSync('rows-view-mode');
+  showToast(rowsViewMode === 'table' ? '✅ سجل العمليات رجع للجدول العادي.' : '✅ تم تغيير شكل سجل العمليات فقط.');
+};
+
+setRowsViewSize = function(value) {
+  rowsViewSize = moxV44GetAllowedRowsSize(value);
+  localStorage.setItem(STORAGE_ROWS_VIEW_SIZE, rowsViewSize);
+  moxV44ApplyRowsViewOptions();
+  if (typeof scheduleCloudSync === 'function') scheduleCloudSync('rows-view-size');
+};
+
+resetRowsViewOptions = function() {
+  rowsViewMode = 'table';
+  rowsViewSize = 'small';
+  localStorage.setItem(STORAGE_ROWS_VIEW_MODE, rowsViewMode);
+  localStorage.setItem(STORAGE_ROWS_VIEW_SIZE, rowsViewSize);
+  moxV44ApplyRowsViewOptions();
+  showToast('✅ تم رجوع سجل العمليات للجدول العادي الصغير.');
+};
+
+function moxV44RowsQuickDateValue() {
+  try { return localStorage.getItem(MOX_V4_ROWS_QUICK_DATE_KEY) || 'all'; }
+  catch (e) { return 'all'; }
+}
+
+function moxV44RowsCustomDateValue() {
+  try { return localStorage.getItem(MOX_V4_ROWS_CUSTOM_DATE_KEY) || today(); }
+  catch (e) { return today(); }
+}
+
+function moxV44InstallCompactRowsPanel() {
+  const panel = document.getElementById('rowsFilterPanel');
+  if (!panel) return;
+
+  const currentSearch = document.getElementById('rowsSearchInput')?.value || '';
+  const currentProduct = document.getElementById('productFilterSelect')?.value || '';
+  const quickValue = moxV44RowsQuickDateValue();
+  const customDate = moxV44RowsCustomDateValue();
+  const bulkDate = document.getElementById('bulkRowsDateInput')?.value || today();
+  const perPage = String(typeof moxV4RowsPerPage !== 'undefined' ? moxV4RowsPerPage : (localStorage.getItem(MOX_V4_ROWS_PER_PAGE_KEY) || '50'));
+  const mode = moxV44GetAllowedRowsMode(localStorage.getItem(STORAGE_ROWS_VIEW_MODE) || rowsViewMode || 'table');
+  const size = moxV44GetAllowedRowsSize(localStorage.getItem(STORAGE_ROWS_VIEW_SIZE) || rowsViewSize || 'small');
+
+  panel.classList.add('mox-rows-compact-panel');
+  panel.innerHTML = `
+    <div class="mox-rows-compact-head">
+      <div>
+        <div class="mox-rows-compact-title">📋 تحكم سجل العمليات</div>
+        <div class="mox-rows-compact-subtitle">فلترة، بحث، شكل عرض السجل، وتعديل تاريخ جماعي من مكان واحد.</div>
+      </div>
+      <div id="moxRowsShownCounter" class="mox-rows-compact-count">المعروض: 0</div>
+    </div>
+
+    <div class="mox-rows-compact-grid">
+      <div id="moxRowsQuickDatePanel" class="mox-rows-tool-card primary">
+        <div class="mox-rows-tool-title">📅 التاريخ</div>
+        <div class="mox-rows-mini-grid two">
+          <div class="field">
+            <label>عرض عمليات</label>
+            <select id="moxRowsQuickDateFilter" onchange="moxV42ApplyRowsQuickDate()">
+              <option value="all">كل الأيام</option>
+              <option value="today">اليوم</option>
+              <option value="yesterday">أمس</option>
+              <option value="beforeYesterday">قبل أمس</option>
+              <option value="custom">تاريخ محدد</option>
+            </select>
+          </div>
+          <div class="field ${quickValue === 'custom' ? '' : 'hidden-section'}" id="moxRowsCustomDateField">
+            <label>تاريخ محدد</label>
+            <input id="moxRowsCustomDate" type="date" value="${moxV44EscapeAttr(customDate)}" onchange="moxV42SetRowsCustomDate(this.value)">
+          </div>
+          <button class="btn btn-export" type="button" onclick="moxV42ApplyRowsQuickDate()">تطبيق</button>
+          <button class="btn btn-amber" type="button" onclick="moxV42ResetRowsQuickDate()">كل الأيام</button>
+        </div>
+      </div>
+
+      <div class="mox-rows-tool-card">
+        <div class="mox-rows-tool-title">🔎 البحث</div>
+        <div class="mox-rows-mini-grid">
+          <div class="field">
+            <label>بحث داخل السجل</label>
+            <input id="rowsSearchInput" type="text" value="${moxV44EscapeAttr(currentSearch)}" placeholder="ببجي، 60، رقم..." oninput="applyRowTextFilters()">
+          </div>
+          <div class="field">
+            <label>فلتر المنتج</label>
+            <select id="productFilterSelect" onchange="applyFilters(true)"><option value="">كل المنتجات</option></select>
+          </div>
+          <button class="btn btn-export" type="button" onclick="clearRowTextFilters()">مسح البحث</button>
+        </div>
+      </div>
+
+      <div id="moxSpeedOptionsPanel" class="mox-rows-tool-card">
+        <div class="mox-rows-tool-title">🧩 الشكل والظهور</div>
+        <div class="mox-rows-mini-grid two">
+          <div class="field">
+            <label>شكل السجل</label>
+            <select id="rowsViewModeSelect" onchange="setRowsViewMode(this.value)">
+              <option value="table">جدول عادي</option>
+              <option value="compact">جدول مضغوط</option>
+              <option value="cards">كروت</option>
+              <option value="mini">كروت صغيرة</option>
+              <option value="grid">مربعات</option>
+              <option value="timeline">تايم لاين</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>الحجم</label>
+            <select id="rowsViewSizeSelect" onchange="setRowsViewSize(this.value)">
+              <option value="small">صغير</option>
+              <option value="medium">متوسط</option>
+              <option value="large">كبير</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>عدد المعروض</label>
+            <select id="moxRowsPerPageSelect" onchange="moxV4SetRowsPerPage(this.value)">
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+              <option value="200">200</option>
+              <option value="999999">كل السجل</option>
+            </select>
+          </div>
+          <button class="btn btn-purple" type="button" onclick="resetRowsViewOptions()">إعادة الافتراضي</button>
+          <button class="btn btn-export" type="button" onclick="moxV4ToggleArchivedRows()" id="moxArchivedRowsBtn">إظهار المؤرشف</button>
+          <button class="btn btn-purple" type="button" onclick="moxV4TogglePrivacyMode()" id="moxPrivacyBtn">وضع الخصوصية</button>
+        </div>
+      </div>
+
+      <div id="rowsBulkDatePanel" class="mox-rows-tool-card bulk">
+        <div class="mox-rows-tool-title">🗓️ تعديل تاريخ المحدد</div>
+        <div class="mox-rows-mini-grid two">
+          <div id="bulkRowsSelectedCount" class="bulk-selected-count">محدد: 0</div>
+          <div class="field">
+            <label>تاريخ جديد</label>
+            <input id="bulkRowsDateInput" type="date" value="${moxV44EscapeAttr(bulkDate)}">
+          </div>
+          <button class="btn btn-export" type="button" onclick="toggleAllVisibleRows(true)">تحديد الظاهر</button>
+          <button class="btn btn-amber" type="button" onclick="toggleAllVisibleRows(false)">إلغاء التحديد</button>
+          <button class="btn btn-add" type="button" onclick="applyBulkRowsDate()">تعديل التاريخ</button>
+          <button class="btn btn-amber" type="button" onclick="moxV4DownloadAutoBackup()">آخر نسخة</button>
+        </div>
+      </div>
+
+      <div class="mox-rows-compact-note">القوائم هنا خاصة بسجل العمليات فقط. اختيار مربعات هنا يغيّر شكل سجل العمليات، واختيار مربعات من إعدادات الموقع يغيّر القوائم الرئيسية فقط.</div>
+    </div>
+  `;
+
+  const quickSelect = document.getElementById('moxRowsQuickDateFilter');
+  if (quickSelect) quickSelect.value = quickValue;
+
+  const rowsPerSelect = document.getElementById('moxRowsPerPageSelect');
+  if (rowsPerSelect) rowsPerSelect.value = perPage;
+
+  rowsViewMode = mode;
+  rowsViewSize = size;
+  moxV44ApplyRowsViewOptions();
+
+  if (typeof renderProductFilterOptions === 'function') renderProductFilterOptions();
+  const productSelect = document.getElementById('productFilterSelect');
+  if (productSelect) productSelect.value = currentProduct;
+
+  if (typeof updateBulkDateUI === 'function') updateBulkDateUI();
+  if (typeof moxV4UpdateButtons === 'function') moxV4UpdateButtons();
+  if (typeof moxV42ToggleRowsCustomDateField === 'function') moxV42ToggleRowsCustomDateField();
+  moxV44UpdateRowsCounter();
+}
+
+function moxV44UpdateRowsCounter() {
+  const counter = document.getElementById('moxRowsShownCounter');
+  if (!counter || typeof getFilteredRowsWithIndexes !== 'function') return;
+  let count = 0;
+  try { count = getFilteredRowsWithIndexes().length; } catch (e) { count = 0; }
+  const selected = (typeof selectedRowIds !== 'undefined' && selectedRowIds) ? selectedRowIds.size : 0;
+  counter.textContent = selected ? `المعروض: ${count} | محدد: ${selected}` : `المعروض: ${count}`;
+}
+
+var __moxV44OldMoxV42InstallSettingsAndDateFilter = typeof moxV42InstallSettingsAndDateFilter === 'function' ? moxV42InstallSettingsAndDateFilter : null;
+moxV42InstallSettingsAndDateFilter = function() {
+  if (__moxV44OldMoxV42InstallSettingsAndDateFilter) __moxV44OldMoxV42InstallSettingsAndDateFilter();
+  moxV44InstallCompactRowsPanel();
+};
+
+var __moxV44OldMoxV4InstallLayout = typeof moxV4InstallLayout === 'function' ? moxV4InstallLayout : null;
+moxV4InstallLayout = function() {
+  if (__moxV44OldMoxV4InstallLayout) __moxV44OldMoxV4InstallLayout();
+  moxV44InstallCompactRowsPanel();
+};
+
+var __moxV44OldRender = typeof render === 'function' ? render : null;
+render = function() {
+  if (__moxV44OldRender) __moxV44OldRender();
+  moxV44UpdateRowsCounter();
+  moxV44ApplyRowsViewOptions();
+};
+
+var __moxV44OldUpdateBulkDateUI = typeof updateBulkDateUI === 'function' ? updateBulkDateUI : null;
+updateBulkDateUI = function() {
+  if (__moxV44OldUpdateBulkDateUI) __moxV44OldUpdateBulkDateUI();
+  moxV44UpdateRowsCounter();
+};
+
+document.addEventListener('DOMContentLoaded', function () {
+  setTimeout(function() {
+    moxV44InstallCompactRowsPanel();
+    loadRowsViewOptions();
+    moxV44UpdateRowsCounter();
+  }, 80);
+});
