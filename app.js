@@ -7572,3 +7572,510 @@
 
 
   installGlobalSortableTables();
+
+
+/* ===== MOX-V4.2 requested fixes: archive visibility + site settings + rows quick date ===== */
+var MOX_V4_GLOBAL_LIST_STYLE_KEY = 'profit_mox_v4_global_list_style_v2';
+var MOX_V4_REMEMBER_LAST_OPEN_KEY = 'profit_mox_v4_remember_last_open_v2';
+var MOX_V4_START_COLLAPSED_KEY = 'profit_mox_v4_start_collapsed_v2';
+var MOX_V4_LAST_ACTIVE_SECTION_KEY = 'profit_mox_v4_last_active_section_v2';
+var MOX_V4_ROWS_QUICK_DATE_KEY = 'profit_mox_v4_rows_quick_date_v2';
+var MOX_V4_ROWS_CUSTOM_DATE_KEY = 'profit_mox_v4_rows_custom_date_v2';
+
+function moxV42BoolKey(key, defaultValue) {
+  const raw = localStorage.getItem(key);
+  if (raw === null || raw === undefined || raw === '') return Boolean(defaultValue);
+  return raw === '1' || raw === 'true' || raw === 'yes';
+}
+
+function moxV42SetBoolKey(key, value) {
+  localStorage.setItem(key, value ? '1' : '0');
+}
+
+function moxV42GetGlobalListStyle() {
+  const value = localStorage.getItem(MOX_V4_GLOBAL_LIST_STYLE_KEY) || 'grid';
+  return value === 'list' ? 'list' : 'grid';
+}
+
+function moxV42RememberLastEnabled() {
+  return moxV42BoolKey(MOX_V4_REMEMBER_LAST_OPEN_KEY, true);
+}
+
+function moxV42StartCollapsedEnabled() {
+  return moxV42BoolKey(MOX_V4_START_COLLAPSED_KEY, false);
+}
+
+function moxV42IsArchivedFlag(value) {
+  return value === true || value === 'true' || value === 1 || value === '1' || value === 'yes';
+}
+
+moxV4IsArchivedRow = function(row) {
+  return Boolean(row && (
+    moxV42IsArchivedFlag(row.archived) ||
+    moxV42IsArchivedFlag(row.isArchived) ||
+    moxV42IsArchivedFlag(row.hidden) ||
+    moxV42IsArchivedFlag(row.deleted)
+  ));
+};
+
+moxV4IsArchivedPreset = function(preset) {
+  return Boolean(preset && (
+    moxV42IsArchivedFlag(preset.archived) ||
+    moxV42IsArchivedFlag(preset.isArchived) ||
+    moxV42IsArchivedFlag(preset.hidden) ||
+    moxV42IsArchivedFlag(preset.deleted)
+  ));
+};
+
+function moxV42UpdateArchiveBodyClasses() {
+  document.body.classList.toggle('mox-show-archived-rows', moxV4ShowArchivedRows());
+  document.body.classList.toggle('mox-show-archived-presets', moxV4ShowArchivedPresets());
+}
+
+function moxV42ApplyGlobalListStyle(syncRowsView) {
+  const style = moxV42GetGlobalListStyle();
+  document.body.classList.toggle('mox-list-style-grid', style === 'grid');
+  document.body.classList.toggle('mox-list-style-list', style === 'list');
+
+  const select = document.getElementById('moxGlobalListStyleSelect');
+  if (select) select.value = style;
+
+  if (syncRowsView && typeof rowsViewMode !== 'undefined') {
+    rowsViewMode = style === 'grid' ? 'grid' : 'cards';
+    rowsViewSize = rowsViewSize || 'medium';
+    const rowsModeSelect = document.getElementById('rowsViewModeSelect');
+    if (rowsModeSelect) rowsModeSelect.value = rowsViewMode;
+    applyRowsViewOptions();
+    saveRowsViewOptions();
+  } else {
+    applyRowsViewOptions();
+  }
+}
+
+function moxV42SetGlobalListStyle(value) {
+  localStorage.setItem(MOX_V4_GLOBAL_LIST_STYLE_KEY, value === 'list' ? 'list' : 'grid');
+  moxV42ApplyGlobalListStyle(true);
+  renderPresets();
+  render();
+  showToast(value === 'list' ? '✅ تم تحويل القوائم لشكل قائمة طولية.' : '✅ تم تحويل القوائم لشكل مربعات.');
+}
+
+function moxV42SetRememberLast(value) {
+  moxV42SetBoolKey(MOX_V4_REMEMBER_LAST_OPEN_KEY, value === '1');
+  const select = document.getElementById('moxRememberLastSelect');
+  if (select) select.value = value === '1' ? '1' : '0';
+  if (value === '0') localStorage.removeItem(STORAGE_SECTION_STATE);
+  showToast(value === '1' ? '✅ سيتم فتح الموقع على آخر حالة للأقسام.' : '✅ تم إيقاف فتح آخر حالة، وسيتم استخدام إعداد البداية.');
+}
+
+function moxV42SetStartCollapsed(value) {
+  moxV42SetBoolKey(MOX_V4_START_COLLAPSED_KEY, value === '1');
+  const select = document.getElementById('moxStartCollapsedSelect');
+  if (select) select.value = value === '1' ? '1' : '0';
+  showToast(value === '1' ? '✅ عند فتح الموقع بدون تذكر آخر حالة ستكون كل القوائم مخفية.' : '✅ عند فتح الموقع بدون تذكر آخر حالة ستظهر كل القوائم.');
+}
+
+function moxV42RefreshSettingsControls() {
+  const listSelect = document.getElementById('moxGlobalListStyleSelect');
+  if (listSelect) listSelect.value = moxV42GetGlobalListStyle();
+  const rememberSelect = document.getElementById('moxRememberLastSelect');
+  if (rememberSelect) rememberSelect.value = moxV42RememberLastEnabled() ? '1' : '0';
+  const collapsedSelect = document.getElementById('moxStartCollapsedSelect');
+  if (collapsedSelect) collapsedSelect.value = moxV42StartCollapsedEnabled() ? '1' : '0';
+  const quickSelect = document.getElementById('moxRowsQuickDateFilter');
+  if (quickSelect) quickSelect.value = localStorage.getItem(MOX_V4_ROWS_QUICK_DATE_KEY) || 'all';
+  const customInput = document.getElementById('moxRowsCustomDate');
+  if (customInput) customInput.value = localStorage.getItem(MOX_V4_ROWS_CUSTOM_DATE_KEY) || today();
+  moxV42ToggleRowsCustomDateField();
+}
+
+function moxV42OpenAllSectionsOnStart() {
+  COLLAPSIBLE_CONTENT_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('hidden-section');
+  });
+  const preview = document.getElementById('latestRowsPreview');
+  if (preview) preview.classList.add('hidden-section');
+  updateSectionButtonsFromState();
+  setMobileNavActive('');
+}
+
+var __moxV42_oldSaveSectionState = saveSectionState;
+saveSectionState = function() {
+  if (!moxV42RememberLastEnabled()) return;
+  __moxV42_oldSaveSectionState();
+};
+
+var __moxV42_oldApplySavedSectionState = applySavedSectionState;
+applySavedSectionState = function() {
+  if (moxV42RememberLastEnabled()) {
+    __moxV42_oldApplySavedSectionState();
+    const last = localStorage.getItem(MOX_V4_LAST_ACTIVE_SECTION_KEY);
+    if (last && document.getElementById(last)) {
+      openSectionGroupForTarget(last);
+      setTimeout(() => document.getElementById(last)?.scrollIntoView({ behavior: 'auto', block: 'start' }), 80);
+    }
+    return;
+  }
+
+  if (moxV42StartCollapsedEnabled()) collapseAllSectionsOnStart();
+  else moxV42OpenAllSectionsOnStart();
+};
+
+function moxV42RememberSection(id) {
+  if (!id || !moxV42RememberLastEnabled()) return;
+  localStorage.setItem(MOX_V4_LAST_ACTIVE_SECTION_KEY, id);
+}
+
+var __moxV42_oldOpenSectionGroupForTarget = openSectionGroupForTarget;
+openSectionGroupForTarget = function(id) {
+  __moxV42_oldOpenSectionGroupForTarget(id);
+  moxV42RememberSection(id);
+};
+
+var __moxV42_oldToggleSection = toggleSection;
+toggleSection = function(id, button) {
+  __moxV42_oldToggleSection(id, button);
+  const el = document.getElementById(id);
+  if (el && !el.classList.contains('hidden-section')) moxV42RememberSection(id);
+};
+
+var __moxV42_oldToggleMultiSection = toggleMultiSection;
+toggleMultiSection = function(ids, button) {
+  __moxV42_oldToggleMultiSection(ids, button);
+  if (Array.isArray(ids) && ids[0]) moxV42RememberSection(ids[0]);
+};
+
+function moxV42ToggleRowsCustomDateField() {
+  const select = document.getElementById('moxRowsQuickDateFilter');
+  const field = document.getElementById('moxRowsCustomDateField');
+  if (field && select) field.classList.toggle('hidden-section', select.value !== 'custom');
+}
+
+function moxV42ApplyRowsQuickDate() {
+  const select = document.getElementById('moxRowsQuickDateFilter');
+  const customInput = document.getElementById('moxRowsCustomDate');
+  const value = select?.value || 'all';
+  localStorage.setItem(MOX_V4_ROWS_QUICK_DATE_KEY, value);
+
+  const fromInput = document.getElementById('filterFromDate');
+  const toInput = document.getElementById('filterToDate');
+  const globalQuick = document.getElementById('quickDateFilter');
+  if (!fromInput || !toInput) return;
+
+  const now = new Date();
+  let selected = '';
+  if (value === 'all') {
+    fromInput.value = '';
+    toInput.value = '';
+    if (globalQuick) globalQuick.value = 'all';
+  } else if (value === 'today') {
+    selected = today();
+    fromInput.value = selected;
+    toInput.value = selected;
+    if (globalQuick) globalQuick.value = 'today';
+  } else if (value === 'yesterday') {
+    selected = dateToISO(addDays(now, -1));
+    fromInput.value = selected;
+    toInput.value = selected;
+    if (globalQuick) globalQuick.value = 'yesterday';
+  } else if (value === 'beforeYesterday') {
+    selected = dateToISO(addDays(now, -2));
+    fromInput.value = selected;
+    toInput.value = selected;
+    if (globalQuick) globalQuick.value = 'custom';
+  } else if (value === 'custom') {
+    selected = customInput?.value || today();
+    if (customInput) {
+      customInput.value = selected;
+      localStorage.setItem(MOX_V4_ROWS_CUSTOM_DATE_KEY, selected);
+    }
+    fromInput.value = selected;
+    toInput.value = selected;
+    if (globalQuick) globalQuick.value = 'custom';
+  }
+
+  moxV42ToggleRowsCustomDateField();
+  moxV4CurrentPage = 1;
+  render();
+}
+
+function moxV42SetRowsCustomDate(value) {
+  localStorage.setItem(MOX_V4_ROWS_CUSTOM_DATE_KEY, value || today());
+  const select = document.getElementById('moxRowsQuickDateFilter');
+  if (select) select.value = 'custom';
+  localStorage.setItem(MOX_V4_ROWS_QUICK_DATE_KEY, 'custom');
+  moxV42ApplyRowsQuickDate();
+}
+
+function moxV42InstallSettingsAndDateFilter() {
+  const toast = document.getElementById('toast');
+  if (toast && !document.getElementById('moxSiteSettingsSection')) {
+    toast.insertAdjacentHTML('afterend', `
+      <div class="section" id="moxSiteSettingsSection">
+        <div class="section-head">
+          <div>
+            <div class="section-title">⚙️ إعدادات الموقع</div>
+            <div class="section-subtitle">تحكم في شكل القوائم وبداية فتح الموقع وهل يفتكر آخر مكان كنت عليه</div>
+          </div>
+          <button class="toggle-btn" type="button" onclick="toggleSection('moxSiteSettingsContent', this)">إظهار</button>
+        </div>
+        <div id="moxSiteSettingsContent" class="panel site-settings-panel hidden-section">
+          <div class="mox-settings-title">إعدادات العرض والبداية</div>
+          <div class="mox-site-settings-grid">
+            <div class="field">
+              <label>شكل كل القوائم في الموقع</label>
+              <select id="moxGlobalListStyleSelect" onchange="moxV42SetGlobalListStyle(this.value)">
+                <option value="grid">مربعات</option>
+                <option value="list">قوائم طولية</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>عند فتح الموقع</label>
+              <select id="moxRememberLastSelect" onchange="moxV42SetRememberLast(this.value)">
+                <option value="1">افتح آخر حالة كنت عليها</option>
+                <option value="0">لا تفتح آخر حالة</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>لو آخر حالة متوقفة</label>
+              <select id="moxStartCollapsedSelect" onchange="moxV42SetStartCollapsed(this.value)">
+                <option value="0">افتح كل القوائم</option>
+                <option value="1">اخفي كل القوائم</option>
+              </select>
+            </div>
+            <button class="btn btn-export" type="button" onclick="moxV42ApplyStartupSettingsNow()">تطبيق البداية الآن</button>
+          </div>
+          <div class="mox-settings-note">لو اخترت "افتح آخر حالة" الموقع هيفتح على آخر الأقسام اللي كنت فاتحها. لو قفلتها، الموقع هيستخدم اختيار "افتح كل القوائم" أو "اخفي كل القوائم".</div>
+        </div>
+      </div>
+    `);
+    if (!COLLAPSIBLE_CONTENT_IDS.includes('moxSiteSettingsContent')) COLLAPSIBLE_CONTENT_IDS.push('moxSiteSettingsContent');
+  }
+
+  const rowsFilterPanel = document.getElementById('rowsFilterPanel');
+  if (rowsFilterPanel && !document.getElementById('moxRowsQuickDatePanel')) {
+    rowsFilterPanel.insertAdjacentHTML('afterbegin', `
+      <div id="moxRowsQuickDatePanel" class="bulk-date-panel" style="margin-bottom:.8rem">
+        <div class="mox-settings-title">📅 فلتر سريع لسجل العمليات</div>
+        <div class="mox-rows-date-filter-grid">
+          <div class="field">
+            <label>عرض عمليات</label>
+            <select id="moxRowsQuickDateFilter" onchange="moxV42ApplyRowsQuickDate()">
+              <option value="all">كل الأيام</option>
+              <option value="today">اليوم</option>
+              <option value="yesterday">أمس</option>
+              <option value="beforeYesterday">قبل أمس</option>
+              <option value="custom">تاريخ محدد</option>
+            </select>
+          </div>
+          <div class="field hidden-section" id="moxRowsCustomDateField">
+            <label>اختار تاريخ محدد</label>
+            <input id="moxRowsCustomDate" type="date" onchange="moxV42SetRowsCustomDate(this.value)">
+          </div>
+          <button class="btn btn-export" type="button" onclick="moxV42ApplyRowsQuickDate()">تطبيق الفلتر</button>
+          <button class="btn btn-amber" type="button" onclick="moxV42ResetRowsQuickDate()">عرض كل الأيام</button>
+        </div>
+        <div class="mox-settings-note">هذا الفلتر يغيّر تاريخ سجل العمليات والملخص معًا: اليوم، أمس، قبل أمس، أو يوم تختاره بنفسك.</div>
+      </div>
+    `);
+  }
+
+  moxV42RefreshSettingsControls();
+}
+
+function moxV42ApplyStartupSettingsNow() {
+  applySavedSectionState();
+  updateSectionButtonsFromState();
+  showToast('✅ تم تطبيق إعدادات بداية فتح الموقع الآن.');
+}
+
+function moxV42ResetRowsQuickDate() {
+  const select = document.getElementById('moxRowsQuickDateFilter');
+  if (select) select.value = 'all';
+  localStorage.setItem(MOX_V4_ROWS_QUICK_DATE_KEY, 'all');
+  moxV42ApplyRowsQuickDate();
+}
+
+getFilteredRowsWithIndexes = function() {
+  return rows
+    .map((row, index) => ({ row: normalizeRow(row), index }))
+    .filter(item => moxV4ShowArchivedRows() || !moxV4IsArchivedRow(rows[item.index] || item.row))
+    .filter(item => isRowInDateRange(item.row))
+    .filter(item => isRowMatchingTextFilters(item.row));
+};
+
+var __moxV42_oldArchiveRow = archiveRow;
+archiveRow = function(index) {
+  if (!rows[index]) return;
+  const before = JSON.parse(JSON.stringify(rows[index]));
+  if (!confirmIfClosedDate(before.date, 'أرشفة عملية')) return;
+  if (!confirm('هل تريد نقل هذه العملية إلى الأرشيف؟ ستختفي من كل القوائم العادية ويمكنك إظهار المؤرشف لاسترجاعها.')) return;
+  rows[index].archived = true;
+  rows[index].archivedAt = new Date().toISOString();
+  rows[index].deleted = false;
+  rows[index].hidden = false;
+  if (typeof selectedRowIds !== 'undefined') selectedRowIds.delete(normalizeRow(rows[index]).id);
+  localStorage.setItem(MOX_V4_ARCHIVED_ROWS_KEY, '0');
+  saveRows();
+  addAuditLog('أرشفة عملية', before.date, before, rows[index]);
+  moxV4PushUndo({ type: 'restore-row', index, before, label: 'تم أرشفة عملية' });
+  moxV42UpdateArchiveBodyClasses();
+  render();
+  showToast('✅ تم أرشفة العملية وإخفاؤها من القوائم العادية.');
+};
+
+var __moxV42_oldArchivePreset = archivePreset;
+archivePreset = function(index) {
+  if (!presets[index]) return;
+  if (!confirm('هل تريد نقل هذا العرض إلى الأرشيف؟ سيختفي من كل القوائم العادية ويمكنك إظهار المؤرشف لاسترجاعه.')) return;
+  const before = JSON.parse(JSON.stringify(presets[index]));
+  presets[index].archived = true;
+  presets[index].archivedAt = new Date().toISOString();
+  presets[index].deleted = false;
+  presets[index].hidden = false;
+  localStorage.setItem(MOX_V4_ARCHIVED_PRESETS_KEY, '0');
+  savePresets();
+  addAuditLog('أرشفة عرض سريع', today(), before, presets[index]);
+  moxV4PushUndo({ type: 'restore-preset', index, before, label: 'تم أرشفة عرض سريع' });
+  moxV42UpdateArchiveBodyClasses();
+  renderPresets();
+  render();
+  showToast('✅ تم أرشفة العرض وإخفاؤه من القوائم العادية.');
+};
+
+var __moxV42_oldRestoreRow = moxV4RestoreRow;
+moxV4RestoreRow = function(index) {
+  if (!rows[index]) return;
+  const before = JSON.parse(JSON.stringify(rows[index]));
+  rows[index].archived = false;
+  rows[index].hidden = false;
+  rows[index].deleted = false;
+  delete rows[index].archivedAt;
+  saveRows();
+  addAuditLog('استرجاع عملية مؤرشفة', rows[index].date, before, rows[index]);
+  render();
+  showToast('✅ تم استرجاع العملية وظهورها في القوائم العادية.');
+};
+
+var __moxV42_oldRestorePreset = moxV4RestorePreset;
+moxV4RestorePreset = function(index) {
+  if (!presets[index]) return;
+  const before = JSON.parse(JSON.stringify(presets[index]));
+  presets[index].archived = false;
+  presets[index].hidden = false;
+  presets[index].deleted = false;
+  delete presets[index].archivedAt;
+  savePresets();
+  addAuditLog('استرجاع عرض مؤرشف', today(), before, presets[index]);
+  renderPresets();
+  showToast('✅ تم استرجاع العرض وظهوره في القوائم العادية.');
+};
+
+moxV4ToggleArchivedRows = function() {
+  localStorage.setItem(MOX_V4_ARCHIVED_ROWS_KEY, moxV4ShowArchivedRows() ? '0' : '1');
+  moxV4CurrentPage = 1;
+  moxV42UpdateArchiveBodyClasses();
+  moxV4UpdateButtons();
+  render();
+};
+
+moxV4ToggleArchivedPresets = function() {
+  localStorage.setItem(MOX_V4_ARCHIVED_PRESETS_KEY, moxV4ShowArchivedPresets() ? '0' : '1');
+  moxV42UpdateArchiveBodyClasses();
+  moxV4UpdateButtons();
+  renderPresets();
+};
+
+var __moxV42_oldUpdateButtons = moxV4UpdateButtons;
+moxV4UpdateButtons = function() {
+  __moxV42_oldUpdateButtons();
+  moxV42UpdateArchiveBodyClasses();
+  moxV42RefreshSettingsControls();
+};
+
+var __moxV42_oldInstallLayout = moxV4InstallLayout;
+moxV4InstallLayout = function() {
+  __moxV42_oldInstallLayout();
+  moxV42InstallSettingsAndDateFilter();
+  moxV42ApplyGlobalListStyle(false);
+  moxV42UpdateArchiveBodyClasses();
+};
+
+var __moxV42_oldRenderDailyReport = renderDailyReport;
+renderDailyReport = function() {
+  const input = document.getElementById('dailyReportDate');
+  if (!input) return;
+  if (!input.value) input.value = today();
+  const selectedDate = input.value;
+  const dayRows = rows
+    .map((row, index) => ({ row: normalizeRow(row), index }))
+    .filter(item => !moxV4IsArchivedRow(rows[item.index] || item.row))
+    .filter(item => String(item.row.date || '').slice(0, 10) === selectedDate)
+    .map(item => item.row);
+  const financials = dayRows.map(rowFinancials);
+  const income = financials.reduce((sum, f) => sum + f.income, 0);
+  const expense = financials.reduce((sum, f) => sum + f.operationCost, 0);
+  const variable = getVariableExpensesTotalForDate(selectedDate);
+  const profit = income - expense - variable;
+  document.getElementById('dailyIncomeTotal').innerHTML = `${fmt(income)}<span class="unit">EGP</span>`;
+  document.getElementById('dailyExpenseTotal').innerHTML = `${fmt(expense + variable)}<span class="unit">EGP</span>`;
+  const profitEl = document.getElementById('dailyProfitTotal');
+  profitEl.innerHTML = `${fmt(profit)}<span class="unit">EGP</span>`;
+  profitEl.className = profit >= 0 ? 'value profit' : 'value loss';
+  const productMap = new Map();
+  dayRows.forEach(row => {
+    const f = rowFinancials(row);
+    const key = row.item || 'غير محدد';
+    const current = productMap.get(key) || { count: 0, income: 0, expense: 0, profit: 0 };
+    current.count += f.quantity;
+    current.income += f.income;
+    current.expense += f.operationCost;
+    current.profit += f.profit;
+    productMap.set(key, current);
+  });
+  const topProduct = [...productMap.entries()].sort((a, b) => b[1].count - a[1].count || b[1].profit - a[1].profit)[0];
+  const productEl = document.getElementById('dailyTopProduct');
+  const productMetaEl = document.getElementById('dailyTopProductMeta');
+  if (!topProduct) {
+    productEl.textContent = '-';
+    productMetaEl.textContent = variable ? `مصاريف متغيرة: ${fmt(variable)} EGP` : 'لا يوجد عمليات في هذا اليوم.';
+  } else {
+    productEl.textContent = topProduct[0];
+    productMetaEl.textContent = `${topProduct[1].count} عملية — ربح ${fmt(topProduct[1].profit)} EGP — مصاريف متغيرة ${fmt(variable)} EGP`;
+  }
+  const closeInput = document.getElementById('closingDateInput');
+  if (closeInput && !closeInput.value) closeInput.value = selectedDate;
+};
+
+var __moxV42_oldComputeDaySnapshot = computeDaySnapshot;
+computeDaySnapshot = function(date) {
+  const dayRows = rows
+    .map((row, index) => ({ row: normalizeRow(row), index }))
+    .filter(item => !moxV4IsArchivedRow(rows[item.index] || item.row))
+    .filter(item => String(item.row.date || '').slice(0, 10) === date)
+    .map(item => item.row);
+  const financials = dayRows.map(rowFinancials);
+  const income = financials.reduce((sum, f) => sum + f.income, 0);
+  const opCost = financials.reduce((sum, f) => sum + f.operationCost, 0);
+  const variable = getVariableExpensesTotalForDate(date);
+  const qty = financials.reduce((sum, f) => sum + f.quantity, 0);
+  const profit = income - opCost - variable;
+  return { date, qty, rowsCount: dayRows.length, income, opCost, variable, profit };
+};
+
+var __moxV42_oldMoxInit = moxV4Init;
+moxV4Init = function() {
+  __moxV42_oldMoxInit();
+  moxV42InstallSettingsAndDateFilter();
+  moxV42ApplyGlobalListStyle(false);
+  moxV42UpdateArchiveBodyClasses();
+  moxV42RefreshSettingsControls();
+};
+
+document.addEventListener('DOMContentLoaded', function () {
+  moxV42InstallSettingsAndDateFilter();
+  moxV42ApplyGlobalListStyle(false);
+  moxV42UpdateArchiveBodyClasses();
+  moxV42RefreshSettingsControls();
+});
