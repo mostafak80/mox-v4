@@ -7076,7 +7076,7 @@
         <td data-label="مصروف / واحدة"><input class="editable num deducted-val" type="number" step="0.01" value="${f.unitCost}" onchange="updateRow(${index}, 'deducted', this.value)"></td>
         <td data-label="ربح الإجمالي"><span class="num ${profitClass}">${fmt(f.profit)}</span><span class="unit">EGP</span></td>
         <td data-label="ملاحظة"><input class="editable note-input" value="${escapeHTML(row.note || '')}" onchange="updateRow(${index}, 'note', this.value)"></td>
-        <td data-label="إجراء"><div class="inline-actions"><button class="small-btn" onclick="moxV4OpenEditModal(${index})">تعديل</button>${archived ? `<button class="small-btn" onclick="moxV4RestoreRow(${index})">استرجاع</button><button class="delete-btn" onclick="moxV4HardDeleteRow(${index})">حذف نهائي</button>` : `<button class="delete-btn" onclick="deleteRow(${index})">أرشفة</button>`}</div></td>
+        <td data-label="إجراء"><div class="inline-actions"><button class="small-btn" onclick="moxV4OpenEditModal(${index})">تعديل</button>${archived ? `<button class="small-btn" onclick="moxV4RestoreRow(${index})">استرجاع</button><button class="delete-btn" onclick="deleteRow(${index})">حذف</button>` : `<button class="small-btn archive-btn" onclick="archiveRow(${index})">أرشيف</button><button class="delete-btn" onclick="deleteRow(${index})">حذف</button>`}</div></td>
       `;
       body.appendChild(tr);
     });
@@ -7192,7 +7192,7 @@
         <td data-label="مصروف العملية"><input class="editable num deducted-val preset-edit-input" type="number" step="0.01" value="${Number(preset.deducted) || 0}" onchange="updatePreset(${index}, 'deducted', this.value)"></td>
         <td data-label="ربح العملية"><span class="num ${profitClass}">${fmt(profit)}</span></td>
         <td data-label="ترتيب"><div class="inline-actions"><button class="small-btn" onclick="movePreset(${index}, -1)">⬆️</button><button class="small-btn" onclick="movePreset(${index}, 1)">⬇️</button></div></td>
-        <td data-label="إجراء"><div class="inline-actions">${archived ? `<button class="small-btn" onclick="moxV4RestorePreset(${index})">استرجاع</button><button class="delete-btn" onclick="moxV4HardDeletePreset(${index})">حذف نهائي</button>` : `<button class="small-btn" onclick="moxV4AddPresetByIndex(${index}, 1)">+ عملية</button><button class="delete-btn" onclick="deletePreset(${index})">أرشفة</button>`}</div></td>
+        <td data-label="إجراء"><div class="inline-actions">${archived ? `<button class="small-btn" onclick="moxV4RestorePreset(${index})">استرجاع</button><button class="delete-btn" onclick="deletePreset(${index})">حذف</button>` : `<button class="small-btn" onclick="moxV4AddPresetByIndex(${index}, 1)">+ عملية</button><button class="small-btn archive-btn" onclick="archivePreset(${index})">أرشيف</button><button class="delete-btn" onclick="deletePreset(${index})">حذف</button>`}</div></td>
       `;
       body.appendChild(tr);
     });
@@ -7240,17 +7240,36 @@
     moxV4AddPresetByIndex(index, quantity);
   }
 
-  function deleteRow(index) {
+  function archiveRow(index) {
     if (!rows[index]) return;
     const before = JSON.parse(JSON.stringify(rows[index]));
     if (!confirmIfClosedDate(before.date, 'أرشفة عملية')) return;
-    if (!confirm('سيتم أرشفة العملية بدل حذفها. يمكنك إظهار المؤرشف واسترجاعها. هل تريد المتابعة؟')) return;
+    if (!confirm('هل تريد نقل هذه العملية إلى الأرشيف؟ يمكنك إظهار المؤرشف واسترجاعها في أي وقت.')) return;
     rows[index].archived = true;
     rows[index].archivedAt = new Date().toISOString();
+    rows[index].deleted = false;
+    rows[index].hidden = false;
+    selectedRowIds.delete(normalizeRow(rows[index]).id);
     saveRows();
     addAuditLog('أرشفة عملية', before.date, before, rows[index]);
     moxV4PushUndo({ type: 'restore-row', index, before, label: 'تم أرشفة عملية' });
     render();
+    showToast('✅ تم أرشفة العملية. اضغط إظهار المؤرشف لاسترجاعها.');
+  }
+
+  function deleteRow(index) {
+    if (!rows[index]) return;
+    const before = JSON.parse(JSON.stringify(rows[index]));
+    if (!confirmIfClosedDate(before.date, 'حذف عملية')) return;
+    if (!confirm('⚠️ هل تريد حذف هذه العملية من السجل؟ يمكنك استرجاعها من زر استرجاع آخر حذف أو من زر التراجع.')) return;
+    selectedRowIds.delete(normalizeRow(rows[index]).id);
+    rows.splice(index, 1);
+    pushDeleted('rows', [before], 'عملية من سجل العمليات');
+    saveRows();
+    addAuditLog('حذف عملية', before.date, before, null);
+    moxV4PushUndo({ type: 'insert-row', index, before, label: 'تم حذف عملية' });
+    render();
+    showToast('✅ تم حذف العملية. يمكنك استرجاعها من زر استرجاع آخر حذف أو زر التراجع.');
   }
 
   function moxV4RestoreRow(index) {
@@ -7267,14 +7286,32 @@
     rows.splice(index, 1); saveRows(); addAuditLog('حذف نهائي لعملية', before.date, before, null); render(); showToast('✅ تم الحذف النهائي.');
   }
 
-  function deletePreset(index) {
+  function archivePreset(index) {
     if (!presets[index]) return;
-    if (!confirm('سيتم أرشفة العرض بدل حذفه حتى تقدر ترجعه. هل تريد المتابعة؟')) return;
+    if (!confirm('هل تريد نقل هذا العرض إلى الأرشيف؟ يمكنك إظهار المؤرشف واسترجاعه في أي وقت.')) return;
     const before = JSON.parse(JSON.stringify(presets[index]));
-    presets[index].archived = true; presets[index].archivedAt = new Date().toISOString();
-    savePresets(); addAuditLog('أرشفة عرض سريع', today(), before, presets[index]);
+    presets[index].archived = true;
+    presets[index].archivedAt = new Date().toISOString();
+    presets[index].deleted = false;
+    presets[index].hidden = false;
+    savePresets();
+    addAuditLog('أرشفة عرض سريع', today(), before, presets[index]);
     moxV4PushUndo({ type: 'restore-preset', index, before, label: 'تم أرشفة عرض سريع' });
     renderPresets();
+    showToast('✅ تم أرشفة العرض. اضغط إظهار المؤرشف لاسترجاعه.');
+  }
+
+  function deletePreset(index) {
+    if (!presets[index]) return;
+    if (!confirm('⚠️ هل تريد حذف هذا العرض من مكتبة العروض؟ يمكنك استرجاعه من زر استرجاع آخر حذف أو من زر التراجع.')) return;
+    const before = JSON.parse(JSON.stringify(presets[index]));
+    presets.splice(index, 1);
+    pushDeleted('presets', [before], 'عرض سريع');
+    savePresets();
+    addAuditLog('حذف عرض سريع', today(), before, null);
+    moxV4PushUndo({ type: 'insert-preset', index, before, label: 'تم حذف عرض سريع' });
+    renderPresets();
+    showToast('✅ تم حذف العرض. يمكنك استرجاعه من زر استرجاع آخر حذف أو زر التراجع.');
   }
 
   function moxV4RestorePreset(index) {
@@ -7318,6 +7355,8 @@
     if (!action) { showToast('لا يوجد إجراء للتراجع.'); return; }
     if (action.type === 'restore-row' && rows[action.index]) rows[action.index] = action.before;
     if (action.type === 'restore-preset' && presets[action.index]) presets[action.index] = action.before;
+    if (action.type === 'insert-row' && action.before) rows.splice(Math.min(Number(action.index) || 0, rows.length), 0, action.before);
+    if (action.type === 'insert-preset' && action.before) presets.splice(Math.min(Number(action.index) || 0, presets.length), 0, action.before);
     moxV4SetJSON(MOX_V4_UNDO_KEY, stack);
     saveRows(); savePresets(); render(); renderPresets(); moxV4HideUndo(); showToast('✅ تم التراجع.');
   }
