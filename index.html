@@ -6,8 +6,6 @@
 
   <title>MOX-V4 Pro</title>
 
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
-
   <link rel="icon" type="image/png" href="assets/logo.png">
   <link rel="apple-touch-icon" href="assets/logo.png">
 
@@ -80,60 +78,6 @@
     </div>
   </div>
 
-
-  <div class="section">
-    <div class="section-head">
-      <div>
-        <div class="section-title">☁️ مزامنة الأجهزة</div>
-        <div class="section-subtitle">خلي الكمبيوتر والفون يقرأوا نفس البيانات من Firebase باستخدام كود مزامنة خاص بيك</div>
-      </div>
-      <div style="display:flex;gap:.55rem;align-items:center;flex-wrap:wrap;justify-content:flex-end">
-        <span id="cloudSyncStatus" class="sync-status warn">غير متصل</span>
-        <button class="toggle-btn" type="button" onclick="toggleSection('cloudSyncContent', this)">إظهار</button>
-      </div>
-    </div>
-
-    <div id="cloudSyncContent" class="panel hidden-section">
-      <div class="filter-grid">
-        <div class="field">
-          <label>كود المزامنة الخاص</label>
-          <input id="syncCodeInput" type="text" placeholder="مثال: MOX-9K7Q-52HD">
-        </div>
-
-        <div class="field">
-          <label>آخر مزامنة</label>
-          <input id="lastSyncDisplay" type="text" value="لم تتم بعد" readonly>
-        </div>
-
-        <button class="btn btn-purple" type="button" onclick="saveFirebaseSettings()">💾 حفظ الإعدادات</button>
-      </div>
-
-      <div class="field">
-        <label>Firebase config</label>
-        <textarea id="firebaseConfigInput" class="textarea-input" placeholder='الصق هنا كود firebaseConfig من Firebase Console، مثال:
-{
-  apiKey: "...",
-  authDomain: "...firebaseapp.com",
-  projectId: "...",
-  storageBucket: "...appspot.com",
-  messagingSenderId: "...",
-  appId: "..."
-}'></textarea>
-      </div>
-
-      <div class="sync-actions">
-        <button class="btn btn-add" type="button" onclick="enableCloudSync()">☁️ تشغيل المزامنة</button>
-        <button class="btn btn-amber" type="button" onclick="disableCloudSync()">⏸️ إيقاف المزامنة</button>
-        <button class="btn btn-export" type="button" onclick="uploadLocalDataToCloud(true)">⬆️ رفع بيانات الجهاز</button>
-        <button class="btn btn-export" type="button" onclick="downloadCloudDataToLocal()">⬇️ تنزيل بيانات السحابة</button>
-        <button class="btn btn-purple" type="button" onclick="syncNow()">🔄 مزامنة الآن</button>
-      </div>
-
-      <div class="security-note">
-        المزامنة الآن ترفع وتنزل نسخة كاملة من بيانات الموقع مثل النسخة الاحتياطية: العمليات، العروض، المصاريف، الإعدادات، وسجل الحذف. بعد أول تشغيل، الموقع يزامن تلقائيًا عند الفتح وأثناء الاستخدام.
-      </div>
-    </div>
-  </div>
 
   <div class="section">
     <div class="section-head">
@@ -726,7 +670,7 @@
   </div>
 
   <div class="footer-note">
-    البيانات والعروض والمصاريف وأسعار الدولار محفوظة تلقائيًا على نفس الجهاز والمتصفح، ومع المزامنة السحابية تظهر على الكمبيوتر والفون.
+    البيانات والعروض والمصاريف وأسعار الدولار محفوظة تلقائيًا على نفس الجهاز والمتصفح فقط، ولا يتم رفعها أو مزامنتها عبر الإنترنت.
   </div>
 
   <div class="mobile-bottom-nav" aria-label="تنقل سريع للموبايل">
@@ -735,14 +679,10 @@
     <button class="mobile-nav-btn" type="button" data-target="presetsContent" onclick="toggleMobileBlock('presetsContent')"><strong>🏷️</strong><span>العروض</span></button>
     <button class="mobile-nav-btn" type="button" data-target="reportsContent" onclick="toggleMobileBlock('reportsContent')"><strong>📈</strong><span>تقارير</span></button>
     <button class="mobile-nav-btn" type="button" data-target="tableContent" onclick="toggleMobileBlock('tableContent')"><strong>📋</strong><span>السجل</span></button>
-    <button class="mobile-nav-btn" type="button" data-target="cloudSyncContent" onclick="toggleMobileBlock('cloudSyncContent')"><strong>☁️</strong><span>مزامنة</span></button>
   </div>
 
 
 </div>
-
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 
 <script src="./app.js"></script>
 
