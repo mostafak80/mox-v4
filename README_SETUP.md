@@ -30,3 +30,9 @@
 - Excel يعمل بـ 8 أعمدة وبالأرقام الإنجليزية والتاريخ مثل `1/5`.
 
 - سجل العمليات يحتوي الآن على: تعديل + أرشفة/استرجاع + حذف نهائي مع تأكيد، Safety Snapshot، وزر تراجع بعد الحذف.
+
+## MOX Smart features
+- Smart Offer Suggestion: ranks up to 3 offers for imported wallet messages, shows confidence, detects small customer overpayments, and uses previous sender history when available.
+- Anomaly Detection: flags likely duplicate transactions, losses, very low margins, unusual profit, unusually large quantity, and large differences from the saved offer price.
+- Smart Pricing: analyses the last 90 days and suggests price increases for high-volume / low-margin offers. Prices are never changed automatically; the user must confirm Apply.
+- All smart analysis runs locally in the browser. No store data is sent to an external AI service.

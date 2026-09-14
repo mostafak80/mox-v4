@@ -92,6 +92,38 @@
             </div>
           </article>
         </div>
+
+        <section class="smart-center" aria-label="مركز MOX الذكي">
+          <div class="smart-center-head">
+            <div>
+              <span class="smart-ai-badge"><i></i> MOX Smart</span>
+              <h2>المراجعة والتسعير الذكي</h2>
+              <p>تحليل محلي لبيانات متجرك بدون إرسال بياناتك لأي خدمة خارجية.</p>
+            </div>
+            <div id="smartHealthScore" class="smart-health-score"><strong>—</strong><span>سلامة البيانات</span></div>
+          </div>
+          <div class="smart-grid">
+            <article class="smart-card glass anomaly-card">
+              <div class="smart-card-head">
+                <div><span class="panel-kicker">كشف تلقائي</span><h3>العمليات الشاذة</h3></div>
+                <span id="smartAnomalyCount" class="smart-count-badge">0</span>
+              </div>
+              <p class="smart-card-desc">يراقب الخسارة، الربح غير المعتاد، التكرار، الكميات الكبيرة، واختلاف السعر عن العرض المحفوظ.</p>
+              <div id="smartAnomalies" class="smart-list"></div>
+              <button id="openAllAnomaliesBtn" class="btn btn-ghost btn-block smart-footer-btn" type="button">مراجعة السجل</button>
+            </article>
+
+            <article class="smart-card glass pricing-card">
+              <div class="smart-card-head">
+                <div><span class="panel-kicker">Smart Pricing</span><h3>اقتراحات التسعير</h3></div>
+                <span id="smartPricingCount" class="smart-count-badge pricing">0</span>
+              </div>
+              <p class="smart-card-desc">يحلل آخر 90 يوم، حجم البيع وهامش الربح ويقترح رفع السعر فقط لما يكون له سبب واضح.</p>
+              <div id="smartPricing" class="smart-list"></div>
+              <div class="smart-note">الأسعار لا تتغير تلقائيًا. لازم تضغط «تطبيق» وتؤكد بنفسك.</div>
+            </article>
+          </div>
+        </section>
       </section>
 
       <section id="view-add" class="view">
@@ -116,7 +148,22 @@
           <article class="panel glass">
             <div class="panel-head"><div><span class="panel-kicker">آخر استخدام</span><h3>العروض السريعة</h3><p>فلتر حسب الخدمة، واختار من أكتر من خدمة في نفس التحديد ثم أضفهم كلهم مرة واحدة.</p></div><div class="panel-actions"><button id="bulkPresetModeBtn" type="button" class="btn btn-secondary btn-sm">تحديد متعدد</button><button class="text-btn" data-go="settings" data-settings-tab="presets">إدارة العروض</button></div></div>
             <div class="quick-preset-filter-row">
-              <label class="field quick-service-filter"><span>الخدمة</span><select id="quickPresetServiceFilter" class="control"><option value="">كل الخدمات</option></select></label>
+              <div class="field quick-service-filter">
+                <span>الخدمة</span>
+                <input id="quickPresetServiceFilter" type="hidden" value="">
+                <button id="quickServicePickerBtn" type="button" class="quick-service-picker glass" aria-haspopup="listbox" aria-expanded="false">
+                  <span class="picker-copy">
+                    <small>فلتر الخدمة</small>
+                    <strong id="quickServicePickerLabel">كل الخدمات</strong>
+                  </span>
+                  <span class="picker-badges">
+                    <i id="quickServicePickerCount" class="picker-count">0</i>
+                    <i class="picker-arrow">⌄</i>
+                  </span>
+                  <span class="picker-glow" aria-hidden="true"></span>
+                </button>
+                <div id="quickServiceMenu" class="quick-service-menu hidden" role="listbox" aria-label="اختيار الخدمة"></div>
+              </div>
               <div id="quickPresetFilterMeta" class="quick-preset-filter-meta"></div>
             </div>
             <div id="recentPresets" class="recent-presets"></div>

@@ -28,7 +28,6 @@
   let lastUndo = null;
   let bulkPresetMode = false;
   let bulkPresetSelection = new Set();
-  let quickPresetServiceFilter = '';
 
   const $ = (id) => document.getElementById(id);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -85,7 +84,8 @@
         expenseRate: 53,
         serviceColors: {},
         migratedLegacy: false,
-        lastView: 'today'
+        lastView: 'today',
+        quickPresetServiceFilter: ''
       },
       meta: { createdAt: nowIso(), updatedAt: nowIso() }
     };
@@ -332,7 +332,7 @@
     $('kpiIncome').textContent=fmt(s.income); $('kpiCost').textContent=fmt(s.cost); $('kpiProfit').textContent=fmt(s.profit); $('kpiCount').textContent=s.count;
     renderDelta($('kpiIncomeDelta'),s.income,sy.income,'عن أمس'); renderDelta($('kpiCostDelta'),s.cost,sy.cost,'عن أمس',true); renderDelta($('kpiProfitDelta'),s.profit,sy.profit,'عن أمس');
     $('kpiAvg').textContent=s.count?`متوسط الربح ${fmt(s.profit/s.count)} EGP`:'لا توجد عمليات اليوم';
-    renderRevenueChart('revenueChart',7); renderProductDonut(s.rows); renderRecentTransactions(s.rows.length?s.rows:rangeRows().slice(-5));
+    renderRevenueChart('revenueChart',7); renderProductDonut(s.rows); renderRecentTransactions(s.rows.length?s.rows:rangeRows().slice(-5)); renderSmartInsights();
   }
 
   function renderDelta(el,current,previous,label,inverse=false) {
@@ -377,56 +377,107 @@
     return [...state.presets].filter(p=>p.active!==false).sort((a,b)=>(new Date(b.lastUsedAt||0)-new Date(a.lastUsedAt||0))||b.usageCount-a.usageCount||a.item.localeCompare(b.item,'ar'));
   }
 
-  function renderAdd() {
-    $('addDate').value ||= todayISO(); $('manualDate').value ||= todayISO(); renderRecentPresets(); renderSelectedPreset(); updateAddPreview();
+  function getQuickPresetServiceFilter(){
+    const hidden=$('quickPresetServiceFilter');
+    return String(hidden?.value ?? state?.settings?.quickPresetServiceFilter ?? '').trim();
   }
 
-  function getQuickPresetServices() {
-    const counts=new Map();
-    sortedPresets().forEach(p=>counts.set(p.item,(counts.get(p.item)||0)+1));
-    return [...counts.entries()].sort((a,b)=>a[0].localeCompare(b[0],'ar'));
+  function closeQuickServiceMenu(){
+    const menu=$('quickServiceMenu'), btn=$('quickServicePickerBtn');
+    if(menu) menu.classList.add('hidden');
+    if(btn) btn.setAttribute('aria-expanded','false');
   }
 
-  function renderQuickPresetServiceFilter() {
-    const select=$('quickPresetServiceFilter');
-    if(!select) return;
-    const services=getQuickPresetServices();
-    if(quickPresetServiceFilter && !services.some(([name])=>name===quickPresetServiceFilter)) quickPresetServiceFilter='';
-    select.innerHTML=`<option value="">كل الخدمات (${sortedPresets().length})</option>`+services.map(([name,count])=>`<option value="${esc(name)}">${esc(name)} (${count})</option>`).join('');
-    select.value=quickPresetServiceFilter;
+  function openQuickServiceMenu(){
+    const menu=$('quickServiceMenu'), btn=$('quickServicePickerBtn');
+    if(!menu || !btn) return;
+    menu.classList.remove('hidden');
+    btn.setAttribute('aria-expanded','true');
   }
 
-  function setQuickPresetServiceFilter(value) {
-    quickPresetServiceFilter=String(value||'');
-    state.settings.quickPresetServiceFilter=quickPresetServiceFilter;
-    saveState('quick-preset-service-filter').catch(console.error);
+  function toggleQuickServiceMenu(){
+    const menu=$('quickServiceMenu');
+    if(!menu) return;
+    menu.classList.contains('hidden') ? openQuickServiceMenu() : closeQuickServiceMenu();
+  }
+
+  function setQuickPresetServiceFilter(value=''){
+    const next=String(value||'').trim();
+    if($('quickPresetServiceFilter')) $('quickPresetServiceFilter').value=next;
+    state.settings.quickPresetServiceFilter=next;
+    saveState('quick-service-filter').catch(()=>{});
+    closeQuickServiceMenu();
     renderRecentPresets();
   }
 
+  function quickPresetServices(){
+    const counts=new Map();
+    sortedPresets().forEach(p=>counts.set(p.item,(counts.get(p.item)||0)+1));
+    return [...counts.entries()].sort((a,b)=>a[0].localeCompare(b[0],'ar')).map(([name,count])=>({name,count}));
+  }
+
+  function renderQuickServicePicker(){
+    const btn=$('quickServicePickerBtn'), menu=$('quickServiceMenu'), hidden=$('quickPresetServiceFilter');
+    if(!btn || !menu || !hidden) return;
+    const selected=getQuickPresetServiceFilter();
+    hidden.value=selected;
+    const services=quickPresetServices();
+    const total=services.reduce((sum,s)=>sum+s.count,0);
+    const selectedCount=selected ? (services.find(s=>s.name===selected)?.count || 0) : total;
+    $('quickServicePickerLabel').textContent=selected || `كل الخدمات (${total})`;
+    $('quickServicePickerCount').textContent=String(selectedCount);
+    btn.classList.toggle('is-filtered',!!selected);
+    const options=[{name:'',label:`كل الخدمات`,count:total,color:'linear-gradient(135deg,#6c7cff,#2dd4bf)',hint:'اعرض كل الخدمات واختر من أكثر من خدمة'},
+      ...services.map(s=>({name:s.name,label:s.name,count:s.count,color:serviceColor(s.name),hint:'اعرض عروض هذه الخدمة فقط'}))];
+    menu.innerHTML=options.length?options.map(opt=>{
+      const active=(opt.name||'')===selected;
+      const swatch=String(opt.color).startsWith('linear-gradient') ? opt.color : `${opt.color}`;
+      return `<button type="button" class="quick-service-option ${active?'active':''}" data-service="${esc(opt.name)}" role="option" aria-selected="${active?'true':'false'}">
+        <span class="quick-service-option-main">
+          <i class="quick-service-swatch" style="background:${swatch}"></i>
+          <span class="quick-service-option-copy"><b>${esc(opt.label)}</b><small>${esc(opt.hint)}</small></span>
+        </span>
+        <strong>${fmt(opt.count,0)}</strong>
+      </button>`;
+    }).join(''):'<div class="empty-state">لا توجد خدمات محفوظة بعد.</div>';
+    $$('#quickServiceMenu [data-service]').forEach(el=>el.onclick=(e)=>{e.stopPropagation(); setQuickPresetServiceFilter(el.dataset.service||'');});
+  }
+
+  function renderQuickPresetFilterMeta(totalVisible,totalAll){
+    const meta=$('quickPresetFilterMeta'); if(!meta) return;
+    const selectedService=getQuickPresetServiceFilter();
+    const selectedCount=[...bulkPresetSelection].length;
+    meta.innerHTML=`<span class="meta-chip ${selectedService?'active':''}">${selectedService?`الخدمة الحالية: ${esc(selectedService)}`:'فلتر مفتوح على كل الخدمات'}</span>
+      <span class="meta-chip">المعروض ${fmt(totalVisible,0)} من ${fmt(totalAll,0)}</span>
+      <span class="meta-chip ${selectedCount?'active':''}">المحدد ${fmt(selectedCount,0)}</span>
+      <span class="meta-tip">تقدر تبدّل بين الخدمات وتكمل التحديد بدون ما الاختيارات تضيع.</span>`;
+  }
+
+  function renderAdd() {
+    $('addDate').value ||= todayISO(); $('manualDate').value ||= todayISO(); renderQuickServicePicker(); renderRecentPresets(); renderSelectedPreset(); updateAddPreview();
+  }
+
   function renderRecentPresets() {
-    renderQuickPresetServiceFilter();
     const all=sortedPresets();
-    const list=quickPresetServiceFilter?all.filter(p=>p.item===quickPresetServiceFilter):all;
+    const serviceFilter=getQuickPresetServiceFilter();
+    const filtered=serviceFilter ? all.filter(p=>p.item===serviceFilter) : all;
+    const list=filtered.slice(0,bulkPresetMode?60:12);
     const wrap=$('recentPresets');
     wrap.classList.toggle('bulk-mode',bulkPresetMode);
-    wrap.innerHTML=list.length?list.map(p=>{
+    wrap.innerHTML=list.length?list.map((p,idx)=>{
       const selected=bulkPresetSelection.has(p.id);
-      return `<button type="button" class="recent-preset-card ${selected?'selected':''}" data-preset-id="${p.id}">
+      return `<button type="button" class="recent-preset-card ${selected?'selected':''}" data-preset-id="${p.id}" style="animation-delay:${Math.min(idx*45,420)}ms">
         <i class="service-bar" style="--service-color:${serviceColor(p.item)}"></i>
         <span><b>${esc(p.item)} — ${esc(p.offer)}</b><small>الداخل ${fmt(p.paid)} · المصروف ${fmt(p.deducted)} · الربح ${fmt(p.paid-p.deducted)}</small></span>
         <strong>${bulkPresetMode?`<span class="bulk-check">${selected?'✓':'＋'}</span>`:`${fmt(p.paid)}`}</strong>
       </button>`;
-    }).join(''):`<div class="empty-state">${quickPresetServiceFilter?'لا توجد عروض محفوظة لهذه الخدمة.':'أضف أول عرض من الإعدادات.'}</div>`;
+    }).join(''):'<div class="empty-state">لا توجد عروض لهذه الخدمة. اختر خدمة أخرى أو أضف عرضًا من الإعدادات.</div>';
     $$('#recentPresets [data-preset-id]').forEach(b=>b.onclick=()=>{
       if(bulkPresetMode) toggleBulkPreset(b.dataset.presetId); else selectPreset(b.dataset.presetId);
     });
     const btn=$('bulkPresetModeBtn'); if(btn) btn.textContent=bulkPresetMode?'إنهاء التحديد':'تحديد متعدد';
-    const meta=$('quickPresetFilterMeta');
-    if(meta){
-      const serviceLabel=quickPresetServiceFilter||'كل الخدمات';
-      const selectedCount=bulkPresetSelection.size;
-      meta.innerHTML=`<span>يعرض <b>${list.length}</b> عرض من <b>${serviceLabel==='كل الخدمات'?all.length:list.length}</b></span>${bulkPresetMode?`<span class="filter-selection-hint">المحدد حاليًا: <b>${selectedCount}</b> · تقدر تغيّر الخدمة وتكمل التحديد بدون ما يضيع اختيارك</span>`:''}`;
-    }
+    renderQuickServicePicker();
+    renderQuickPresetFilterMeta(list.length,all.length);
     renderBulkPresetBar();
   }
 
@@ -520,19 +571,184 @@
     const map=new Map(); out.forEach(x=>map.set(x.ref||`${x.date}-${x.time}-${x.amount}`,x)); return [...map.values()].sort((a,b)=>`${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
   }
 
-  function suggestPreset(amount) {
-    const active=state.presets.filter(p=>p.active!==false); if(!active.length)return null;
-    const scored=active.map(p=>({p,diff:Math.abs(num(p.paid)-amount),over:num(p.paid)>amount?20:0})).sort((a,b)=>(a.diff+a.over)-(b.diff+b.over));
-    const best=scored[0]; return best && best.diff<=Math.max(15,amount*.08)?best.p:null;
+  function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
+  function median(values){ const a=values.filter(Number.isFinite).sort((x,y)=>x-y); if(!a.length)return 0; const m=Math.floor(a.length/2); return a.length%2?a[m]:(a[m-1]+a[m])/2; }
+  function roundUp5(v){ return Math.ceil(num(v)/5)*5; }
+  function presetKey(item,offer){ return `${normalize(item)}||${normalize(offer)}`; }
+
+  function rankPresetSuggestions(message) {
+    const amount=num(message?.amount);
+    const active=state.presets.filter(p=>p.active!==false);
+    if(!active.length||!amount) return [];
+    const senderTokens=[message?.sender,message?.name].filter(Boolean).map(normalize).filter(Boolean);
+    const senderHistory=new Map();
+    if(senderTokens.length){
+      state.transactions.filter(t=>!t.archived&&t.source==='wallet').forEach(t=>{
+        const note=normalize(t.note||'');
+        if(senderTokens.some(token=>token.length>=4&&note.includes(token))){
+          const key=presetKey(t.item,t.offer); senderHistory.set(key,(senderHistory.get(key)||0)+1);
+        }
+      });
+    }
+    return active.map(p=>{
+      const base=num(p.paid),diff=amount-base,absDiff=Math.abs(diff);
+      let score=18;
+      if(absDiff<.01) score+=72;
+      else if(diff>=0&&diff<=15) score+=Math.max(35,62-diff*1.8);
+      else if(diff<0&&absDiff<=5) score+=32-absDiff*3;
+      else score+=Math.max(0,26-(absDiff/Math.max(amount,1))*100);
+      if(base>amount&&absDiff>10) score-=18;
+      const historyCount=senderHistory.get(presetKey(p.item,p.offer))||0;
+      score+=Math.min(18,historyCount*6);
+      score+=Math.min(8,Math.log2(num(p.usageCount)+1)*1.8);
+      const confidence=clamp(Math.round(score),5,99);
+      let reason='أقرب عرض للمبلغ';
+      if(absDiff<.01) reason='مطابق تمامًا للمبلغ المستلم';
+      else if(diff>0&&diff<=15) reason=`العميل زود ${fmt(diff,0)} جنيه فوق سعر العرض`;
+      else if(diff<0&&absDiff<=5) reason=`التحويل أقل من السعر بـ ${fmt(absDiff,0)} جنيه`;
+      else reason=`فرق ${fmt(absDiff)} جنيه عن سعر العرض`;
+      if(historyCount) reason+=` · نفس المرسل استخدمه ${historyCount} مرة قبل كده`;
+      return {preset:p,confidence,reason,diff,historyCount};
+    }).sort((a,b)=>b.confidence-a.confidence||Math.abs(a.diff)-Math.abs(b.diff)).slice(0,3);
   }
 
-  function analyzeWallet() { walletParsed=parseWalletMessages($('walletMessages').value).map(x=>({...x,presetId:suggestPreset(x.amount)?.id||''})); renderWalletPreview(); toast(walletParsed.length?`تم تحليل ${walletParsed.length} رسالة.`:'لم أجد رسائل قابلة للتحليل.',walletParsed.length?'success':'error'); }
+  function suggestPreset(amountOrMessage) {
+    const message=typeof amountOrMessage==='object'?amountOrMessage:{amount:amountOrMessage};
+    return rankPresetSuggestions(message)[0]?.preset||null;
+  }
+
+  function analyzeWallet() {
+    walletParsed=parseWalletMessages($('walletMessages').value).map(x=>{
+      const suggestions=rankPresetSuggestions(x),top=suggestions[0];
+      return {...x,suggestions,presetId:top&&top.confidence>=38?top.preset.id:'',confidence:top?.confidence||0,suggestionReason:top?.reason||'لم أجد عرضًا مناسبًا'};
+    });
+    renderWalletPreview();
+    const confident=walletParsed.filter(x=>x.confidence>=75).length;
+    toast(walletParsed.length?`تم تحليل ${walletParsed.length} رسالة · ${confident} اقتراح بثقة عالية.`:'لم أجد رسائل قابلة للتحليل.',walletParsed.length?'success':'error');
+  }
+
+  function detectAnomalies() {
+    const rows=state.transactions.filter(t=>!t.archived);
+    const groups=new Map();
+    rows.forEach(t=>{const k=presetKey(t.item,t.offer),arr=groups.get(k)||[];arr.push(t);groups.set(k,arr)});
+    const groupStats=new Map();
+    groups.forEach((arr,k)=>{
+      const profits=arr.map(t=>txFinancials(t).profit/qty(t.quantity));
+      const paid=arr.map(t=>num(t.paid));
+      groupStats.set(k,{count:arr.length,medianProfit:median(profits),medianPaid:median(paid)});
+    });
+    const duplicateIds=new Set();
+    const dupGroups=new Map();
+    rows.forEach(t=>{
+      const sig=[t.date,normalize(t.item),normalize(t.offer),num(t.paid).toFixed(2),num(t.deducted).toFixed(2),qty(t.quantity)].join('|');
+      const arr=dupGroups.get(sig)||[];arr.push(t);dupGroups.set(sig,arr);
+    });
+    dupGroups.forEach(arr=>{
+      if(arr.length<2)return;
+      arr.sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
+      for(let i=1;i<arr.length;i++){
+        const prev=new Date(arr[i-1].createdAt).getTime(),cur=new Date(arr[i].createdAt).getTime();
+        if(Number.isFinite(prev)&&Number.isFinite(cur)&&Math.abs(cur-prev)<=10*60*1000) duplicateIds.add(arr[i].id);
+      }
+    });
+    const presetMap=new Map(state.presets.map(p=>[presetKey(p.item,p.offer),p]));
+    const sevRank={high:3,medium:2,low:1};
+    const anomalies=[];
+    rows.forEach(t=>{
+      const f=txFinancials(t),reasons=[]; let severity='low';
+      const push=(level,text)=>{reasons.push(text);if(sevRank[level]>sevRank[severity])severity=level};
+      if(f.profit<0) push('high',`خسارة ${fmt(Math.abs(f.profit))} EGP`);
+      else if(f.income>0&&f.profit/f.income<.04) push('medium',`هامش ربح منخفض ${(f.profit/f.income*100).toFixed(1)}%`);
+      if(duplicateIds.has(t.id)) push('high','احتمال عملية مكررة خلال 10 دقائق');
+      if(qty(t.quantity)>=5) push('medium',`كمية كبيرة: ${qty(t.quantity)}`);
+      const p=presetMap.get(presetKey(t.item,t.offer));
+      if(p){
+        const diff=num(t.paid)-num(p.paid),limit=Math.max(15,num(p.paid)*.2);
+        const isExpectedWalletExtra=t.source==='wallet'&&diff>=0&&diff<=15;
+        if(!isExpectedWalletExtra&&Math.abs(diff)>limit) push('medium',`الداخل مختلف عن العرض المحفوظ بـ ${fmt(Math.abs(diff))} EGP`);
+      }
+      const gs=groupStats.get(presetKey(t.item,t.offer));
+      if(gs?.count>=5&&gs.medianProfit>0){
+        const unitProfit=f.profit/qty(t.quantity),dev=Math.abs(unitProfit-gs.medianProfit);
+        if(dev>Math.max(20,Math.abs(gs.medianProfit)*.8)) push('low',`ربح غير معتاد مقارنة بنفس العرض`);
+      }
+      if(reasons.length) anomalies.push({id:t.id,transaction:t,severity,reasons,score:sevRank[severity]*100+reasons.length});
+    });
+    return anomalies.sort((a,b)=>b.score-a.score||String(b.transaction.date).localeCompare(String(a.transaction.date)));
+  }
+
+  function getSmartPricingSuggestions() {
+    const now=new Date(),from=localDateISO(addDays(now,-89));
+    const recent=state.transactions.filter(t=>!t.archived&&t.date>=from&&t.date<=todayISO());
+    const groups=new Map();
+    recent.forEach(t=>{const k=presetKey(t.item,t.offer),arr=groups.get(k)||[];arr.push(t);groups.set(k,arr)});
+    const suggestions=[];
+    state.presets.filter(p=>p.active!==false).forEach(p=>{
+      const arr=groups.get(presetKey(p.item,p.offer))||[];
+      if(arr.length<3)return;
+      let units=0,income=0,cost=0,profit=0;
+      arr.forEach(t=>{const f=txFinancials(t);units+=f.quantity;income+=f.income;cost+=f.cost;profit+=f.profit});
+      if(!units)return;
+      const avgIncome=income/units,avgCost=cost/units,avgProfit=profit/units,margin=avgIncome?avgProfit/avgIncome:0;
+      const baseCost=Math.max(num(p.deducted),avgCost);
+      const desiredProfit=Math.max(10,baseCost*.12);
+      let target=roundUp5(baseCost+desiredProfit);
+      const highVolume=units>=12;
+      if(highVolume&&margin<.18) target=Math.max(target,roundUp5(num(p.paid)+5));
+      if(avgCost>num(p.deducted)+3) target=Math.max(target,roundUp5(avgCost+desiredProfit));
+      if(target<=num(p.paid)) return;
+      const shouldSuggest=margin<.14||avgProfit<desiredProfit*.95||(highVolume&&margin<.18)||avgCost>num(p.deducted)+3;
+      if(!shouldSuggest)return;
+      const reasons=[];
+      if(margin<.14)reasons.push(`هامش الربح ${(margin*100).toFixed(1)}%`);
+      if(highVolume)reasons.push(`مبيعات قوية: ${units} وحدة/90 يوم`);
+      if(avgCost>num(p.deducted)+3)reasons.push(`متوسط التكلفة الفعلي ${fmt(avgCost)}`);
+      if(avgProfit<desiredProfit*.95)reasons.push(`ربح الوحدة ${fmt(avgProfit)} أقل من المستهدف`);
+      suggestions.push({preset:p,current:num(p.paid),target,units,margin,avgProfit,avgCost,reasons,priority:(target-num(p.paid))*Math.max(1,units)});
+    });
+    return suggestions.sort((a,b)=>b.priority-a.priority).slice(0,12);
+  }
+
+  function smartSeverityLabel(level){return level==='high'?'عالي':level==='medium'?'متوسط':'ملاحظة'}
+
+  function renderSmartInsights(){
+    const anomalies=detectAnomalies(),pricing=getSmartPricingSuggestions();
+    if($('smartAnomalyCount')) $('smartAnomalyCount').textContent=String(anomalies.length);
+    if($('smartPricingCount')) $('smartPricingCount').textContent=String(pricing.length);
+    const high=anomalies.filter(a=>a.severity==='high').length,medium=anomalies.filter(a=>a.severity==='medium').length;
+    const totalTx=state.transactions.filter(t=>!t.archived).length;
+    const score=totalTx?clamp(Math.round(100-(high*12+medium*5+Math.max(0,anomalies.length-high-medium)*2)),35,100):100;
+    if($('smartHealthScore')) $('smartHealthScore').innerHTML=`<strong>${score}</strong><span>سلامة البيانات</span>`;
+    if($('smartAnomalies')) $('smartAnomalies').innerHTML=anomalies.length?anomalies.slice(0,5).map(a=>{
+      const t=a.transaction;return `<div class="smart-list-item anomaly-${a.severity}"><div class="smart-list-icon">!</div><div class="smart-list-main"><b>${esc(t.item)} — ${esc(t.offer)}</b><span>${esc(a.reasons.join(' · '))}</span><small>${dateLabel(t.date)} · داخل ${fmt(txFinancials(t).income)} · ربح ${fmt(txFinancials(t).profit)}</small></div><div class="smart-list-side"><em>${smartSeverityLabel(a.severity)}</em><button class="mini-btn" data-smart-tx="${t.id}">مراجعة</button></div></div>`
+    }).join(''):'<div class="smart-empty"><span>✓</span><b>مفيش عمليات شاذة واضحة</b><small>المراجعة الذكية مش لاقية أخطاء مهمة حاليًا.</small></div>';
+    if($('smartPricing')) $('smartPricing').innerHTML=pricing.length?pricing.slice(0,5).map(s=>`<div class="smart-list-item pricing-suggestion"><div class="smart-list-icon">↗</div><div class="smart-list-main"><b>${esc(s.preset.item)} — ${esc(s.preset.offer)}</b><span>${esc(s.reasons.join(' · '))}</span><small>السعر الحالي ${fmt(s.current)} ← المقترح ${fmt(s.target)} EGP</small></div><div class="smart-list-side"><em>${(s.margin*100).toFixed(1)}%</em><button class="mini-btn smart-apply-price" data-smart-price="${s.preset.id}" data-target="${s.target}">تطبيق</button></div></div>`).join(''):'<div class="smart-empty"><span>✓</span><b>التسعير الحالي متوازن</b><small>مفيش عرض محتاج رفع سعر واضح بناءً على آخر 90 يوم.</small></div>';
+    $$('[data-smart-tx]').forEach(b=>b.onclick=()=>focusHistoryTransaction(b.dataset.smartTx));
+    $$('[data-smart-price]').forEach(b=>b.onclick=()=>applySmartPrice(b.dataset.smartPrice,num(b.dataset.target)));
+    if($('openAllAnomaliesBtn')) $('openAllAnomaliesBtn').onclick=()=>{goView('history');$('historyFrom').value='';$('historyTo').value='';$('historySearch').value='';renderHistory();};
+  }
+
+  function focusHistoryTransaction(id){
+    goView('history'); $('historyFrom').value='';$('historyTo').value='';$('historySearch').value=id; renderHistory();
+    setTimeout(()=>$('historyTable')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+  }
+
+  async function applySmartPrice(presetId,target){
+    const p=state.presets.find(x=>x.id===presetId); if(!p)return;
+    const next=roundUp5(target); if(next<=num(p.paid))return toast('السعر المقترح لم يعد أعلى من السعر الحالي.','error');
+    if(!confirm(`تغيير سعر ${p.item} — ${p.offer} من ${fmt(p.paid)} إلى ${fmt(next)} EGP؟`))return;
+    await createSafetySnapshot('before-smart-price');
+    const before=num(p.paid); p.paid=next;p.updatedAt=nowIso();
+    audit(state,'تطبيق تسعير ذكي','',{item:p.item,offer:p.offer,before,after:next});
+    await saveState('smart-pricing');renderAll();toast(`تم تحديث السعر إلى ${fmt(next)} EGP.`,'success');
+  }
 
   function renderWalletPreview() {
     const wrap=$('walletPreviewWrap'), stats=$('walletImportStats'); if(!walletParsed.length){wrap.classList.add('hidden');stats.classList.add('hidden');return;}
     const existing=new Set(state.transactions.map(t=>t.externalRef).filter(Boolean)); const fresh=walletParsed.filter(x=>!existing.has(x.ref)); const total=walletParsed.reduce((s,x)=>s+x.amount,0);
-    stats.innerHTML=`<span class="stat-chip">الرسائل: <b>${walletParsed.length}</b></span><span class="stat-chip">الجديدة: <b>${fresh.length}</b></span><span class="stat-chip">إجمالي المستلم: <b>${fmt(total)}</b></span>`; stats.classList.remove('hidden'); wrap.classList.remove('hidden');
-    $('walletPreviewBody').innerHTML=walletParsed.map((x,i)=>{const p=state.presets.find(z=>z.id===x.presetId);const duplicate=existing.has(x.ref);const profit=p?x.amount-num(p.deducted):0;return `<tr style="opacity:${duplicate?.55:1}"><td>${esc(dateLabel(x.date))}</td><td>${esc(x.name||x.sender)}</td><td class="money income">${fmt(x.amount)}</td><td><select class="control wallet-preset-select" data-i="${i}"><option value="">— بدون ربط —</option>${sortedPresets().map(y=>`<option value="${y.id}" ${y.id===x.presetId?'selected':''}>${esc(y.item)} — ${esc(y.offer)} | ${fmt(y.paid)}</option>`).join('')}</select></td><td class="money cost">${p?fmt(p.deducted):'—'}</td><td class="money profit">${p?fmt(profit):'—'}</td><td>${duplicate?'<span class="pill" style="color:#fda4af;border-color:rgba(251,113,133,.2)">مكرر</span>':'<span class="pill">جديد</span>'}</td></tr>`;}).join('');
+    const high=walletParsed.filter(x=>x.confidence>=75).length,review=walletParsed.filter(x=>x.confidence<55).length;
+    stats.innerHTML=`<span class="stat-chip">الرسائل: <b>${walletParsed.length}</b></span><span class="stat-chip">الجديدة: <b>${fresh.length}</b></span><span class="stat-chip ai-chip">اقتراح قوي: <b>${high}</b></span><span class="stat-chip ${review?'warn-chip':''}">تحتاج مراجعة: <b>${review}</b></span><span class="stat-chip">إجمالي المستلم: <b>${fmt(total)}</b></span>`; stats.classList.remove('hidden'); wrap.classList.remove('hidden');
+    $('walletPreviewBody').innerHTML=walletParsed.map((x,i)=>{const p=state.presets.find(z=>z.id===x.presetId);const duplicate=existing.has(x.ref);const profit=p?x.amount-num(p.deducted):0;const level=x.confidence>=75?'high':x.confidence>=55?'medium':'low';const alts=(x.suggestions||[]).slice(1,3).map(s=>`${s.preset.item} ${s.preset.offer}`).join(' · ');return `<tr style="opacity:${duplicate?.55:1}"><td>${esc(dateLabel(x.date))}</td><td>${esc(x.name||x.sender)}</td><td class="money income">${fmt(x.amount)}</td><td><div class="wallet-smart-box"><div class="ai-confidence ${level}"><span>MOX Smart</span><b>${x.confidence}%</b></div><small>${esc(x.suggestionReason||'')}</small>${alts&&x.confidence<75?`<em>بدائل: ${esc(alts)}</em>`:''}</div><select class="control wallet-preset-select" data-i="${i}"><option value="">— بدون ربط —</option>${sortedPresets().map(y=>`<option value="${y.id}" ${y.id===x.presetId?'selected':''}>${esc(y.item)} — ${esc(y.offer)} | ${fmt(y.paid)}</option>`).join('')}</select></td><td class="money cost">${p?fmt(p.deducted):'—'}</td><td class="money profit">${p?fmt(profit):'—'}</td><td>${duplicate?'<span class="pill" style="color:#fda4af;border-color:rgba(251,113,133,.2)">مكرر</span>':x.confidence<55?'<span class="pill review-pill">راجع</span>':'<span class="pill">جديد</span>'}</td></tr>`;}).join('');
     $$('.wallet-preset-select').forEach(s=>s.onchange=()=>{walletParsed[+s.dataset.i].presetId=s.value;renderWalletPreview();});
   }
 
@@ -545,18 +761,16 @@
   function historyFiltered() {
     const from=$('historyFrom').value,to=$('historyTo').value,q=normalize($('historySearch').value),show=$('showArchived').checked;
     let arr=state.transactions.filter(t=>(show||!t.archived)&&(!from||t.date>=from)&&(!to||t.date<=to));
-    if(q)arr=arr.filter(t=>normalize(`${t.date} ${t.item} ${t.offer} ${t.note} ${t.paid} ${t.deducted}`).includes(q));
+    if(q)arr=arr.filter(t=>normalize(`${t.id} ${t.date} ${t.item} ${t.offer} ${t.note} ${t.paid} ${t.deducted}`).includes(q));
     const key=historySort.key, dir=historySort.dir==='asc'?1:-1;
     arr.sort((a,b)=>{let av,bv;if(key==='profit'){av=txFinancials(a).profit;bv=txFinancials(b).profit}else{av=a[key];bv=b[key]} if(typeof av==='number'||typeof bv==='number')return(num(av)-num(bv))*dir;return String(av??'').localeCompare(String(bv??''),'ar',{numeric:true})*dir;}); return arr;
   }
 
   function renderHistory() {
     const arr=historyFiltered();
-    $('historyBody').innerHTML=arr.length?arr.map(t=>{const f=txFinancials(t);return `<tr style="opacity:${t.archived?.52:1}"><td>${esc(dateLabel(t.date))}</td><td><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${serviceColor(t.item)};margin-left:6px"></span>${esc(t.item)}</td><td>${esc(t.offer)}</td><td class="money">${t.quantity}</td><td class="money income">${fmt(t.paid)}</td><td class="money cost">${fmt(t.deducted)}</td><td class="money profit">${fmt(f.profit)}</td><td class="note-cell" title="${esc(t.note)}">${esc(t.note||'—')}</td><td><div class="row-actions"><button class="mini-btn" data-edit="${t.id}">تعديل</button><button class="mini-btn ${t.archived?'':'danger'}" data-archive="${t.id}">${t.archived?'استرجاع':'أرشفة'}</button><button class="mini-btn delete" data-delete="${t.id}">حذف</button></div></td></tr>`;}).join(''):'<tr><td colspan="9"><div class="empty-state">لا توجد نتائج.</div></td></tr>';
+    $('historyBody').innerHTML=arr.length?arr.map(t=>{const f=txFinancials(t);return `<tr style="opacity:${t.archived?.52:1}"><td>${esc(dateLabel(t.date))}</td><td><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${serviceColor(t.item)};margin-left:6px"></span>${esc(t.item)}</td><td>${esc(t.offer)}</td><td class="money">${t.quantity}</td><td class="money income">${fmt(t.paid)}</td><td class="money cost">${fmt(t.deducted)}</td><td class="money profit">${fmt(f.profit)}</td><td class="note-cell" title="${esc(t.note)}">${esc(t.note||'—')}</td><td><div class="row-actions"><button class="mini-btn" data-edit="${t.id}">تعديل</button><button class="mini-btn ${t.archived?'':'danger'}" data-archive="${t.id}">${t.archived?'استرجاع':'أرشفة'}</button></div></td></tr>`;}).join(''):'<tr><td colspan="9"><div class="empty-state">لا توجد نتائج.</div></td></tr>';
     const s=arr.reduce((o,t)=>{const f=txFinancials(t);o.in+=f.income;o.cost+=f.cost;o.profit+=f.profit;o.q+=f.quantity;return o},{in:0,cost:0,profit:0,q:0}); $('historyCount').textContent=`${s.q} عملية`; $('historyTotals').textContent=`دخل ${fmt(s.in)} · ربح ${fmt(s.profit)} EGP`;
-    $$('[data-edit]').forEach(b=>b.onclick=()=>openEditTransaction(b.dataset.edit));
-    $$('[data-archive]').forEach(b=>b.onclick=()=>toggleArchiveTransaction(b.dataset.archive));
-    $$('[data-delete]').forEach(b=>b.onclick=()=>deleteTransactionPermanently(b.dataset.delete));
+    $$('[data-edit]').forEach(b=>b.onclick=()=>openEditTransaction(b.dataset.edit)); $$('[data-archive]').forEach(b=>b.onclick=()=>toggleArchiveTransaction(b.dataset.archive));
     $$('#historyTable th[data-sort]').forEach(th=>{th.classList.toggle('sort-asc',historySort.key===th.dataset.sort&&historySort.dir==='asc');th.classList.toggle('sort-desc',historySort.key===th.dataset.sort&&historySort.dir==='desc');});
   }
 
@@ -582,30 +796,6 @@
   }
 
   async function toggleArchiveTransaction(id) { const t=state.transactions.find(x=>x.id===id);if(!t)return;t.archived=!t.archived;t.updatedAt=nowIso();audit(state,t.archived?'أرشفة عملية':'استرجاع عملية',t.date,{id});await saveState('archive');renderAll();toast(t.archived?'تمت الأرشفة ويمكن استرجاعها.':'تم استرجاع العملية.'); }
-
-  async function deleteTransactionPermanently(id) {
-    const index=state.transactions.findIndex(x=>x.id===id);
-    if(index<0) return;
-    const t=state.transactions[index];
-    const label=`${t.item || 'عملية'}${t.offer?` — ${t.offer}`:''}`;
-    if(!confirm(`حذف ${label} نهائيًا من سجل العمليات؟\n\nيمكنك التراجع مباشرة بعد الحذف أو استرجاع آخر نسخة أمان.`)) return;
-
-    await createSafetySnapshot('before-delete-transaction');
-    const deleted={...t};
-    state.transactions.splice(index,1);
-    audit(state,'حذف عملية نهائيًا',deleted.date,{id:deleted.id,item:deleted.item,offer:deleted.offer,paid:deleted.paid,deducted:deleted.deducted,quantity:deleted.quantity});
-    await saveState('delete-transaction');
-    renderAll();
-
-    toast('تم حذف العملية من السجل.','success',6500,async()=>{
-      if(state.transactions.some(x=>x.id===deleted.id)) return;
-      state.transactions.splice(Math.min(index,state.transactions.length),0,deleted);
-      audit(state,'تراجع عن حذف عملية',deleted.date,{id:deleted.id,item:deleted.item,offer:deleted.offer});
-      await saveState('undo-delete-transaction');
-      renderAll();
-      toast('تم استرجاع العملية.','success');
-    });
-  }
 
   function reportRangeQuick(range) {
     const now=new Date(); let f='',t='';
@@ -728,7 +918,13 @@
     $$('.nav-item,.mobile-nav button').forEach(b=>b.onclick=()=>goView(b.dataset.view)); $$('[data-go]').forEach(b=>b.onclick=()=>{goView(b.dataset.go);if(b.dataset.settingsTab)setSettingsTab(b.dataset.settingsTab)});
     $('globalAddBtn').onclick=()=>goView('add');
     $$('[data-dialog-close]').forEach(b=>b.onclick=()=>closeDialog(b.dataset.dialogClose));
-    $('quickPresetSearch').oninput=renderPresetSearch; $('quickPresetSearch').onfocus=renderPresetSearch; document.addEventListener('click',e=>{if(!e.target.closest('.search-control')&&!e.target.closest('#presetDropdown'))$('presetDropdown').classList.add('hidden')});
+    $('quickPresetSearch').oninput=renderPresetSearch; $('quickPresetSearch').onfocus=renderPresetSearch;
+    if($('quickServicePickerBtn')) $('quickServicePickerBtn').onclick=(e)=>{e.stopPropagation();toggleQuickServiceMenu()};
+    document.addEventListener('click',e=>{
+      if(!e.target.closest('.search-control')&&!e.target.closest('#presetDropdown')) $('presetDropdown').classList.add('hidden');
+      if(!e.target.closest('.quick-service-filter')) closeQuickServiceMenu();
+    });
+    document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeQuickServiceMenu(); });
     $('qtyMinus').onclick=()=>{$('addQty').value=Math.max(1,qty($('addQty').value)-1);updateAddPreview()}; $('qtyPlus').onclick=()=>{$('addQty').value=qty($('addQty').value)+1;updateAddPreview()}; $('addQty').oninput=updateAddPreview; $('addPaid').oninput=updateAddPreview; $('saveQuickTransaction').onclick=saveQuickTransaction;
     document.addEventListener('keydown',e=>{if(e.key==='Enter'&&$('view-add').classList.contains('active')&&document.activeElement?.tagName!=='TEXTAREA'&&!document.querySelector('dialog[open]')){if(selectedPresetId){e.preventDefault();saveQuickTransaction()}}});
     $('saveManualBtn').onclick=saveManual;
@@ -738,14 +934,12 @@
     $$('.settings-tab').forEach(b=>b.onclick=()=>setSettingsTab(b.dataset.tab)); $('newPresetBtn').onclick=()=>openPresetDialog(); $('presetManageSearch').oninput=renderPresetManager; $('presetServiceFilter').onchange=renderPresetManager; $('presetForm').onsubmit=savePreset;
     $('newFixedExpenseBtn').onclick=()=>openExpenseDialog('fixed'); $('newVariableExpenseBtn').onclick=()=>openExpenseDialog('variable'); $('expenseForm').onsubmit=saveExpense;
     if($('bulkPresetModeBtn')) $('bulkPresetModeBtn').onclick=()=>toggleBulkPresetMode();
-    if($('quickPresetServiceFilter')) $('quickPresetServiceFilter').onchange=e=>setQuickPresetServiceFilter(e.target.value);
     $('backupBtn').onclick=downloadBackup; $('restoreBtn').onclick=()=>$('restoreFile').click(); $('restoreFile').onchange=e=>{if(e.target.files[0])restoreBackup(e.target.files[0]);e.target.value=''}; $('safetyRestoreBtn').onclick=restoreLatestSafety; $('clearDataBtn').onclick=clearTransactions; $$('[data-action="backup"]').forEach(b=>b.onclick=downloadBackup); $$('[data-action="wallet-import"]').forEach(b=>b.onclick=()=>{goView('add');setTimeout(()=>$('walletImportPanel').scrollIntoView({behavior:'smooth'}),100)});
   }
 
   async function init(){
     document.title=APP_NAME; $('todayPill').textContent=new Date().toLocaleDateString('ar-EG',{weekday:'long',day:'numeric',month:'long'}); $('addDate').value=todayISO(); $('manualDate').value=todayISO();
     await openDB(); await loadState();
-    quickPresetServiceFilter=String(state.settings.quickPresetServiceFilter||'');
     const fixedRepairWasDone=Boolean(state.settings.fixedExpenseHistoryRepaired); const repairedFixed=repairLegacyFixedExpenseStartDates(); if(!fixedRepairWasDone || repairedFixed) await idbSet(STATE_KEY,sanitizeState(state));
     bindEvents(); renderAll(); renderReportRangeButtons(); reportRangeQuick('month');
     goView(state.settings.lastView||'today');
