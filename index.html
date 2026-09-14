@@ -1,831 +1,228 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-
-  <title>MOX-V4 Pro</title>
-
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
-
-  <link rel="icon" type="image/png" href="assets/logo.png">
-  <link rel="apple-touch-icon" href="assets/logo.png">
-
-  <meta name="theme-color" content="#0f1117">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#070b17">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="حاسبة المكسب">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="format-detection" content="telephone=no">
+  <meta name="apple-mobile-web-app-title" content="MOX-V2">
   <meta name="color-scheme" content="dark">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-touch-fullscreen" content="yes">
-  <link id="dynamicManifestLink" rel="manifest">
-
-
+  <title>MOX-V2</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./assets/logo.png">
+  <link rel="apple-touch-icon" href="./assets/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./style.css">
 </head>
-
 <body>
+  <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
 
-<div id="lockScreen" class="lock-screen hidden-section">
-  <div class="lock-card">
-    <h2>🔐 الموقع مقفول</h2>
-    <p>اكتب كلمة المرور لفتح بيانات الموقع على هذا المتصفح.</p>
-    <input id="lockPasswordInput" type="password" placeholder="كلمة المرور" onkeydown="handleLockKey(event)">
-    <button class="btn btn-add" type="button" onclick="unlockApp()">فتح الموقع</button>
-    <div id="lockError" class="filter-note" style="color:var(--red);margin-top:.7rem"></div>
-  </div>
-</div>
-
-<div class="page">
-
-  <div class="header">
-    <div class="logo-box">
-      <img src="assets/logo.png" alt="لوجو حاسبة المكسب">
-    </div>
-
-    <h1>MOX-V2</h1>
-    <p>إدارة الشحنات والعروض والمصاريف وحساب الربح الحقيقي</p>
-  </div>
-
-  <div id="toast" class="toast"></div>
-
-  <div class="app-top-hint">📱 أنت فاتح الموقع كأنه تطبيق. الواجهة محسّنة للموبايل وبتحترم حواف iPhone، وكل الأزرار المهمة موجودة في الشريط السفلي.</div>
-
-
-  <div class="section" id="todayQuickSection">
-    <div class="section-head">
-      <div>
-        <div class="section-title">⚡ إدخال اليوم السريع</div>
-        <div class="section-subtitle">أزرار جاهزة للعروض المتكررة + كمية + ملاحظة، وكل العمليات تعتبر تمت تلقائيًا</div>
-      </div>
-      <button class="toggle-btn" type="button" onclick="toggleSection('quickEntryContent', this)">إخفاء</button>
-    </div>
-
-    <div id="quickEntryContent" class="panel quick-entry-panel">
-      <div class="quick-entry-toolbar">
-        <div class="field">
-          <label>تاريخ الإدخال</label>
-          <input id="quickEntryDate" type="date">
-        </div>
-        <div class="field">
-          <label>بحث سريع في العروض</label>
-          <input id="quickOfferSearch" type="text" placeholder="مثال: ببجي أو 30" oninput="renderQuickOfferCards()">
-        </div>
-        <button class="btn btn-export" type="button" onclick="setTodayView()">عرض سجل اليوم</button>
-      </div>
-      <div class="filter-note">اضغط على زر + أو - لاختيار الكمية، ثم أضف العرض. العملية الواحدة ممكن تكون كمية أكبر من 1 لتقليل تكرار السطور.</div>
-      <div id="quickOfferCards" class="quick-offers-grid"></div>
+  <div id="lockScreen" class="lock-screen hidden" aria-hidden="true">
+    <div class="lock-card glass">
+      <div class="brand-mark brand-mark-lg"><img src="./assets/logo.png" alt="MOX-V2"></div>
+      <h2>MOX-V2 مقفول</h2>
+      <p>اكتب كلمة المرور المحلية لفتح لوحة التحكم.</p>
+      <input id="unlockPassword" class="control" type="password" autocomplete="current-password" placeholder="كلمة المرور">
+      <button id="unlockBtn" class="btn btn-primary btn-block">فتح الموقع</button>
+      <div id="unlockError" class="field-error"></div>
     </div>
   </div>
 
-
-  <div class="section">
-    <div class="section-head">
-      <div>
-        <div class="section-title">☁️ مزامنة الأجهزة</div>
-        <div class="section-subtitle">خلي الكمبيوتر والفون يقرأوا نفس البيانات من Firebase باستخدام كود مزامنة خاص بيك</div>
+  <div id="app" class="app-shell">
+    <aside class="sidebar glass">
+      <div class="brand">
+        <div class="brand-mark"><img src="./assets/logo.png" alt="MOX-V2"></div>
+        <div><strong>MOX-V2</strong><span>Store Finance OS</span></div>
       </div>
-      <div style="display:flex;gap:.55rem;align-items:center;flex-wrap:wrap;justify-content:flex-end">
-        <span id="cloudSyncStatus" class="sync-status warn">غير متصل</span>
-        <button class="toggle-btn" type="button" onclick="toggleSection('cloudSyncContent', this)">إظهار</button>
+      <nav class="nav-list" aria-label="التنقل الرئيسي">
+        <button class="nav-item active" data-view="today"><span class="nav-icon">⌂</span><span>اليوم</span></button>
+        <button class="nav-item" data-view="add"><span class="nav-icon">＋</span><span>إضافة</span></button>
+        <button class="nav-item" data-view="history"><span class="nav-icon">▤</span><span>السجل</span></button>
+        <button class="nav-item" data-view="reports"><span class="nav-icon">⌁</span><span>التقارير</span></button>
+        <button class="nav-item" data-view="settings"><span class="nav-icon">⚙</span><span>الإعدادات</span></button>
+      </nav>
+      <div class="sidebar-foot">
+        <div id="syncBadge" class="sync-badge"><span class="dot"></span><span>محلي</span></div>
+        <button id="lockNowBtn" class="icon-btn" title="قفل">⌾</button>
       </div>
-    </div>
+    </aside>
 
-    <div id="cloudSyncContent" class="panel hidden-section">
-      <div class="filter-grid">
-        <div class="field">
-          <label>كود المزامنة الخاص</label>
-          <input id="syncCodeInput" type="text" placeholder="مثال: MOX-9K7Q-52HD">
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <div class="eyebrow">لوحة الإدارة المالية</div>
+          <h1 id="viewTitle">اليوم</h1>
         </div>
-
-        <div class="field">
-          <label>آخر مزامنة</label>
-          <input id="lastSyncDisplay" type="text" value="لم تتم بعد" readonly>
+        <div class="top-actions">
+          <div id="todayPill" class="date-pill"></div>
+          <button id="globalAddBtn" class="btn btn-primary">＋ إضافة عملية</button>
         </div>
+      </header>
 
-        <button class="btn btn-purple" type="button" onclick="saveFirebaseSettings()">💾 حفظ الإعدادات</button>
-      </div>
+      <div id="toastHost" class="toast-host" aria-live="polite"></div>
 
-      <div class="field">
-        <label>Firebase config</label>
-        <textarea id="firebaseConfigInput" class="textarea-input" placeholder='الصق هنا كود firebaseConfig من Firebase Console، مثال:
-{
-  apiKey: "...",
-  authDomain: "...firebaseapp.com",
-  projectId: "...",
-  storageBucket: "...appspot.com",
-  messagingSenderId: "...",
-  appId: "..."
-}'></textarea>
-      </div>
-
-      <div class="sync-actions">
-        <button class="btn btn-add" type="button" onclick="enableCloudSync()">☁️ تشغيل المزامنة</button>
-        <button class="btn btn-amber" type="button" onclick="disableCloudSync()">⏸️ إيقاف المزامنة</button>
-        <button class="btn btn-export" type="button" onclick="uploadLocalDataToCloud(true)">⬆️ رفع بيانات الجهاز</button>
-        <button class="btn btn-export" type="button" onclick="downloadCloudDataToLocal()">⬇️ تنزيل بيانات السحابة</button>
-        <button class="btn btn-purple" type="button" onclick="syncNow()">🔄 مزامنة الآن</button>
-      </div>
-
-      <div class="security-note">
-        المزامنة الآن ترفع وتنزل نسخة كاملة من بيانات الموقع مثل النسخة الاحتياطية: العمليات، العروض، المصاريف، الإعدادات، وسجل الحذف. بعد أول تشغيل، الموقع يزامن تلقائيًا عند الفتح وأثناء الاستخدام.
-      </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-head">
-      <div>
-        <div class="section-title">📊 لوحة ملخص الأرباح</div>
-        <div class="section-subtitle">عند عرض كل الأيام يتم خصم المصاريف الثابتة، وعند فلترة يوم أو فترة يظهر صافي مكسب العمليات فقط بدون المصاريف الثابتة</div>
-      </div>
-      <button class="toggle-btn" type="button" onclick="toggleMultiSection(['summaryFilterPanel','summaryContent'], this)">إخفاء</button>
-    </div>
-
-    <div id="summaryFilterPanel" class="panel filter-panel">
-      <div class="filter-grid">
-        <div class="field">
-          <label>فلتر سريع</label>
-          <select id="quickDateFilter" onchange="setQuickDateFilter(this.value)">
-            <option value="all">كل الأيام</option>
-            <option value="today">اليوم</option>
-            <option value="yesterday">أمس</option>
-            <option value="last7">آخر 7 أيام</option>
-            <option value="month">الشهر الحالي</option>
-            <option value="custom">تاريخ مخصص</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label>من يوم</label>
-          <input id="filterFromDate" type="date" onchange="applyFilters()">
-        </div>
-
-        <div class="field">
-          <label>إلى يوم</label>
-          <input id="filterToDate" type="date" onchange="applyFilters()">
-        </div>
-
-        <button class="btn btn-export" type="button" onclick="clearDateFilters()">عرض كل الأيام</button>
-      </div>
-
-      <div id="activeFilterNote" class="filter-note">الملخص يعرض كل الأيام.</div>
-    </div>
-
-    <div id="summaryContent" class="summary">
-      <div class="card">
-        <div class="label">عدد العمليات</div>
-        <div class="value count" id="countTotal">0</div>
-      </div>
-
-      <div class="card">
-        <div class="label">إجمالي الداخل للمحفظة</div>
-        <div class="value wallet" id="walletTotal">0.00<span class="unit">EGP</span></div>
-      </div>
-
-      <div class="card">
-        <div class="label">إجمالي مصاريف العمليات</div>
-        <div class="value expense" id="expensesTotal">0.00<span class="unit">EGP</span></div>
-      </div>
-
-      <div class="card">
-        <div class="label" id="profitLabel">صافي المكسب</div>
-        <div class="value profit" id="profitTotal">0.00<span class="unit">EGP</span></div>
-      </div>
-
-      <div class="card">
-        <div class="label">الداخل للمحفظة بالدولار</div>
-        <div class="dollar-control">
-          <span>سعر الدولار</span>
-          <input id="walletDollarRate" class="dollar-input" type="number" step="0.01" min="0.01" value="53">
-        </div>
-        <div class="value dollar" id="walletUsdTotal">0.00<span class="unit">USD</span></div>
-      </div>
-
-      <div class="card">
-        <div class="label">مصاريف العمليات بالدولار</div>
-        <div class="dollar-control">
-          <span>سعر الدولار</span>
-          <input id="expensesDollarRate" class="dollar-input" type="number" step="0.01" min="0.01" value="53">
-        </div>
-        <div class="value dollar" id="expensesUsdTotal">0.00<span class="unit">USD</span></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-head">
-      <div>
-        <div class="section-title">📈 تقارير وإحصائيات</div>
-        <div class="section-subtitle">تقرير يومي تلقائي وأفضل العروض ربحًا حسب الفلاتر الحالية</div>
-      </div>
-      <button class="toggle-btn" type="button" onclick="toggleSection('reportsContent', this)">إخفاء</button>
-    </div>
-
-    <div id="reportsContent" class="panel">
-
-      <div class="panel-title">تقرير سريع جاهز</div>
-      <div class="report-actions-row">
-        <button class="btn btn-export" type="button" onclick="setReportPreset('today')">اليوم</button>
-        <button class="btn btn-export" type="button" onclick="setReportPreset('yesterday')">أمس</button>
-        <button class="btn btn-export" type="button" onclick="setReportPreset('last7')">آخر 7 أيام</button>
-        <button class="btn btn-export" type="button" onclick="setReportPreset('month')">الشهر الحالي</button>
-        <button class="btn btn-export" type="button" onclick="setReportPreset('year')">السنة الحالية</button>
-        <button class="btn btn-purple" type="button" onclick="setReportPreset('all')">كل السجل</button>
-      </div>
-      <div id="advancedReportSummary" class="pro-report-grid"></div>
-      <div class="pro-table-wrap">
-        <table class="mini-table">
-          <thead>
-            <tr>
-              <th>الفترة</th>
-              <th>عدد العمليات</th>
-              <th class="col-paid">الدخل</th>
-              <th class="col-deducted">تكلفة العمليات</th>
-              <th>المصاريف المتغيرة</th>
-              <th class="col-profit">صافي الربح</th>
-            </tr>
-          </thead>
-          <tbody id="periodBreakdownBody"></tbody>
-        </table>
-      </div>
-      <div class="panel-title" style="margin-top:1rem">تقرير يوم محدد</div>
-
-      <div class="filter-grid">
-        <div class="field">
-          <label>اختار اليوم</label>
-          <input id="dailyReportDate" type="date" onchange="renderDailyReport()">
-        </div>
-        <button class="btn btn-export" type="button" onclick="setDailyReportToday()">تقرير اليوم</button>
-      </div>
-
-      <div class="report-grid">
-        <div class="stat-card">
-          <div class="label">دخل اليوم</div>
-          <div class="value wallet" id="dailyIncomeTotal">0.00<span class="unit">EGP</span></div>
-        </div>
-        <div class="stat-card">
-          <div class="label">مصروف عمليات اليوم</div>
-          <div class="value expense" id="dailyExpenseTotal">0.00<span class="unit">EGP</span></div>
-        </div>
-        <div class="stat-card">
-          <div class="label">ربح اليوم بدون المصاريف الثابتة</div>
-          <div class="value profit" id="dailyProfitTotal">0.00<span class="unit">EGP</span></div>
-        </div>
-        <div class="stat-card">
-          <div class="label">أكثر منتج اتباع في اليوم</div>
-          <div class="value" id="dailyTopProduct">-</div>
-          <div class="muted-line" id="dailyTopProductMeta"></div>
-        </div>
-      </div>
-
-      <div class="panel-title" style="margin-top:1rem">أفضل 10 عروض ربحًا</div>
-      <div class="filter-note">القائمة التالية محسوبة حسب فلتر التاريخ + البحث + فلتر المنتج الحاليين.</div>
-      <div class="preset-list">
-        <table class="mini-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>المنتج</th>
-              <th>العرض</th>
-              <th>عدد العمليات</th>
-              <th class="col-paid">إجمالي الدخل</th>
-              <th class="col-deducted">إجمالي المصروف</th>
-              <th class="col-profit">إجمالي الربح</th>
-            </tr>
-          </thead>
-          <tbody id="topOffersBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-head">
-      <div>
-        <div class="section-title">⚡ مكتبة العروض السريعة</div>
-        <div class="section-subtitle">احفظ العروض المتكررة واختارها مباشرة</div>
-      </div>
-      <button class="toggle-btn" type="button" onclick="toggleSection('presetsContent', this)">إخفاء</button>
-    </div>
-
-    <div id="presetsContent" class="panel">
-      <div class="panel-title">اختيار عرض محفوظ</div>
-
-      <div class="preset-grid">
-        <div class="field">
-          <label>بحث في العروض</label>
-          <input id="presetSearchInput" type="text" placeholder="مثال: ببجي الكورية أو 30" oninput="renderPresetSelect()">
-        </div>
-
-        <button class="btn btn-add" type="button" onclick="addSelectedPresetToRows()">إضافة للعمليات</button>
-        <button class="btn btn-purple" type="button" onclick="fillManualFromPreset()">تعبئة يدوي</button>
-      </div>
-
-      <div class="field" style="margin-bottom:.9rem">
-        <label>القائمة المختصرة للعروض</label>
-        <select id="presetSelect" onchange="updatePresetSelectColorPreview()">
-          <option value="">— اختار عرض محفوظ —</option>
-        </select>
-        <div id="presetSelectColorPreview" class="preset-color-preview hidden-section"></div>
-      </div>
-
-      <div class="service-color-panel">
-        <div class="service-color-head">
-          <div>
-            <div class="service-color-title">🎨 ألوان الخدمات</div>
-            <div class="filter-note" style="margin:0">اختار لون لكل خدمة عشان تميز العروض بسرعة. اللون بيتحفظ ويتزامن مع باقي الأجهزة.</div>
+      <section id="view-today" class="view active">
+        <div class="hero-panel glass">
+          <div class="hero-copy">
+            <span class="hero-kicker">نظرة سريعة</span>
+            <h2>كل أرقام متجرك في مكان واحد</h2>
+            <p>دخل، مصروف، ربح، وأداء آخر الأيام — من غير زحمة شاشات.</p>
           </div>
-          <button class="small-btn" type="button" onclick="resetServiceColors()">إعادة ألوان تلقائية</button>
-        </div>
-        <div id="serviceColorEditor" class="service-color-grid"></div>
-      </div>
-
-      <div class="preset-tools">
-        <div class="field">
-          <label>ترتيب القائمة</label>
-          <select id="presetSortSelect" onchange="sortPresets(this.value)">
-            <option value="manual">ترتيب يدوي</option>
-            <option value="itemAsc">حسب اسم المنتج</option>
-            <option value="offerAsc">حسب العرض</option>
-            <option value="paidAsc">الدخل من الأقل للأعلى</option>
-            <option value="paidDesc">الدخل من الأعلى للأقل</option>
-            <option value="profitDesc">الربح من الأعلى للأقل</option>
-            <option value="profitAsc">الربح من الأقل للأعلى</option>
-          </select>
+          <div class="hero-orb" aria-hidden="true"><span></span><i></i></div>
         </div>
 
-        <button class="btn btn-export" type="button" onclick="moveSelectedPreset(-1)">⬆️ رفع المختار</button>
-        <button class="btn btn-export" type="button" onclick="moveSelectedPreset(1)">⬇️ تنزيل المختار</button>
-      </div>
-
-      <div class="panel-title" style="margin-top:.6rem">إضافة عرض جديد للمكتبة</div>
-
-      <div class="preset-add-grid">
-        <div class="field">
-          <label>اسم المنتج / الخدمة</label>
-          <input id="presetItemInput" type="text" placeholder="مثال: ببجي الكورية">
+        <div class="kpi-grid">
+          <article class="kpi-card glass kpi-income"><div class="kpi-head"><span>دخل اليوم</span><i>↗</i></div><strong id="kpiIncome">0.00</strong><small>EGP</small><div id="kpiIncomeDelta" class="kpi-delta neutral">—</div></article>
+          <article class="kpi-card glass kpi-cost"><div class="kpi-head"><span>مصروف العمليات</span><i>↘</i></div><strong id="kpiCost">0.00</strong><small>EGP</small><div id="kpiCostDelta" class="kpi-delta neutral">—</div></article>
+          <article class="kpi-card glass kpi-profit"><div class="kpi-head"><span>صافي ربح اليوم</span><i>◆</i></div><strong id="kpiProfit">0.00</strong><small>EGP</small><div id="kpiProfitDelta" class="kpi-delta neutral">—</div></article>
+          <article class="kpi-card glass kpi-count"><div class="kpi-head"><span>عدد العمليات</span><i>◫</i></div><strong id="kpiCount">0</strong><small>عملية</small><div id="kpiAvg" class="kpi-delta neutral">—</div></article>
         </div>
 
-        <div class="field">
-          <label>العرض</label>
-          <input id="presetOfferInput" type="text" placeholder="مثال: 30">
+        <div class="dashboard-grid">
+          <article class="panel glass chart-panel span-2">
+            <div class="panel-head"><div><span class="panel-kicker">آخر 7 أيام</span><h3>الدخل والربح</h3></div><div class="legend"><span><i class="legend-dot income"></i>الدخل</span><span><i class="legend-dot profit"></i>الربح</span></div></div>
+            <div id="revenueChart" class="svg-chart"></div>
+          </article>
+          <article class="panel glass donut-panel">
+            <div class="panel-head"><div><span class="panel-kicker">اليوم</span><h3>توزيع الخدمات</h3></div></div>
+            <div class="donut-wrap"><div id="productDonut" class="donut"><div><strong id="donutTotal">0</strong><span>عملية</span></div></div><div id="donutLegend" class="donut-legend"></div></div>
+          </article>
         </div>
 
-        <div class="field">
-          <label>الداخل للمحفظة</label>
-          <input id="presetPaidInput" type="number" step="0.01" min="0" placeholder="مثال: 35">
+        <div class="dashboard-grid lower-grid">
+          <article class="panel glass span-2">
+            <div class="panel-head"><div><span class="panel-kicker">الأحدث</span><h3>آخر العمليات</h3></div><button class="text-btn" data-go="history">عرض الكل ←</button></div>
+            <div id="recentTransactions" class="activity-list"></div>
+          </article>
+          <article class="panel glass">
+            <div class="panel-head"><div><span class="panel-kicker">اختصارات</span><h3>أسرع طريق للشغل</h3></div></div>
+            <div class="shortcut-grid">
+              <button class="shortcut" data-go="add"><span>⚡</span><b>إضافة سريعة</b><small>اختار عرض واحفظ</small></button>
+              <button class="shortcut" data-action="wallet-import"><span>▣</span><b>رسائل المحفظة</b><small>لصق وتحليل تلقائي</small></button>
+              <button class="shortcut" data-go="reports"><span>↗</span><b>تصدير Excel</b><small>فترة أو شهر كامل</small></button>
+              <button class="shortcut" data-action="backup"><span>⌑</span><b>نسخة احتياطية</b><small>JSON كامل وآمن</small></button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="view-add" class="view">
+        <div class="two-col-layout">
+          <article class="panel glass">
+            <div class="panel-head"><div><span class="panel-kicker">Cashier Mode</span><h3>إضافة عملية في ثواني</h3></div><span class="kbd-hint">Enter للحفظ</span></div>
+            <div class="form-stack">
+              <label class="field"><span>بحث عن العرض</span><div class="search-control"><span>⌕</span><input id="quickPresetSearch" class="control" placeholder="مثال: ببجي 60 أو Google"></div></label>
+              <div id="presetDropdown" class="preset-dropdown hidden"></div>
+              <div id="selectedPresetCard" class="selected-preset empty-card">اختار عرض من البحث أو من العروض الأخيرة.</div>
+              <div class="form-grid-3">
+                <label class="field"><span>التاريخ</span><input id="addDate" class="control" type="date"></label>
+                <label class="field"><span>الكمية</span><div class="qty-box"><button id="qtyMinus">−</button><input id="addQty" class="control" type="number" min="1" value="1"><button id="qtyPlus">＋</button></div></label>
+                <label class="field"><span>الداخل / واحدة</span><input id="addPaid" class="control ltr" type="number" min="0" step="0.01" placeholder="0.00"></label>
+              </div>
+              <label class="field"><span>ملاحظة <em>اختياري</em></span><input id="addNote" class="control" placeholder="مثال: العميل زود 10 جنيه"></label>
+              <div class="calc-strip"><span>المصروف: <b id="addCostPreview">0.00</b></span><span>الربح المتوقع: <b id="addProfitPreview">0.00</b></span></div>
+              <button id="saveQuickTransaction" class="btn btn-primary btn-block btn-lg">حفظ العملية</button>
+            </div>
+          </article>
+
+          <article class="panel glass">
+            <div class="panel-head"><div><span class="panel-kicker">آخر استخدام</span><h3>العروض السريعة</h3></div><button class="text-btn" data-go="settings" data-settings-tab="presets">إدارة العروض</button></div>
+            <div id="recentPresets" class="recent-presets"></div>
+          </article>
         </div>
 
-        <div class="field">
-          <label>مصروف العملية</label>
-          <input id="presetDeductedInput" type="number" step="0.01" min="0" placeholder="مثال: 25">
+        <article id="walletImportPanel" class="panel glass wallet-panel">
+          <div class="panel-head"><div><span class="panel-kicker">Vodafone Cash</span><h3>استيراد رسائل المحفظة</h3><p>الصق الرسائل العربية أو الإنجليزية؛ هنستخرج المبلغ والتاريخ والمرجع ونقترح أقرب عرض.</p></div><div class="panel-actions"><button id="pasteWalletBtn" class="btn btn-secondary">لصق تلقائي</button><button id="analyzeWalletBtn" class="btn btn-primary">تحليل</button></div></div>
+          <textarea id="walletMessages" class="control textarea" placeholder="الصق رسائل المحفظة هنا..."></textarea>
+          <div id="walletImportStats" class="import-stats hidden"></div>
+          <div id="walletPreviewWrap" class="table-card hidden"><div class="table-scroll"><table><thead><tr><th>التاريخ</th><th>المرسل</th><th>المبلغ</th><th>العرض المقترح</th><th>المصروف</th><th>الربح</th><th>الحالة</th></tr></thead><tbody id="walletPreviewBody"></tbody></table></div><div class="table-footer"><button id="importWalletRowsBtn" class="btn btn-primary">إضافة العمليات الجديدة</button></div></div>
+        </article>
+
+        <article class="panel glass manual-panel">
+          <details>
+            <summary>إضافة يدوية متقدمة</summary>
+            <div class="manual-form">
+              <div class="form-grid-4">
+                <label class="field"><span>المنتج / الخدمة</span><input id="manualItem" class="control"></label>
+                <label class="field"><span>العرض</span><input id="manualOffer" class="control"></label>
+                <label class="field"><span>الداخل / واحدة</span><input id="manualPaid" class="control ltr" type="number" step="0.01" min="0"></label>
+                <label class="field"><span>مصروف / واحدة</span><input id="manualCost" class="control ltr" type="number" step="0.01" min="0"></label>
+              </div>
+              <div class="form-grid-3">
+                <label class="field"><span>التاريخ</span><input id="manualDate" class="control" type="date"></label>
+                <label class="field"><span>الكمية</span><input id="manualQty" class="control ltr" type="number" min="1" value="1"></label>
+                <label class="field"><span>ملاحظة</span><input id="manualNote" class="control"></label>
+              </div>
+              <button id="saveManualBtn" class="btn btn-secondary">إضافة العملية يدويًا</button>
+            </div>
+          </details>
+        </article>
+      </section>
+
+      <section id="view-history" class="view">
+        <article class="panel glass">
+          <div class="panel-head stack-mobile"><div><span class="panel-kicker">كل العمليات</span><h3>سجل العمليات</h3></div><div class="panel-actions"><label class="switch"><input id="showArchived" type="checkbox"><span></span><b>إظهار المؤرشف</b></label><button id="historyExportBtn" class="btn btn-secondary">Excel</button></div></div>
+          <div class="filters-row">
+            <div class="search-control flex-2"><span>⌕</span><input id="historySearch" class="control" placeholder="بحث بالمنتج أو العرض أو الملاحظة"></div>
+            <input id="historyFrom" class="control" type="date"><input id="historyTo" class="control" type="date">
+            <button class="btn btn-secondary range-btn" data-range="today">اليوم</button><button class="btn btn-secondary range-btn" data-range="month">الشهر</button><button class="btn btn-ghost range-btn" data-range="all">الكل</button>
+          </div>
+          <div class="table-card"><div class="table-scroll"><table id="historyTable"><thead><tr><th data-sort="date">التاريخ</th><th data-sort="item">المنتج / الخدمة</th><th data-sort="offer">العرض</th><th data-sort="quantity">الكمية</th><th data-sort="paid">الداخل / واحدة</th><th data-sort="deducted">مصروف / واحدة</th><th data-sort="profit">ربح الإجمالي</th><th data-sort="note">ملاحظة</th><th>إجراء</th></tr></thead><tbody id="historyBody"></tbody></table></div><div class="table-footer"><span id="historyCount">0 عملية</span><div id="historyTotals"></div></div></div>
+        </article>
+      </section>
+
+      <section id="view-reports" class="view">
+        <article class="panel glass">
+          <div class="panel-head stack-mobile"><div><span class="panel-kicker">تحليل مرن</span><h3>التقارير والتصدير</h3></div><button id="exportExcelBtn" class="btn btn-primary">تصدير Excel</button></div>
+          <div class="report-range-row"><label class="field"><span>من</span><input id="reportFrom" class="control" type="date"></label><label class="field"><span>إلى</span><input id="reportTo" class="control" type="date"></label><div id="reportQuickRanges" class="chip-row"></div></div>
+          <div id="savedMonths" class="chip-row month-chips"></div>
+          <div class="kpi-grid report-kpis"><article class="mini-kpi"><span>الدخل</span><strong id="reportIncome">0.00</strong></article><article class="mini-kpi"><span>تكلفة العمليات</span><strong id="reportCost">0.00</strong></article><article class="mini-kpi"><span>مصاريف إضافية</span><strong id="reportVariable">0.00</strong></article><article class="mini-kpi"><span>مصاريف ثابتة</span><strong id="reportFixed">0.00</strong></article><article class="mini-kpi accent"><span>صافي الربح</span><strong id="reportProfit">0.00</strong></article></div>
+          <div class="dashboard-grid report-grid"><div class="chart-panel panel-inner span-2"><div class="panel-head"><h3>الأداء خلال الفترة</h3></div><div id="reportChart" class="svg-chart"></div></div><div class="panel-inner"><div class="panel-head"><h3>أفضل الخدمات ربحًا</h3></div><div id="topServices" class="ranking-list"></div></div></div>
+          <div class="excel-note">ملف Excel يخرج بـ 8 أعمدة فقط: المنتج / الخدمة، العرض، الداخل / واحدة، مصروف / واحدة، ربح الإجمالي، الداخل للمحفظة بالدولار، مصاريف العمليات بالدولار، التاريخ. كل الأرقام والتواريخ بالإنجليزي.</div>
+        </article>
+      </section>
+
+      <section id="view-settings" class="view">
+        <div class="settings-tabs"><button class="settings-tab active" data-tab="presets">العروض</button><button class="settings-tab" data-tab="expenses">المصاريف</button><button class="settings-tab" data-tab="data">البيانات</button><button class="settings-tab" data-tab="security">الأمان</button><button class="settings-tab" data-tab="cloud">المزامنة</button></div>
+
+        <div id="settings-presets" class="settings-pane active">
+          <article class="panel glass"><div class="panel-head"><div><span class="panel-kicker">مكتبة العروض</span><h3>العروض المحفوظة</h3></div><button id="newPresetBtn" class="btn btn-primary">＋ عرض جديد</button></div><div class="filters-row"><div class="search-control flex-2"><span>⌕</span><input id="presetManageSearch" class="control" placeholder="بحث في العروض"></div><select id="presetServiceFilter" class="control"><option value="">كل الخدمات</option></select></div><div id="presetManageGrid" class="preset-manage-grid"></div></article>
         </div>
 
-        <button class="btn btn-purple" type="button" onclick="addPreset()">حفظ العرض</button>
-      </div>
+        <div id="settings-expenses" class="settings-pane">
+          <div class="two-col-layout"><article class="panel glass"><div class="panel-head"><div><span class="panel-kicker">متكررة</span><h3>المصاريف الثابتة</h3></div><button id="newFixedExpenseBtn" class="btn btn-primary">＋ مصروف ثابت</button></div><div id="fixedExpenseList" class="simple-list"></div></article><article class="panel glass"><div class="panel-head"><div><span class="panel-kicker">مرتبطة بتاريخ</span><h3>المصاريف اليومية</h3></div><button id="newVariableExpenseBtn" class="btn btn-secondary">＋ مصروف يومي</button></div><div id="variableExpenseList" class="simple-list"></div></article></div>
+        </div>
 
-      <div class="quick-toolbar">
-        <button class="btn btn-export" type="button" onclick="toggleSection('presetListWrap', this)">إظهار القائمة</button>
-        <button class="btn btn-amber" type="button" onclick="restoreLastDeleted()">↩️ استرجاع آخر حذف</button>
-        <button class="btn btn-clear" type="button" onclick="clearPresets()">🗑️ مسح العروض</button>
-      </div>
+        <div id="settings-data" class="settings-pane">
+          <article class="panel glass"><div class="panel-head"><div><span class="panel-kicker">Data Center</span><h3>النسخ الاحتياطي والبيانات</h3></div></div><div class="data-actions"><button id="backupBtn" class="action-card"><span>↓</span><b>تنزيل نسخة احتياطية</b><small>JSON كامل بدون نسخ متداخلة</small></button><button id="restoreBtn" class="action-card"><span>↑</span><b>استرجاع نسخة</b><small>مع Safety Snapshot قبل الاستبدال</small></button><button id="safetyRestoreBtn" class="action-card"><span>↶</span><b>آخر نسخة أمان</b><small>استرجاع سريع بعد أي خطأ</small></button><button id="clearDataBtn" class="action-card danger"><span>⌫</span><b>مسح العمليات</b><small>يتطلب تأكيد واضح</small></button></div><input id="restoreFile" type="file" accept="application/json" hidden><div id="storageInfo" class="storage-info"></div></article>
+        </div>
 
-      <div id="presetListWrap" class="preset-list hidden-section">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>المنتج / الخدمة</th>
-              <th>العرض</th>
-              <th class="col-paid">الداخل للمحفظة</th>
-              <th class="col-deducted">مصروف العملية</th>
-              <th class="col-profit">ربح العملية</th>
-              <th>ترتيب</th>
-              <th>إجراء</th>
-            </tr>
-          </thead>
-          <tbody id="presetListBody"></tbody>
-        </table>
-      </div>
-    </div>
+        <div id="settings-security" class="settings-pane">
+          <article class="panel glass narrow-panel"><div class="panel-head"><div><span class="panel-kicker">Local Lock</span><h3>قفل الموقع</h3><p>القفل يحمي واجهة الموقع على الجهاز. كلمة المرور تُحفظ كـ PBKDF2 hash وليست Base64.</p></div></div><div class="form-stack"><label class="field"><span>كلمة مرور جديدة</span><input id="newLockPassword" class="control" type="password" minlength="4"></label><div class="panel-actions"><button id="saveLockPasswordBtn" class="btn btn-primary">حفظ كلمة المرور</button><button id="removeLockPasswordBtn" class="btn btn-ghost danger-text">إلغاء القفل</button></div></div></article>
+        </div>
+
+        <div id="settings-cloud" class="settings-pane">
+          <article class="panel glass"><div class="panel-head"><div><span class="panel-kicker">Secure Cloud Sync</span><h3>Firebase بحساب مستخدم</h3><p>المزامنة الجديدة تستخدم Firebase Authentication، وكل مستخدم يقرأ ويكتب داخل UID الخاص به. لا يوجد Sync Code ثابت مكشوف.</p></div><span id="cloudStatus" class="sync-badge"><span class="dot"></span><span>غير متصل</span></span></div><div class="cloud-grid"><label class="field span-2"><span>Firebase config بصيغة JSON</span><textarea id="firebaseConfig" class="control textarea code" placeholder='{"apiKey":"...","authDomain":"...","projectId":"...","appId":"..."}'></textarea></label><label class="field"><span>البريد الإلكتروني</span><input id="cloudEmail" class="control" type="email"></label><label class="field"><span>كلمة المرور</span><input id="cloudPassword" class="control" type="password"></label></div><div class="panel-actions wrap"><button id="cloudSaveConfigBtn" class="btn btn-secondary">حفظ Config</button><button id="cloudSignupBtn" class="btn btn-secondary">إنشاء حساب</button><button id="cloudLoginBtn" class="btn btn-primary">تسجيل الدخول والمزامنة</button><button id="cloudUploadBtn" class="btn btn-ghost">رفع نسخة الجهاز</button><button id="cloudDownloadBtn" class="btn btn-ghost">تنزيل نسخة السحابة</button><button id="cloudLogoutBtn" class="btn btn-ghost danger-text">تسجيل الخروج</button></div><div class="security-callout">للحماية الصحيحة استخدم ملف <code>firestore.rules</code> المرفق وانشره في Firebase. فعّل Email/Password Authentication مرة واحدة من Firebase Console.</div></article>
+        </div>
+      </section>
+    </main>
   </div>
 
-  <div class="section">
-    <div class="section-head">
-      <div>
-        <div class="section-title">➕ إضافة عملية جديدة</div>
-        <div class="section-subtitle">أضف عملية يدويًا مع تاريخها وقيمتها</div>
-      </div>
-      <button class="toggle-btn" type="button" onclick="toggleSection('manualContent', this)">إخفاء</button>
-    </div>
+  <nav class="mobile-nav glass" aria-label="تنقل الموبايل"><button class="active" data-view="today"><span>⌂</span><b>اليوم</b></button><button data-view="add"><span>＋</span><b>إضافة</b></button><button data-view="history"><span>▤</span><b>السجل</b></button><button data-view="reports"><span>⌁</span><b>تقارير</b></button><button data-view="settings"><span>⚙</span><b>إعدادات</b></button></nav>
 
-    <div id="manualContent" class="panel">
-      <div class="form-grid manual-pro-grid">
-        <div class="field">
-          <label>تاريخ العملية</label>
-          <input id="dateInput" type="date">
-        </div>
+  <dialog id="editTransactionDialog" class="modal"><form method="dialog" class="modal-card"><div class="modal-head"><div><span class="panel-kicker">تعديل</span><h3>العملية</h3></div><button value="cancel" class="icon-btn">×</button></div><div class="form-grid-2"><label class="field"><span>التاريخ</span><input id="editTxDate" class="control" type="date"></label><label class="field"><span>الكمية</span><input id="editTxQty" class="control ltr" type="number" min="1"></label><label class="field"><span>المنتج / الخدمة</span><input id="editTxItem" class="control"></label><label class="field"><span>العرض</span><input id="editTxOffer" class="control"></label><label class="field"><span>الداخل / واحدة</span><input id="editTxPaid" class="control ltr" type="number" step="0.01"></label><label class="field"><span>مصروف / واحدة</span><input id="editTxCost" class="control ltr" type="number" step="0.01"></label></div><label class="field"><span>ملاحظة</span><input id="editTxNote" class="control"></label><input id="editTxId" type="hidden"><div class="modal-actions"><button value="cancel" class="btn btn-ghost">إلغاء</button><button id="saveEditTxBtn" value="cancel" class="btn btn-primary">حفظ التعديل</button></div></form></dialog>
 
-        <div class="field">
-          <label>اسم المنتج / الخدمة</label>
-          <input id="itemInput" type="text" placeholder="مثال: ببجي الكورية">
-        </div>
+  <dialog id="presetDialog" class="modal"><form method="dialog" class="modal-card"><div class="modal-head"><div><span class="panel-kicker">العروض</span><h3 id="presetDialogTitle">عرض جديد</h3></div><button value="cancel" class="icon-btn">×</button></div><div class="form-grid-2"><label class="field"><span>المنتج / الخدمة</span><input id="presetItem" class="control" required></label><label class="field"><span>العرض</span><input id="presetOffer" class="control" required></label><label class="field"><span>الداخل / واحدة</span><input id="presetPaid" class="control ltr" type="number" step="0.01" min="0" required></label><label class="field"><span>مصروف / واحدة</span><input id="presetCost" class="control ltr" type="number" step="0.01" min="0" required></label><label class="field"><span>لون الخدمة</span><input id="presetColor" class="control color-control" type="color" value="#6c7cff"></label></div><input id="presetId" type="hidden"><div class="modal-actions"><button value="cancel" class="btn btn-ghost">إلغاء</button><button id="savePresetBtn" value="cancel" class="btn btn-primary">حفظ العرض</button></div></form></dialog>
 
-        <div class="field">
-          <label>العرض</label>
-          <input id="offerInput" type="text" placeholder="مثال: 30">
-        </div>
+  <dialog id="expenseDialog" class="modal"><form method="dialog" class="modal-card"><div class="modal-head"><div><span class="panel-kicker">المصاريف</span><h3 id="expenseDialogTitle">مصروف</h3></div><button value="cancel" class="icon-btn">×</button></div><input id="expenseType" type="hidden"><input id="expenseId" type="hidden"><div class="form-grid-2"><label class="field span-2"><span>اسم المصروف</span><input id="expenseName" class="control" required></label><label class="field"><span>القيمة</span><input id="expenseAmount" class="control ltr" type="number" step="0.01" min="0" required></label><label class="field"><span>تاريخ البداية / المصروف</span><input id="expenseDate" class="control" type="date" required></label><label id="recurrenceField" class="field"><span>التكرار</span><select id="expenseRecurrence" class="control"><option value="once">مرة واحدة</option><option value="monthly">شهري</option><option value="yearly">سنوي</option></select></label><label class="field span-2"><span>ملاحظة</span><input id="expenseNote" class="control"></label></div><div class="modal-actions"><button value="cancel" class="btn btn-ghost">إلغاء</button><button id="saveExpenseBtn" value="cancel" class="btn btn-primary">حفظ</button></div></form></dialog>
 
-        <div class="field">
-          <label>الداخل للمحفظة</label>
-          <input id="paidInput" type="number" step="0.01" min="0" placeholder="مثال: 35">
-        </div>
-
-        <div class="field">
-          <label>مصروف العملية</label>
-          <input id="deductedInput" type="number" step="0.01" min="0" placeholder="مثال: 25">
-        </div>
-
-        <div class="field">
-          <label>الكمية</label>
-          <input id="quantityInput" type="number" step="1" min="1" value="1">
-        </div>
-
-
-        <div class="field">
-          <label>ملاحظة</label>
-          <input id="noteInput" type="text" placeholder="اختياري">
-        </div>
-
-        <button class="btn btn-add" type="button" onclick="addRow()">إضافة</button>
-      </div>
-
-      <div class="actions">
-        <button class="btn btn-purple" type="button" onclick="saveCurrentManualAsPreset()">⭐ حفظ كعرض سريع</button>
-        <button class="btn btn-add" type="button" onclick="duplicateLastRow()">🔁 تكرار آخر عملية</button>
-        <button class="btn btn-amber" type="button" onclick="restoreLastDeleted()">↩️ استرجاع آخر حذف</button>
-        <button class="btn btn-export" type="button" onclick="exportCSV()">⬇️ تصدير CSV</button>
-        <button class="btn btn-export" type="button" onclick="exportExcel()">📊 تصدير Excel</button>
-        <button class="btn btn-export" type="button" onclick="exportPDF()">🧾 تصدير PDF</button>
-        <button class="btn btn-purple" type="button" onclick="setOrChangePassword()">🔐 كلمة مرور</button>
-        <button class="btn btn-purple" type="button" onclick="lockNow()">🔒 قفل الآن</button>
-        <button class="btn btn-export" type="button" onclick="downloadBackup()">💾 نسخة احتياطية</button>
-        <button class="btn btn-whatsapp" type="button" onclick="sendBackupToWhatsApp()">🟢 إرسال نسخة واتساب</button>
-        <button class="btn btn-export" type="button" onclick="document.getElementById('backupInput').click()">📥 استرجاع نسخة</button>
-        <input id="backupInput" type="file" accept="application/json" style="display:none" onchange="restoreBackup(event)">
-        <button class="btn btn-amber" type="button" onclick="restoreSafetyBackup()">🛟 استرجاع نسخة الأمان</button>
-        <button class="btn btn-clear" type="button" onclick="clearAll()">🗑️ مسح العمليات</button>
-      </div>
-    </div>
-  </div>
-
-
-  <div class="section">
-    <div class="section-head">
-      <div>
-        <div class="section-title">🧾 المصاريف اليومية والمتغيرة</div>
-        <div class="section-subtitle">مصروفات لها تاريخ وتصنيف وملاحظة، وتدخل في ربح اليوم أو الشهر حسب الفلتر</div>
-      </div>
-      <button class="toggle-btn" type="button" onclick="toggleSection('variableExpensesContent', this)">إظهار</button>
-    </div>
-
-    <div id="variableExpensesContent" class="panel hidden-section">
-      <div class="filter-grid">
-        <div class="field">
-          <label>تاريخ المصروف</label>
-          <input id="variableExpenseDateInput" type="date">
-        </div>
-        <div class="field">
-          <label>اسم المصروف</label>
-          <input id="variableExpenseNameInput" type="text" placeholder="مثال: عمولة تحويل أو مشكلة عملية">
-        </div>
-        <div class="field">
-          <label>التصنيف</label>
-          <select id="variableExpenseCategoryInput">
-            <option value="تشغيل">تشغيل</option>
-            <option value="عمولة">عمولة</option>
-            <option value="تعويض">تعويض</option>
-            <option value="مشكلة عملية">مشكلة عملية</option>
-            <option value="أخرى">أخرى</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>القيمة</label>
-          <input id="variableExpenseAmountInput" type="number" min="0" step="0.01" placeholder="مثال: 50">
-        </div>
-        <div class="field">
-          <label>ملاحظة</label>
-          <input id="variableExpenseNoteInput" type="text" placeholder="اختياري">
-        </div>
-        <button class="btn btn-add" type="button" onclick="addVariableExpense()">إضافة مصروف</button>
-      </div>
-
-      <div class="actions">
-        <button class="btn btn-export" type="button" onclick="setReportPreset('today')">حساب مصاريف اليوم</button>
-        <button class="btn btn-clear" type="button" onclick="clearVariableExpenses()">🗑️ مسح المصاريف المتغيرة</button>
-      </div>
-
-      <div class="pro-table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>التاريخ</th>
-              <th>الاسم</th>
-              <th>التصنيف</th>
-              <th>القيمة</th>
-              <th>ملاحظة</th>
-              <th>إجراء</th>
-            </tr>
-          </thead>
-          <tbody id="variableExpenseBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-head">
-      <div>
-        <div class="section-title">🔒 إغلاق اليوم وسجل التعديلات</div>
-        <div class="section-subtitle">اقفل اليوم بعد المراجعة، وأي تعديل على يوم مقفول يظهر بتحذير ويتسجل في سجل التعديلات</div>
-      </div>
-      <button class="toggle-btn" type="button" onclick="toggleSection('closingContent', this)">إظهار</button>
-    </div>
-
-    <div id="closingContent" class="panel hidden-section">
-      <div class="daily-close-toolbar">
-        <div class="field">
-          <label>اليوم المراد إغلاقه</label>
-          <input id="closingDateInput" type="date">
-        </div>
-        <button class="btn btn-add" type="button" onclick="closeSelectedDay()">إغلاق اليوم</button>
-        <button class="btn btn-export" type="button" onclick="renderClosings()">تحديث الإغلاقات</button>
-      </div>
-      <div id="closingStatusLine" class="filter-note"></div>
-      <div class="pro-table-wrap">
-        <table class="mini-table">
-          <thead>
-            <tr>
-              <th>التاريخ</th>
-              <th>عدد العمليات</th>
-              <th>الدخل</th>
-              <th>تكلفة العمليات</th>
-              <th>مصاريف متغيرة</th>
-              <th>صافي الربح</th>
-              <th>وقت الإغلاق</th>
-              <th>إجراء</th>
-            </tr>
-          </thead>
-          <tbody id="closingsBody"></tbody>
-        </table>
-      </div>
-
-      <div class="panel-title" style="margin-top:1rem">آخر التعديلات</div>
-      <div class="pro-table-wrap">
-        <table class="mini-table">
-          <thead>
-            <tr>
-              <th>الوقت</th>
-              <th>الإجراء</th>
-              <th>التاريخ</th>
-              <th>التفاصيل</th>
-            </tr>
-          </thead>
-          <tbody id="auditBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-head">
-      <div>
-        <div class="section-title">💸 المصاريف الثابتة</div>
-        <div class="section-subtitle">إعلانات، رواتب، باقات نت، وعمولة سحب. لا تظهر في إجمالي مصاريف العمليات، لكنها تخصم من صافي المكسب فقط.</div>
-      </div>
-      <button class="toggle-btn" type="button" onclick="toggleSection('fixedExpensesContent', this)">إظهار</button>
-    </div>
-
-    <div id="fixedExpensesContent" class="panel hidden-section">
-      <div class="expense-grid">
-        <div class="field">
-          <label>اسم المصروف</label>
-          <input id="expenseNameInput" type="text" placeholder="مثال: إعلانات">
-        </div>
-
-        <div class="field">
-          <label>قيمة المصروف</label>
-          <input id="expenseAmountInput" type="number" step="0.01" min="0" placeholder="مثال: 12500">
-        </div>
-
-        <button class="btn btn-add" type="button" onclick="addExpense()">إضافة مصروف</button>
-      </div>
-
-      <div class="actions">
-        <button class="btn btn-amber" type="button" onclick="restoreLastDeleted()">↩️ استرجاع آخر حذف</button>
-        <button class="btn btn-clear" type="button" onclick="clearExpenses()">🗑️ مسح المصاريف</button>
-      </div>
-
-      <div class="preset-list">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>بند المصروف</th>
-              <th>القيمة</th>
-              <th>إجراء</th>
-            </tr>
-          </thead>
-          <tbody id="expenseBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-head">
-      <div>
-        <div class="section-title">📋 سجل العمليات</div>
-        <div class="section-subtitle">كل العمليات المضافة مع إمكانية التعديل المباشر والفلترة حسب اليوم</div>
-      </div>
-      <button class="toggle-btn" type="button" onclick="toggleRowsSection(this)">إخفاء</button>
-    </div>
-
-    <div id="latestRowsPreview" class="latest-preview hidden-section"></div>
-
-    <div id="rowsFilterPanel" class="panel filter-panel">
-      <div class="filter-grid">
-        <div class="field">
-          <label>بحث داخل سجل العمليات</label>
-          <input id="rowsSearchInput" type="text" placeholder="مثال: ببجي أو 60" oninput="applyRowTextFilters()">
-        </div>
-        <div class="field">
-          <label>فلتر حسب المنتج</label>
-          <select id="productFilterSelect" onchange="applyFilters(true)">
-            <option value="">كل المنتجات</option>
-          </select>
-        </div>
-        <button class="btn btn-export" type="button" onclick="clearRowTextFilters()">مسح بحث المنتج</button>
-      </div>
-
-      <div class="view-options-grid">
-        <div class="field">
-          <label>شكل سجل العمليات</label>
-          <select id="rowsViewModeSelect" onchange="setRowsViewMode(this.value)">
-            <option value="table">جدول كامل</option>
-            <option value="compact">جدول مضغوط</option>
-            <option value="cards">كروت كبيرة</option>
-            <option value="mini">كروت صغيرة</option>
-            <option value="grid">مربعات مختصرة</option>
-            <option value="timeline">تايم لاين</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label>حجم السجل</label>
-          <select id="rowsViewSizeSelect" onchange="setRowsViewSize(this.value)">
-            <option value="small">صغير</option>
-            <option value="medium">متوسط</option>
-            <option value="large">كبير</option>
-          </select>
-        </div>
-
-        <button class="btn btn-purple" type="button" onclick="resetRowsViewOptions()">إعادة الشكل الافتراضي</button>
-      </div>
-      <div class="view-hint">اختيارات شكل وحجم سجل العمليات محفوظة تلقائيًا، وهتفضل زي ما سيبتها بعد قفل وفتح الموقع.</div>
-    </div>
-
-    <div id="tableContent" class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th class="col-date">التاريخ</th>
-            <th>المنتج / الخدمة</th>
-            <th>العرض</th>
-            <th>الكمية</th>
-            <th class="col-paid">الداخل / واحدة</th>
-            <th class="col-deducted">مصروف / واحدة</th>
-            <th class="col-profit">ربح الإجمالي</th>
-            <th>ملاحظة</th>
-            <th>إجراء</th>
-          </tr>
-        </thead>
-
-        <tbody id="tableBody"></tbody>
-      </table>
-
-      <div id="emptyState" class="empty">
-        لا يوجد عمليات حتى الآن. أضف أول عملية من الأعلى.
-      </div>
-    </div>
-  </div>
-
-  <div class="footer-note">
-    البيانات والعروض والمصاريف وأسعار الدولار محفوظة تلقائيًا على نفس الجهاز والمتصفح، ومع المزامنة السحابية تظهر على الكمبيوتر والفون.
-  </div>
-
-  <div class="mobile-bottom-nav" aria-label="تنقل سريع للموبايل">
-    <button class="mobile-nav-btn primary" type="button" data-target="quickEntryContent" onclick="toggleMobileBlock('quickEntryContent')"><strong>⚡</strong><span>اليوم</span></button>
-    <button class="mobile-nav-btn" type="button" data-target="manualContent" onclick="toggleMobileBlock('manualContent')"><strong>＋</strong><span>إضافة</span></button>
-    <button class="mobile-nav-btn" type="button" data-target="presetsContent" onclick="toggleMobileBlock('presetsContent')"><strong>🏷️</strong><span>العروض</span></button>
-    <button class="mobile-nav-btn" type="button" data-target="reportsContent" onclick="toggleMobileBlock('reportsContent')"><strong>📈</strong><span>تقارير</span></button>
-    <button class="mobile-nav-btn" type="button" data-target="tableContent" onclick="toggleMobileBlock('tableContent')"><strong>📋</strong><span>السجل</span></button>
-    <button class="mobile-nav-btn" type="button" data-target="cloudSyncContent" onclick="toggleMobileBlock('cloudSyncContent')"><strong>☁️</strong><span>مزامنة</span></button>
-  </div>
-
-
-</div>
-
-<script src="./app.js"></script>
-
-<script>
-  /* Local-only guard: يمنع أي رفع/تنزيل أو مزامنة سحابية بدون تغيير شكل أو نصوص الموقع */
-  (function () {
-    function stopCloudActivity() {
-      try {
-        localStorage.setItem('profit_sync_enabled_v1', '0');
-      } catch (e) {}
-
-      try {
-        if (window.__moxCloudHeartbeat) {
-          clearInterval(window.__moxCloudHeartbeat);
-          window.__moxCloudHeartbeat = null;
-        }
-      } catch (e) {}
-
-      try {
-        if (typeof moxV4SyncTimer !== 'undefined' && moxV4SyncTimer) {
-          clearTimeout(moxV4SyncTimer);
-          moxV4SyncTimer = null;
-        }
-      } catch (e) {}
-
-      try {
-        if (typeof cloudSyncTimer !== 'undefined' && cloudSyncTimer) {
-          clearTimeout(cloudSyncTimer);
-          cloudSyncTimer = null;
-        }
-      } catch (e) {}
-
-      try {
-        if (typeof cloudUnsubscribe === 'function') {
-          cloudUnsubscribe();
-          cloudUnsubscribe = null;
-        }
-      } catch (e) {}
-    }
-
-    scheduleCloudSync = function () {
-      stopCloudActivity();
-    };
-
-    uploadLocalDataToCloud = async function () {
-      stopCloudActivity();
-      return false;
-    };
-
-    downloadCloudDataToLocal = async function () {
-      stopCloudActivity();
-      return false;
-    };
-
-    enableCloudSync = async function () {
-      stopCloudActivity();
-      return false;
-    };
-
-    autoStartCloudSyncIfEnabled = async function () {
-      stopCloudActivity();
-      return false;
-    };
-
-    syncNow = async function () {
-      stopCloudActivity();
-      return false;
-    };
-
-    saveFirebaseSettings = function () {
-      stopCloudActivity();
-    };
-
-    disableCloudSync = function () {
-      stopCloudActivity();
-    };
-
-    stopCloudActivity();
-
-    document.addEventListener('DOMContentLoaded', stopCloudActivity);
-    window.addEventListener('online', stopCloudActivity);
-    document.addEventListener('visibilitychange', function () {
-      if (!document.hidden) stopCloudActivity();
-    });
-  })();
-</script>
-
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>
