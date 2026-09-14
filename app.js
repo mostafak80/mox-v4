@@ -28,6 +28,7 @@
   let lastUndo = null;
   let bulkPresetMode = false;
   let bulkPresetSelection = new Set();
+  let quickPresetServiceFilter = '';
 
   const $ = (id) => document.getElementById(id);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -380,8 +381,32 @@
     $('addDate').value ||= todayISO(); $('manualDate').value ||= todayISO(); renderRecentPresets(); renderSelectedPreset(); updateAddPreview();
   }
 
+  function getQuickPresetServices() {
+    const counts=new Map();
+    sortedPresets().forEach(p=>counts.set(p.item,(counts.get(p.item)||0)+1));
+    return [...counts.entries()].sort((a,b)=>a[0].localeCompare(b[0],'ar'));
+  }
+
+  function renderQuickPresetServiceFilter() {
+    const select=$('quickPresetServiceFilter');
+    if(!select) return;
+    const services=getQuickPresetServices();
+    if(quickPresetServiceFilter && !services.some(([name])=>name===quickPresetServiceFilter)) quickPresetServiceFilter='';
+    select.innerHTML=`<option value="">كل الخدمات (${sortedPresets().length})</option>`+services.map(([name,count])=>`<option value="${esc(name)}">${esc(name)} (${count})</option>`).join('');
+    select.value=quickPresetServiceFilter;
+  }
+
+  function setQuickPresetServiceFilter(value) {
+    quickPresetServiceFilter=String(value||'');
+    state.settings.quickPresetServiceFilter=quickPresetServiceFilter;
+    saveState('quick-preset-service-filter').catch(console.error);
+    renderRecentPresets();
+  }
+
   function renderRecentPresets() {
-    const list=sortedPresets().slice(0,bulkPresetMode?30:10);
+    renderQuickPresetServiceFilter();
+    const all=sortedPresets();
+    const list=quickPresetServiceFilter?all.filter(p=>p.item===quickPresetServiceFilter):all;
     const wrap=$('recentPresets');
     wrap.classList.toggle('bulk-mode',bulkPresetMode);
     wrap.innerHTML=list.length?list.map(p=>{
@@ -391,11 +416,17 @@
         <span><b>${esc(p.item)} — ${esc(p.offer)}</b><small>الداخل ${fmt(p.paid)} · المصروف ${fmt(p.deducted)} · الربح ${fmt(p.paid-p.deducted)}</small></span>
         <strong>${bulkPresetMode?`<span class="bulk-check">${selected?'✓':'＋'}</span>`:`${fmt(p.paid)}`}</strong>
       </button>`;
-    }).join(''):'<div class="empty-state">أضف أول عرض من الإعدادات.</div>';
+    }).join(''):`<div class="empty-state">${quickPresetServiceFilter?'لا توجد عروض محفوظة لهذه الخدمة.':'أضف أول عرض من الإعدادات.'}</div>`;
     $$('#recentPresets [data-preset-id]').forEach(b=>b.onclick=()=>{
       if(bulkPresetMode) toggleBulkPreset(b.dataset.presetId); else selectPreset(b.dataset.presetId);
     });
     const btn=$('bulkPresetModeBtn'); if(btn) btn.textContent=bulkPresetMode?'إنهاء التحديد':'تحديد متعدد';
+    const meta=$('quickPresetFilterMeta');
+    if(meta){
+      const serviceLabel=quickPresetServiceFilter||'كل الخدمات';
+      const selectedCount=bulkPresetSelection.size;
+      meta.innerHTML=`<span>يعرض <b>${list.length}</b> عرض من <b>${serviceLabel==='كل الخدمات'?all.length:list.length}</b></span>${bulkPresetMode?`<span class="filter-selection-hint">المحدد حاليًا: <b>${selectedCount}</b> · تقدر تغيّر الخدمة وتكمل التحديد بدون ما يضيع اختيارك</span>`:''}`;
+    }
     renderBulkPresetBar();
   }
 
@@ -521,9 +552,11 @@
 
   function renderHistory() {
     const arr=historyFiltered();
-    $('historyBody').innerHTML=arr.length?arr.map(t=>{const f=txFinancials(t);return `<tr style="opacity:${t.archived?.52:1}"><td>${esc(dateLabel(t.date))}</td><td><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${serviceColor(t.item)};margin-left:6px"></span>${esc(t.item)}</td><td>${esc(t.offer)}</td><td class="money">${t.quantity}</td><td class="money income">${fmt(t.paid)}</td><td class="money cost">${fmt(t.deducted)}</td><td class="money profit">${fmt(f.profit)}</td><td class="note-cell" title="${esc(t.note)}">${esc(t.note||'—')}</td><td><div class="row-actions"><button class="mini-btn" data-edit="${t.id}">تعديل</button><button class="mini-btn ${t.archived?'':'danger'}" data-archive="${t.id}">${t.archived?'استرجاع':'أرشفة'}</button></div></td></tr>`;}).join(''):'<tr><td colspan="9"><div class="empty-state">لا توجد نتائج.</div></td></tr>';
+    $('historyBody').innerHTML=arr.length?arr.map(t=>{const f=txFinancials(t);return `<tr style="opacity:${t.archived?.52:1}"><td>${esc(dateLabel(t.date))}</td><td><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${serviceColor(t.item)};margin-left:6px"></span>${esc(t.item)}</td><td>${esc(t.offer)}</td><td class="money">${t.quantity}</td><td class="money income">${fmt(t.paid)}</td><td class="money cost">${fmt(t.deducted)}</td><td class="money profit">${fmt(f.profit)}</td><td class="note-cell" title="${esc(t.note)}">${esc(t.note||'—')}</td><td><div class="row-actions"><button class="mini-btn" data-edit="${t.id}">تعديل</button><button class="mini-btn ${t.archived?'':'danger'}" data-archive="${t.id}">${t.archived?'استرجاع':'أرشفة'}</button><button class="mini-btn delete" data-delete="${t.id}">حذف</button></div></td></tr>`;}).join(''):'<tr><td colspan="9"><div class="empty-state">لا توجد نتائج.</div></td></tr>';
     const s=arr.reduce((o,t)=>{const f=txFinancials(t);o.in+=f.income;o.cost+=f.cost;o.profit+=f.profit;o.q+=f.quantity;return o},{in:0,cost:0,profit:0,q:0}); $('historyCount').textContent=`${s.q} عملية`; $('historyTotals').textContent=`دخل ${fmt(s.in)} · ربح ${fmt(s.profit)} EGP`;
-    $$('[data-edit]').forEach(b=>b.onclick=()=>openEditTransaction(b.dataset.edit)); $$('[data-archive]').forEach(b=>b.onclick=()=>toggleArchiveTransaction(b.dataset.archive));
+    $$('[data-edit]').forEach(b=>b.onclick=()=>openEditTransaction(b.dataset.edit));
+    $$('[data-archive]').forEach(b=>b.onclick=()=>toggleArchiveTransaction(b.dataset.archive));
+    $$('[data-delete]').forEach(b=>b.onclick=()=>deleteTransactionPermanently(b.dataset.delete));
     $$('#historyTable th[data-sort]').forEach(th=>{th.classList.toggle('sort-asc',historySort.key===th.dataset.sort&&historySort.dir==='asc');th.classList.toggle('sort-desc',historySort.key===th.dataset.sort&&historySort.dir==='desc');});
   }
 
@@ -549,6 +582,30 @@
   }
 
   async function toggleArchiveTransaction(id) { const t=state.transactions.find(x=>x.id===id);if(!t)return;t.archived=!t.archived;t.updatedAt=nowIso();audit(state,t.archived?'أرشفة عملية':'استرجاع عملية',t.date,{id});await saveState('archive');renderAll();toast(t.archived?'تمت الأرشفة ويمكن استرجاعها.':'تم استرجاع العملية.'); }
+
+  async function deleteTransactionPermanently(id) {
+    const index=state.transactions.findIndex(x=>x.id===id);
+    if(index<0) return;
+    const t=state.transactions[index];
+    const label=`${t.item || 'عملية'}${t.offer?` — ${t.offer}`:''}`;
+    if(!confirm(`حذف ${label} نهائيًا من سجل العمليات؟\n\nيمكنك التراجع مباشرة بعد الحذف أو استرجاع آخر نسخة أمان.`)) return;
+
+    await createSafetySnapshot('before-delete-transaction');
+    const deleted={...t};
+    state.transactions.splice(index,1);
+    audit(state,'حذف عملية نهائيًا',deleted.date,{id:deleted.id,item:deleted.item,offer:deleted.offer,paid:deleted.paid,deducted:deleted.deducted,quantity:deleted.quantity});
+    await saveState('delete-transaction');
+    renderAll();
+
+    toast('تم حذف العملية من السجل.','success',6500,async()=>{
+      if(state.transactions.some(x=>x.id===deleted.id)) return;
+      state.transactions.splice(Math.min(index,state.transactions.length),0,deleted);
+      audit(state,'تراجع عن حذف عملية',deleted.date,{id:deleted.id,item:deleted.item,offer:deleted.offer});
+      await saveState('undo-delete-transaction');
+      renderAll();
+      toast('تم استرجاع العملية.','success');
+    });
+  }
 
   function reportRangeQuick(range) {
     const now=new Date(); let f='',t='';
@@ -681,12 +738,14 @@
     $$('.settings-tab').forEach(b=>b.onclick=()=>setSettingsTab(b.dataset.tab)); $('newPresetBtn').onclick=()=>openPresetDialog(); $('presetManageSearch').oninput=renderPresetManager; $('presetServiceFilter').onchange=renderPresetManager; $('presetForm').onsubmit=savePreset;
     $('newFixedExpenseBtn').onclick=()=>openExpenseDialog('fixed'); $('newVariableExpenseBtn').onclick=()=>openExpenseDialog('variable'); $('expenseForm').onsubmit=saveExpense;
     if($('bulkPresetModeBtn')) $('bulkPresetModeBtn').onclick=()=>toggleBulkPresetMode();
+    if($('quickPresetServiceFilter')) $('quickPresetServiceFilter').onchange=e=>setQuickPresetServiceFilter(e.target.value);
     $('backupBtn').onclick=downloadBackup; $('restoreBtn').onclick=()=>$('restoreFile').click(); $('restoreFile').onchange=e=>{if(e.target.files[0])restoreBackup(e.target.files[0]);e.target.value=''}; $('safetyRestoreBtn').onclick=restoreLatestSafety; $('clearDataBtn').onclick=clearTransactions; $$('[data-action="backup"]').forEach(b=>b.onclick=downloadBackup); $$('[data-action="wallet-import"]').forEach(b=>b.onclick=()=>{goView('add');setTimeout(()=>$('walletImportPanel').scrollIntoView({behavior:'smooth'}),100)});
   }
 
   async function init(){
     document.title=APP_NAME; $('todayPill').textContent=new Date().toLocaleDateString('ar-EG',{weekday:'long',day:'numeric',month:'long'}); $('addDate').value=todayISO(); $('manualDate').value=todayISO();
     await openDB(); await loadState();
+    quickPresetServiceFilter=String(state.settings.quickPresetServiceFilter||'');
     const fixedRepairWasDone=Boolean(state.settings.fixedExpenseHistoryRepaired); const repairedFixed=repairLegacyFixedExpenseStartDates(); if(!fixedRepairWasDone || repairedFixed) await idbSet(STATE_KEY,sanitizeState(state));
     bindEvents(); renderAll(); renderReportRangeButtons(); reportRangeQuick('month');
     goView(state.settings.lastView||'today');

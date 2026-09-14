@@ -114,7 +114,11 @@
           </article>
 
           <article class="panel glass">
-            <div class="panel-head"><div><span class="panel-kicker">آخر استخدام</span><h3>العروض السريعة</h3><p>اختار عرض واحد، أو فعّل التحديد المتعدد لإضافة كذا عرض مرة واحدة.</p></div><div class="panel-actions"><button id="bulkPresetModeBtn" type="button" class="btn btn-secondary btn-sm">تحديد متعدد</button><button class="text-btn" data-go="settings" data-settings-tab="presets">إدارة العروض</button></div></div>
+            <div class="panel-head"><div><span class="panel-kicker">آخر استخدام</span><h3>العروض السريعة</h3><p>فلتر حسب الخدمة، واختار من أكتر من خدمة في نفس التحديد ثم أضفهم كلهم مرة واحدة.</p></div><div class="panel-actions"><button id="bulkPresetModeBtn" type="button" class="btn btn-secondary btn-sm">تحديد متعدد</button><button class="text-btn" data-go="settings" data-settings-tab="presets">إدارة العروض</button></div></div>
+            <div class="quick-preset-filter-row">
+              <label class="field quick-service-filter"><span>الخدمة</span><select id="quickPresetServiceFilter" class="control"><option value="">كل الخدمات</option></select></label>
+              <div id="quickPresetFilterMeta" class="quick-preset-filter-meta"></div>
+            </div>
             <div id="recentPresets" class="recent-presets"></div>
             <div id="bulkPresetBar" class="bulk-preset-bar hidden"></div>
           </article>
