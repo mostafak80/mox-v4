@@ -1,4 +1,4 @@
-const CACHE='mox-v2-clean-v1';
+const CACHE='mox-v2-clean-v2';
 const CORE=['./','./index.html','./style.css','./app.js','./manifest.webmanifest'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>Promise.allSettled(CORE.map(u=>c.add(u))))));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))));

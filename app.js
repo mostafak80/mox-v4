@@ -7,10 +7,6 @@
   const STORE = 'kv';
   const STATE_KEY = 'state';
   const MAX_BACKUPS = 5;
-  const LOCK_HASH_KEY = 'mox_v2_lock_hash';
-  const LOCK_SALT_KEY = 'mox_v2_lock_salt';
-  const FIREBASE_CONFIG_KEY = 'mox_v2_firebase_config';
-  const DEVICE_ID_KEY = 'mox_v2_device_id';
 
   const legacyKeys = {
     rows: 'profit_calculator_rows_v7',
@@ -20,7 +16,6 @@
     serviceColors: 'profit_service_colors_v1',
     walletRate: 'profit_wallet_dollar_rate_v2',
     expenseRate: 'profit_expenses_dollar_rate_v2',
-    firebaseConfig: 'profit_firebase_config_v1'
   };
 
   const COLORS = ['#6c7cff','#2dd4bf','#38bdf8','#f59e0b','#fb7185','#a78bfa','#34d399','#f472b6','#60a5fa','#f97316','#22c55e','#e879f9'];
@@ -31,7 +26,8 @@
   let walletParsed = [];
   let historySort = { key: 'date', dir: 'desc' };
   let lastUndo = null;
-  let cloud = { app: null, auth: null, db: null, unsub: null, uid: null, timer: null, applying: false };
+  let bulkPresetMode = false;
+  let bulkPresetSelection = new Set();
 
   const $ = (id) => document.getElementById(id);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -187,8 +183,6 @@
       await createSafetySnapshot('legacy-migration',s);
       toast('تم نقل بيانات النسخة القديمة إلى MOX-V2 Clean تلقائيًا.','success',5000);
     }
-    const oldFb=localStorage.getItem(legacyKeys.firebaseConfig);
-    if (oldFb && !localStorage.getItem(FIREBASE_CONFIG_KEY)) localStorage.setItem(FIREBASE_CONFIG_KEY,oldFb);
     return s;
   }
 
@@ -208,7 +202,6 @@
   async function saveState(reason='update', options={}) {
     state.meta.updatedAt=nowIso(); state.meta.reason=reason;
     await idbSet(STATE_KEY,sanitizeState(state));
-    if (!options.skipCloud) scheduleCloudUpload();
     renderStorageInfo();
   }
 
@@ -242,22 +235,47 @@
 
   function rangeVariableExpenses(from='',to='') { return state.variableExpenses.filter(e=>(!from||e.date>=from)&&(!to||e.date<=to)); }
 
+  function monthIndex(date) { return date.getFullYear() * 12 + date.getMonth(); }
+
   function fixedExpenseOccurrences(e, from, to) {
-    const start=parseISO(e.startDate), f=parseISO(from), end=parseISO(to); if(!start||!f||!end) return 0;
+    const start=parseISO(e.startDate), f=parseISO(from), end=parseISO(to);
+    if(!start||!f||!end||end<f) return 0;
     if (e.recurrence==='once') return e.startDate>=from && e.startDate<=to ? 1:0;
-    let count=0;
     if (e.recurrence==='monthly') {
-      let cur=new Date(Math.max(start.getTime(), new Date(f.getFullYear(),f.getMonth(),1).getTime()));
-      cur=new Date(cur.getFullYear(),cur.getMonth(),Math.min(start.getDate(),new Date(cur.getFullYear(),cur.getMonth()+1,0).getDate()));
-      if(cur<start) cur=new Date(start);
-      while(cur<=end){ if(cur>=f&&cur>=start) count++; const n=new Date(cur.getFullYear(),cur.getMonth()+1,1); cur=new Date(n.getFullYear(),n.getMonth(),Math.min(start.getDate(),new Date(n.getFullYear(),n.getMonth()+1,0).getDate())); }
-    } else if(e.recurrence==='yearly') {
-      for(let y=Math.max(start.getFullYear(),f.getFullYear());y<=end.getFullYear();y++){ const d=new Date(y,start.getMonth(),start.getDate()); if(d>=start&&d>=f&&d<=end) count++; }
+      // المصروف الشهري يُحسب مرة لكل شهر داخل الفترة، وليس حسب يوم البداية داخل الشهر.
+      const firstMonth=Math.max(monthIndex(start),monthIndex(f));
+      const lastMonth=monthIndex(end);
+      return Math.max(0,lastMonth-firstMonth+1);
     }
-    return count;
+    if (e.recurrence==='yearly') {
+      let count=0;
+      for(let y=Math.max(start.getFullYear(),f.getFullYear());y<=end.getFullYear();y++){
+        const d=new Date(y,start.getMonth(),Math.min(start.getDate(),new Date(y,start.getMonth()+1,0).getDate()));
+        if(d>=start&&d>=f&&d<=end) count++;
+      }
+      return count;
+    }
+    return 0;
   }
 
   function fixedExpenseTotal(from,to) { return state.fixedExpenses.reduce((s,e)=>s+num(e.amount)*fixedExpenseOccurrences(e,from,to),0); }
+
+  function repairLegacyFixedExpenseStartDates() {
+    if(state?.settings?.fixedExpenseHistoryRepaired) return false;
+    const dates=state.transactions.map(t=>t.date).filter(Boolean).sort();
+    if(!dates.length){ state.settings.fixedExpenseHistoryRepaired=true; return false; }
+    const earliest=parseISO(dates[0]);
+    if(!earliest){ state.settings.fixedExpenseHistoryRepaired=true; return false; }
+    const earliestMonth=localDateISO(new Date(earliest.getFullYear(),earliest.getMonth(),1));
+    let changed=false;
+    // المصاريف المهاجرة من النسخة القديمة لم يكن لها تاريخ بداية، لذلك كانت تبدأ يوم الترحيل بالخطأ.
+    // نرجع المصروف الشهري المهاجر لأول شهر فيه عمليات فقط، بدون لمس المصروفات الجديدة التي أضافها المستخدم لاحقًا.
+    state.fixedExpenses.forEach(e=>{
+      if(e.recurrence==='monthly' && (!e.startDate || e.startDate>earliestMonth)){ e.startDate=earliestMonth; changed=true; }
+    });
+    state.settings.fixedExpenseHistoryRepaired=true;
+    return changed;
+  }
 
   function statsForRange(from,to) {
     const rows=rangeRows(from,to); const tx=rows.map(txFinancials);
@@ -268,13 +286,28 @@
   }
 
   function toast(message,type='success',duration=3200,undoFn=null) {
-    const host=$('toastHost'); if(!host) return;
+    const openDialog=document.querySelector('dialog[open]');
+    let host=$('toastHost');
+    if(openDialog){
+      host=openDialog.querySelector('.dialog-toast-host');
+      if(!host){ host=document.createElement('div'); host.className='dialog-toast-host'; openDialog.appendChild(host); }
+    }
+    if(!host) return;
     const el=document.createElement('div'); el.className=`toast ${type}`;
     el.innerHTML=`<div style="display:flex;gap:10px;align-items:center;justify-content:space-between"><span>${esc(message)}</span>${undoFn?'<button class="mini-btn">تراجع</button>':''}</div>`;
     host.appendChild(el);
     if(undoFn) el.querySelector('button').onclick=async()=>{ await undoFn(); el.remove(); };
     setTimeout(()=>el.remove(),duration);
   }
+
+  function setDialogError(dialogId,message='',focusId=''){
+    const dialog=$(dialogId); if(!dialog) return;
+    const box=dialog.querySelector('.dialog-error');
+    if(box){ box.textContent=message; box.classList.toggle('hidden',!message); }
+    if(focusId && message) setTimeout(()=>$(focusId)?.focus(),30);
+  }
+
+  function closeDialog(id){ const d=$(id); if(d?.open) d.close(); setDialogError(id,''); }
 
   function goView(name) {
     if(!$(`view-${name}`)) name='today';
@@ -289,7 +322,7 @@
   function setSettingsTab(tab) {
     $$('.settings-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
     $$('.settings-pane').forEach(p=>p.classList.toggle('active',p.id===`settings-${tab}`));
-    if(tab==='presets') renderPresetManager(); if(tab==='expenses') renderExpenses(); if(tab==='data') renderStorageInfo(); if(tab==='cloud') refreshCloudUI();
+    if(tab==='presets') renderPresetManager(); if(tab==='expenses') renderExpenses(); if(tab==='data') renderStorageInfo();
   }
 
   function renderToday() {
@@ -348,9 +381,60 @@
   }
 
   function renderRecentPresets() {
-    const list=sortedPresets().slice(0,8);
-    $('recentPresets').innerHTML=list.length?list.map(p=>`<button class="recent-preset-card" data-preset-id="${p.id}"><i class="service-bar" style="--service-color:${serviceColor(p.item)}"></i><span><b>${esc(p.item)} — ${esc(p.offer)}</b><small>مصروف ${fmt(p.deducted)} · ربح ${fmt(p.paid-p.deducted)}</small></span><strong>${fmt(p.paid)}</strong></button>`).join(''):'<div class="empty-state">أضف أول عرض من الإعدادات.</div>';
-    $$('#recentPresets [data-preset-id]').forEach(b=>b.onclick=()=>selectPreset(b.dataset.presetId));
+    const list=sortedPresets().slice(0,bulkPresetMode?30:10);
+    const wrap=$('recentPresets');
+    wrap.classList.toggle('bulk-mode',bulkPresetMode);
+    wrap.innerHTML=list.length?list.map(p=>{
+      const selected=bulkPresetSelection.has(p.id);
+      return `<button type="button" class="recent-preset-card ${selected?'selected':''}" data-preset-id="${p.id}">
+        <i class="service-bar" style="--service-color:${serviceColor(p.item)}"></i>
+        <span><b>${esc(p.item)} — ${esc(p.offer)}</b><small>الداخل ${fmt(p.paid)} · المصروف ${fmt(p.deducted)} · الربح ${fmt(p.paid-p.deducted)}</small></span>
+        <strong>${bulkPresetMode?`<span class="bulk-check">${selected?'✓':'＋'}</span>`:`${fmt(p.paid)}`}</strong>
+      </button>`;
+    }).join(''):'<div class="empty-state">أضف أول عرض من الإعدادات.</div>';
+    $$('#recentPresets [data-preset-id]').forEach(b=>b.onclick=()=>{
+      if(bulkPresetMode) toggleBulkPreset(b.dataset.presetId); else selectPreset(b.dataset.presetId);
+    });
+    const btn=$('bulkPresetModeBtn'); if(btn) btn.textContent=bulkPresetMode?'إنهاء التحديد':'تحديد متعدد';
+    renderBulkPresetBar();
+  }
+
+  function toggleBulkPresetMode(force){
+    bulkPresetMode=typeof force==='boolean'?force:!bulkPresetMode;
+    if(!bulkPresetMode) bulkPresetSelection.clear();
+    renderRecentPresets();
+  }
+
+  function toggleBulkPreset(id){
+    if(bulkPresetSelection.has(id)) bulkPresetSelection.delete(id); else bulkPresetSelection.add(id);
+    renderRecentPresets();
+  }
+
+  function renderBulkPresetBar(){
+    const bar=$('bulkPresetBar'); if(!bar) return;
+    const chosen=[...bulkPresetSelection].map(id=>state.presets.find(p=>p.id===id)).filter(Boolean);
+    const income=chosen.reduce((s,p)=>s+num(p.paid),0);
+    const cost=chosen.reduce((s,p)=>s+num(p.deducted),0);
+    bar.classList.toggle('hidden',!bulkPresetMode);
+    bar.innerHTML=bulkPresetMode?`<div class="bulk-summary"><b>${chosen.length} عرض محدد</b><span>داخل ${fmt(income)} · مصروف ${fmt(cost)} · ربح ${fmt(income-cost)}</span></div><div class="bulk-actions"><button type="button" class="btn btn-ghost" id="clearBulkPresetsBtn">إلغاء التحديد</button><button type="button" class="btn btn-primary" id="addBulkPresetsBtn" ${chosen.length?'':'disabled'}>＋ إضافة المحدد مرة واحدة</button></div>`:'';
+    if($('clearBulkPresetsBtn')) $('clearBulkPresetsBtn').onclick=()=>{bulkPresetSelection.clear();renderRecentPresets()};
+    if($('addBulkPresetsBtn')) $('addBulkPresetsBtn').onclick=addBulkPresets;
+  }
+
+  async function addBulkPresets(){
+    const chosen=[...bulkPresetSelection].map(id=>state.presets.find(p=>p.id===id)).filter(Boolean);
+    if(!chosen.length) return toast('حدد عرض واحد على الأقل.','error');
+    const date=$('addDate').value||todayISO();
+    const created=[];
+    for(const p of chosen){
+      const t=normalizeTransaction({date,item:p.item,offer:p.offer,paid:p.paid,deducted:p.deducted,quantity:1,note:'',source:'bulk-cashier'});
+      state.transactions.push(t); created.push(t);
+      p.usageCount=num(p.usageCount)+1; p.lastUsedAt=nowIso(); p.updatedAt=nowIso();
+    }
+    audit(state,'إضافة عروض متعددة',date,{count:created.length,offers:created.map(t=>`${t.item} — ${t.offer}`)});
+    await saveState('bulk-add');
+    bulkPresetSelection.clear(); bulkPresetMode=false; renderAll();
+    toast(`تمت إضافة ${created.length} عملية مرة واحدة.`,'success',4200);
   }
 
   function selectPreset(id) {
@@ -448,12 +532,22 @@
   }
 
   function openEditTransaction(id) {
-    const t=state.transactions.find(x=>x.id===id);if(!t)return;$('editTxId').value=t.id;$('editTxDate').value=t.date;$('editTxQty').value=t.quantity;$('editTxItem').value=t.item;$('editTxOffer').value=t.offer;$('editTxPaid').value=t.paid;$('editTxCost').value=t.deducted;$('editTxNote').value=t.note;$('editTransactionDialog').showModal();
+    const t=state.transactions.find(x=>x.id===id);if(!t)return;$('editTxId').value=t.id;$('editTxDate').value=t.date;$('editTxQty').value=t.quantity;$('editTxItem').value=t.item;$('editTxOffer').value=t.offer;$('editTxPaid').value=t.paid;$('editTxCost').value=t.deducted;$('editTxNote').value=t.note;setDialogError('editTransactionDialog','');$('editTransactionDialog').showModal();
   }
   async function saveEditTransaction(e) {
-    e.preventDefault(); const id=$('editTxId').value,t=state.transactions.find(x=>x.id===id);if(!t)return; const before={...t};
-    Object.assign(t,{date:$('editTxDate').value||t.date,quantity:qty($('editTxQty').value),item:$('editTxItem').value.trim(),offer:$('editTxOffer').value.trim(),paid:num($('editTxPaid').value),deducted:num($('editTxCost').value),note:$('editTxNote').value.trim(),updatedAt:nowIso()}); audit(state,'تعديل عملية',t.date,{before,after:t}); await saveState('edit-transaction'); $('editTransactionDialog').close(); renderAll(); toast('تم حفظ التعديل.');
+    e.preventDefault(); const id=$('editTxId').value,t=state.transactions.find(x=>x.id===id);if(!t)return;
+    const item=$('editTxItem').value.trim(),offer=$('editTxOffer').value.trim(),date=$('editTxDate').value;
+    const paid=Number($('editTxPaid').value),deducted=Number($('editTxCost').value),quantity=Number($('editTxQty').value);
+    if(!date)return setDialogError('editTransactionDialog','اختار تاريخ العملية.','editTxDate');
+    if(!item)return setDialogError('editTransactionDialog','اكتب المنتج / الخدمة.','editTxItem');
+    if(!offer)return setDialogError('editTransactionDialog','اكتب العرض.','editTxOffer');
+    if(!Number.isFinite(quantity)||quantity<1)return setDialogError('editTransactionDialog','الكمية لازم تكون 1 أو أكثر.','editTxQty');
+    if(!Number.isFinite(paid)||paid<0)return setDialogError('editTransactionDialog','قيمة الداخل غير صحيحة.','editTxPaid');
+    if(!Number.isFinite(deducted)||deducted<0)return setDialogError('editTransactionDialog','قيمة المصروف غير صحيحة.','editTxCost');
+    setDialogError('editTransactionDialog',''); const before={...t};
+    Object.assign(t,{date,quantity:qty(quantity),item,offer,paid,deducted,note:$('editTxNote').value.trim(),updatedAt:nowIso()}); audit(state,'تعديل عملية',t.date,{before,after:t}); await saveState('edit-transaction'); closeDialog('editTransactionDialog'); renderAll(); toast('تم حفظ التعديل.');
   }
+
   async function toggleArchiveTransaction(id) { const t=state.transactions.find(x=>x.id===id);if(!t)return;t.archived=!t.archived;t.updatedAt=nowIso();audit(state,t.archived?'أرشفة عملية':'استرجاع عملية',t.date,{id});await saveState('archive');renderAll();toast(t.archived?'تمت الأرشفة ويمكن استرجاعها.':'تم استرجاع العملية.'); }
 
   function reportRangeQuick(range) {
@@ -463,7 +557,7 @@
     if(range==='last7'){f=localDateISO(addDays(now,-6));t=todayISO();}
     if(range==='month'){f=localDateISO(startOfMonth(now));t=localDateISO(endOfMonth(now));}
     if(range==='prevMonth'){const p=new Date(now.getFullYear(),now.getMonth()-1,1);f=localDateISO(startOfMonth(p));t=localDateISO(endOfMonth(p));}
-    if(range==='year'){f=`${now.getFullYear()}-01-01`;t=`${now.getFullYear()}-12-31`;}
+    if(range==='year'){f=`${now.getFullYear()}-01-01`;t=todayISO();}
     if(range==='all'){const dates=state.transactions.map(x=>x.date).filter(Boolean).sort();f=dates[0]||todayISO();t=dates.at(-1)||todayISO();}
     $('reportFrom').value=f;$('reportTo').value=t;renderReports();
   }
@@ -502,21 +596,67 @@
   function exportCSVFallback(data,name){const csv='\ufeff'+data.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');downloadBlob(new Blob([csv],{type:'text/csv;charset=utf-8'}),name)}
   function downloadBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1500)}
 
-  function renderSettings(){renderPresetManager();renderExpenses();renderStorageInfo();refreshCloudUI();}
+  function renderSettings(){renderPresetManager();renderExpenses();renderStorageInfo();}
   function renderPresetManager(){const q=normalize($('presetManageSearch')?.value||''),svc=$('presetServiceFilter')?.value||'';const services=[...new Set(state.presets.map(p=>p.item).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));if($('presetServiceFilter')){$('presetServiceFilter').innerHTML='<option value="">كل الخدمات</option>'+services.map(s=>`<option ${s===svc?'selected':''}>${esc(s)}</option>`).join('')}
     const arr=state.presets.filter(p=>(!svc||p.item===svc)&&(!q||normalize(`${p.item} ${p.offer} ${p.paid}`).includes(q)));$('presetManageGrid').innerHTML=arr.length?arr.map(p=>`<div class="preset-manage-card" style="--service-color:${serviceColor(p.item)}"><h4>${esc(p.item)} — ${esc(p.offer)}</h4><p>استخدم ${p.usageCount||0} مرة</p><div class="preset-manage-meta"><span>الداخل<b>${fmt(p.paid)}</b></span><span>المصروف<b>${fmt(p.deducted)}</b></span><span>الربح<b>${fmt(p.paid-p.deducted)}</b></span></div><div class="preset-manage-actions"><button class="mini-btn" data-pedit="${p.id}">تعديل</button><button class="mini-btn danger" data-pdelete="${p.id}">حذف</button></div></div>`).join(''):'<div class="empty-state">لا توجد عروض مطابقة.</div>';
     $$('[data-pedit]').forEach(b=>b.onclick=()=>openPresetDialog(b.dataset.pedit));$$('[data-pdelete]').forEach(b=>b.onclick=()=>deletePreset(b.dataset.pdelete));}
 
-  function openPresetDialog(id=''){const p=state.presets.find(x=>x.id===id);$('presetId').value=p?.id||'';$('presetDialogTitle').textContent=p?'تعديل العرض':'عرض جديد';$('presetItem').value=p?.item||'';$('presetOffer').value=p?.offer||'';$('presetPaid').value=p?.paid??'';$('presetCost').value=p?.deducted??'';$('presetColor').value=p?serviceColor(p.item):COLORS[state.presets.length%COLORS.length];$('presetDialog').showModal();}
-  async function savePreset(e){e.preventDefault();const item=$('presetItem').value.trim(),offer=$('presetOffer').value.trim();if(!item||!offer)return toast('اكتب المنتج والعرض.','error');const id=$('presetId').value,p=state.presets.find(x=>x.id===id);const data={item,offer,paid:num($('presetPaid').value),deducted:num($('presetCost').value),updatedAt:nowIso()};if(p)Object.assign(p,data);else state.presets.push(normalizePreset({...data,id:uid('preset')}));state.settings.serviceColors[item]=$('presetColor').value;audit(state,p?'تعديل عرض':'إضافة عرض','',`${item} — ${offer}`);await saveState('preset');$('presetDialog').close();renderAll();toast('تم حفظ العرض.');}
+  function openPresetDialog(id=''){const p=state.presets.find(x=>x.id===id);$('presetId').value=p?.id||'';$('presetDialogTitle').textContent=p?'تعديل العرض':'عرض جديد';$('presetItem').value=p?.item||'';$('presetOffer').value=p?.offer||'';$('presetPaid').value=p?.paid??'';$('presetCost').value=p?.deducted??'';$('presetColor').value=p?serviceColor(p.item):COLORS[state.presets.length%COLORS.length];setDialogError('presetDialog','');$('presetDialog').showModal();setTimeout(()=>$('presetItem').focus(),30);}
+  async function savePreset(e){
+    e.preventDefault(); const item=$('presetItem').value.trim(),offer=$('presetOffer').value.trim();
+    const paidRaw=$('presetPaid').value,costRaw=$('presetCost').value,paid=Number(paidRaw),deducted=Number(costRaw);
+    if(!item) return setDialogError('presetDialog','اكتب اسم المنتج / الخدمة.','presetItem');
+    if(!offer) return setDialogError('presetDialog','اكتب العرض.','presetOffer');
+    if(!Number.isFinite(paid)||paid<0) return setDialogError('presetDialog','اكتب قيمة الداخل بشكل صحيح.','presetPaid');
+    if(!Number.isFinite(deducted)||deducted<0) return setDialogError('presetDialog','اكتب قيمة المصروف بشكل صحيح.','presetCost');
+    setDialogError('presetDialog','');
+    const id=$('presetId').value,p=state.presets.find(x=>x.id===id);const data={item,offer,paid,deducted,updatedAt:nowIso()};
+    if(p)Object.assign(p,data);else state.presets.push(normalizePreset({...data,id:uid('preset')}));
+    state.settings.serviceColors[item]=$('presetColor').value;audit(state,p?'تعديل عرض':'إضافة عرض','',`${item} — ${offer}`);await saveState('preset');closeDialog('presetDialog');renderAll();toast('تم حفظ العرض.');
+  }
   async function deletePreset(id){const p=state.presets.find(x=>x.id===id);if(!p)return;if(!confirm(`حذف العرض ${p.item} — ${p.offer}؟`))return;await createSafetySnapshot('before-delete-preset');state.presets=state.presets.filter(x=>x.id!==id);audit(state,'حذف عرض','',`${p.item} — ${p.offer}`);await saveState('delete-preset');renderAll();toast('تم حذف العرض.');}
 
   function renderExpenses(){const fx=[...state.fixedExpenses].sort((a,b)=>a.startDate.localeCompare(b.startDate));$('fixedExpenseList').innerHTML=fx.length?fx.map(e=>`<div class="simple-item"><span class="simple-icon">↻</span><span class="simple-main"><b>${esc(e.name)}</b><span>${e.recurrence==='monthly'?'شهري':e.recurrence==='yearly'?'سنوي':'مرة واحدة'} · من ${dateLabel(e.startDate)}${e.note?` · ${esc(e.note)}`:''}</span></span><span><b class="simple-value">${fmt(e.amount)}</b><br><button class="mini-btn" data-fxedit="${e.id}">تعديل</button> <button class="mini-btn danger" data-fxdel="${e.id}">حذف</button></span></div>`).join(''):'<div class="empty-state">لا توجد مصاريف ثابتة.</div>';
     const vx=[...state.variableExpenses].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,30);$('variableExpenseList').innerHTML=vx.length?vx.map(e=>`<div class="simple-item"><span class="simple-icon">−</span><span class="simple-main"><b>${esc(e.name)}</b><span>${dateLabel(e.date)}${e.note?` · ${esc(e.note)}`:''}</span></span><span><b class="simple-value">${fmt(e.amount)}</b><br><button class="mini-btn" data-vxedit="${e.id}">تعديل</button> <button class="mini-btn danger" data-vxdel="${e.id}">حذف</button></span></div>`).join(''):'<div class="empty-state">لا توجد مصاريف يومية.</div>';
     $$('[data-fxedit]').forEach(b=>b.onclick=()=>openExpenseDialog('fixed',b.dataset.fxedit));$$('[data-vxedit]').forEach(b=>b.onclick=()=>openExpenseDialog('variable',b.dataset.vxedit));$$('[data-fxdel]').forEach(b=>b.onclick=()=>deleteExpense('fixed',b.dataset.fxdel));$$('[data-vxdel]').forEach(b=>b.onclick=()=>deleteExpense('variable',b.dataset.vxdel));}
 
-  function openExpenseDialog(type,id=''){const arr=type==='fixed'?state.fixedExpenses:state.variableExpenses,e=arr.find(x=>x.id===id);$('expenseType').value=type;$('expenseId').value=e?.id||'';$('expenseDialogTitle').textContent=type==='fixed'?(e?'تعديل مصروف ثابت':'مصروف ثابت جديد'):(e?'تعديل مصروف يومي':'مصروف يومي جديد');$('expenseName').value=e?.name||'';$('expenseAmount').value=e?.amount??'';$('expenseDate').value=(type==='fixed'?e?.startDate:e?.date)||todayISO();$('expenseRecurrence').value=e?.recurrence||'monthly';$('expenseNote').value=e?.note||'';$('recurrenceField').classList.toggle('hidden',type!=='fixed');$('expenseDialog').showModal();}
-  async function saveExpense(e){e.preventDefault();const type=$('expenseType').value,id=$('expenseId').value,name=$('expenseName').value.trim(),amount=num($('expenseAmount').value),date=$('expenseDate').value||todayISO(),note=$('expenseNote').value.trim();if(!name)return toast('اكتب اسم المصروف.','error');const arr=type==='fixed'?state.fixedExpenses:state.variableExpenses,old=arr.find(x=>x.id===id);if(type==='fixed'){const data=normalizeFixedExpense({id:id||uid('fx'),name,amount,startDate:date,recurrence:$('expenseRecurrence').value,note,createdAt:old?.createdAt||nowIso()});if(old)Object.assign(old,data);else arr.push(data);}else{const data=normalizeVariableExpense({id:id||uid('vx'),name,amount,date,note,createdAt:old?.createdAt||nowIso()});if(old)Object.assign(old,data);else arr.push(data);}audit(state,old?'تعديل مصروف':'إضافة مصروف',date,{name,amount,type});await saveState('expense');$('expenseDialog').close();renderAll();toast('تم حفظ المصروف.');}
+  function openExpenseDialog(type,id=''){
+    const arr=type==='fixed'?state.fixedExpenses:state.variableExpenses,e=arr.find(x=>x.id===id);
+    $('expenseType').value=type;$('expenseId').value=e?.id||'';
+    $('expenseDialogTitle').textContent=type==='fixed'?(e?'تعديل مصروف ثابت':'مصروف ثابت جديد'):(e?'تعديل مصروف يومي':'مصروف يومي جديد');
+    $('expenseName').value=e?.name||'';$('expenseAmount').value=e?.amount??'';
+    const earliestTx=state.transactions.map(t=>t.date).filter(Boolean).sort()[0]; const defaultFixed=earliestTx?`${earliestTx.slice(0,7)}-01`:todayISO(); $('expenseDate').value=(type==='fixed'?e?.startDate:e?.date)||(type==='fixed'?defaultFixed:todayISO());
+    $('expenseRecurrence').value=e?.recurrence||'monthly';$('expenseNote').value=e?.note||'';
+    $('recurrenceField').classList.toggle('hidden',type!=='fixed');
+    setDialogError('expenseDialog','');
+    $('expenseDialog').showModal();
+    setTimeout(()=>$('expenseName').focus(),30);
+  }
+
+  async function saveExpense(e){
+    e?.preventDefault?.();
+    const type=$('expenseType').value,id=$('expenseId').value,name=$('expenseName').value.trim();
+    const rawAmount=$('expenseAmount').value,amount=Number(rawAmount),date=$('expenseDate').value,note=$('expenseNote').value.trim();
+    if(!name) return setDialogError('expenseDialog','اكتب اسم المصروف.','expenseName');
+    if(!Number.isFinite(amount)||amount<=0) return setDialogError('expenseDialog','اكتب قيمة مصروف صحيحة أكبر من صفر.','expenseAmount');
+    if(!date) return setDialogError('expenseDialog','اختار تاريخ المصروف.','expenseDate');
+    setDialogError('expenseDialog','');
+    try{
+      const arr=type==='fixed'?state.fixedExpenses:state.variableExpenses,old=arr.find(x=>x.id===id);
+      if(type==='fixed'){
+        const data=normalizeFixedExpense({id:id||uid('fx'),name,amount,startDate:date,recurrence:$('expenseRecurrence').value,note,createdAt:old?.createdAt||nowIso()});
+        if(old)Object.assign(old,data);else arr.push(data);
+      }else{
+        const data=normalizeVariableExpense({id:id||uid('vx'),name,amount,date,note,createdAt:old?.createdAt||nowIso()});
+        if(old)Object.assign(old,data);else arr.push(data);
+      }
+      audit(state,old?'تعديل مصروف':'إضافة مصروف',date,{name,amount,type});
+      await saveState('expense'); closeDialog('expenseDialog'); renderAll(); toast('تم حفظ المصروف.');
+    }catch(err){
+      console.error(err); setDialogError('expenseDialog','حصل خطأ أثناء الحفظ. جرّب مرة تانية.');
+    }
+  }
+
   async function deleteExpense(type,id){const arr=type==='fixed'?state.fixedExpenses:state.variableExpenses,e=arr.find(x=>x.id===id);if(!e)return;if(!confirm(`حذف ${e.name}؟`))return;await createSafetySnapshot('before-delete-expense');if(type==='fixed')state.fixedExpenses=arr.filter(x=>x.id!==id);else state.variableExpenses=arr.filter(x=>x.id!==id);audit(state,'حذف مصروف',type==='fixed'?e.startDate:e.date,{name:e.name,amount:e.amount,type});await saveState('delete-expense');renderAll();toast('تم حذف المصروف.');}
 
   async function downloadBackup(){const backup={app:APP_NAME,format:'mox-v2-clean-backup',version:2,exportedAt:nowIso(),state:cleanBackupState()};downloadBlob(new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}),`MOX-V2-backup-${todayISO()}.json`);toast('تم تنزيل النسخة الاحتياطية.');}
@@ -524,54 +664,31 @@
   async function clearTransactions(){if(!state.transactions.length)return toast('لا توجد عمليات لمسحها.','error');const word=prompt('للتأكيد اكتب: مسح');if(word!=='مسح')return;await createSafetySnapshot('before-clear-transactions');state.transactions=[];audit(state,'مسح كل العمليات','','');await saveState('clear-transactions');renderAll();toast('تم مسح العمليات ويمكن الرجوع لنسخة الأمان.');}
   async function renderStorageInfo(){if(!$('storageInfo'))return;const estimate=await navigator.storage?.estimate?.();const size=new Blob([JSON.stringify(cleanBackupState())]).size;$('storageInfo').textContent=`حجم بيانات MOX-V2 التقريبي: ${(size/1024).toFixed(1)} KB${estimate?.quota?` · مساحة المتصفح المتاحة ${(estimate.quota/1024/1024).toFixed(0)} MB`:''} · العمليات ${state.transactions.length} · العروض ${state.presets.length}`;}
 
-  async function deriveLockHash(password,saltBase64){const enc=new TextEncoder(),salt=Uint8Array.from(atob(saltBase64),c=>c.charCodeAt(0));const key=await crypto.subtle.importKey('raw',enc.encode(password),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:120000},key,256);return btoa(String.fromCharCode(...new Uint8Array(bits)));}
-  async function setLockPassword(){const p=$('newLockPassword').value;if(p.length<4)return toast('كلمة المرور لازم تكون 4 أحرف على الأقل.','error');const salt=crypto.getRandomValues(new Uint8Array(16)),s64=btoa(String.fromCharCode(...salt)),hash=await deriveLockHash(p,s64);localStorage.setItem(LOCK_SALT_KEY,s64);localStorage.setItem(LOCK_HASH_KEY,hash);$('newLockPassword').value='';toast('تم تفعيل القفل المحلي.');}
-  async function removeLockPassword(){if(!localStorage.getItem(LOCK_HASH_KEY))return;const p=prompt('اكتب كلمة المرور الحالية لإلغاء القفل:');if(!await verifyLockPassword(p||''))return toast('كلمة المرور غير صحيحة.','error');localStorage.removeItem(LOCK_HASH_KEY);localStorage.removeItem(LOCK_SALT_KEY);toast('تم إلغاء القفل.');}
-  async function verifyLockPassword(p){const h=localStorage.getItem(LOCK_HASH_KEY),s=localStorage.getItem(LOCK_SALT_KEY);return !h||!s?true:(await deriveLockHash(p,s))===h;}
-  function showLock(){if(!localStorage.getItem(LOCK_HASH_KEY))return toast('فعّل كلمة مرور من الإعدادات أولًا.','error');$('lockScreen').classList.remove('hidden');$('lockScreen').setAttribute('aria-hidden','false');setTimeout(()=>$('unlockPassword').focus(),50)}
-  async function unlock(){if(await verifyLockPassword($('unlockPassword').value)){$('lockScreen').classList.add('hidden');$('unlockPassword').value='';$('unlockError').textContent='';}else $('unlockError').textContent='كلمة المرور غير صحيحة.';}
-
-  function getDeviceId(){let id=localStorage.getItem(DEVICE_ID_KEY);if(!id){id=uid('device');localStorage.setItem(DEVICE_ID_KEY,id)}return id}
-  function firebaseConfig(){try{return JSON.parse(localStorage.getItem(FIREBASE_CONFIG_KEY)||'null')}catch{return null}}
-  function setCloudStatus(text,type=''){['cloudStatus','syncBadge'].forEach(id=>{const el=$(id);if(!el)return;el.className=`sync-badge ${type}`;el.querySelector('span:last-child').textContent=text})}
-  function refreshCloudUI(){const raw=localStorage.getItem(FIREBASE_CONFIG_KEY)||'';if($('firebaseConfig'))$('firebaseConfig').value=raw;setCloudStatus(cloud.uid?'متزامن':'محلي',cloud.uid?'ok':'');}
-  async function initFirebase(){const cfg=firebaseConfig();if(!cfg)return false;if(!window.firebase?.auth||!window.firebase?.firestore){toast('مكتبات Firebase لم تُحمّل.','error');return false}try{if(cloud.app)return true;cloud.app=firebase.apps.find(a=>a.name==='moxv2')||firebase.initializeApp(cfg,'moxv2');cloud.auth=firebase.auth(cloud.app);cloud.db=firebase.firestore(cloud.app);cloud.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);cloud.auth.onAuthStateChanged(u=>{cloud.uid=u?.uid||null;if(u)startCloudListener();else stopCloudListener();refreshCloudUI()});return true}catch(e){console.error(e);toast('Firebase config غير صحيح.','error');return false}}
-  async function saveFirebaseConfig(){try{const cfg=JSON.parse($('firebaseConfig').value.trim());if(!cfg.apiKey||!cfg.projectId)throw 0;localStorage.setItem(FIREBASE_CONFIG_KEY,JSON.stringify(cfg));if(cloud.app){stopCloudListener();try{await cloud.app.delete()}catch{}cloud={app:null,auth:null,db:null,unsub:null,uid:null,timer:null,applying:false}}await initFirebase();toast('تم حفظ Firebase config.');}catch{toast('اكتب Firebase config بصيغة JSON صحيحة.','error')}}
-  async function cloudSignup(){if(!await initFirebase())return;try{const email=$('cloudEmail').value.trim(),pass=$('cloudPassword').value;await cloud.auth.createUserWithEmailAndPassword(email,pass);toast('تم إنشاء الحساب وتسجيل الدخول.');}catch(e){console.error(e);toast(firebaseErrorArabic(e),'error')}}
-  async function cloudLogin(){if(!await initFirebase())return;try{await cloud.auth.signInWithEmailAndPassword($('cloudEmail').value.trim(),$('cloudPassword').value);toast('تم تسجيل الدخول.');}catch(e){console.error(e);toast(firebaseErrorArabic(e),'error')}}
-  async function cloudLogout(){try{stopCloudListener();await cloud.auth?.signOut();cloud.uid=null;refreshCloudUI();toast('تم تسجيل الخروج.')}catch(e){console.error(e)}}
-  function firebaseErrorArabic(e){const c=e?.code||'';if(c.includes('invalid-credential')||c.includes('wrong-password'))return'بيانات الدخول غير صحيحة.';if(c.includes('email-already'))return'البريد مستخدم بالفعل.';if(c.includes('weak-password'))return'كلمة المرور ضعيفة.';if(c.includes('operation-not-allowed'))return'فعّل Email/Password من Firebase Authentication.';return e?.message||'حصل خطأ في Firebase.'}
-  function cloudRef(){return cloud.uid?cloud.db.collection('users').doc(cloud.uid).collection('apps').doc('mox-v2'):null}
-  function startCloudListener(){stopCloudListener();if(!cloud.uid)return;setCloudStatus('متصل','ok');cloud.unsub=cloudRef().onSnapshot(async snap=>{if(!snap.exists){await cloudUpload(true);return}const d=snap.data();if(d.deviceId===getDeviceId())return;if(d.clientUpdatedAt&&d.clientUpdatedAt>new Date(state.meta.updatedAt).getTime()){cloud.applying=true;await createSafetySnapshot('before-cloud-update');state=sanitizeState(d.state);await saveState('cloud-download',{skipCloud:true});cloud.applying=false;renderAll();toast('تم استلام تحديث من جهاز آخر.')}} ,e=>{console.error(e);setCloudStatus('خطأ','warn')});}
-  function stopCloudListener(){if(cloud.unsub){cloud.unsub();cloud.unsub=null}if(cloud.timer){clearTimeout(cloud.timer);cloud.timer=null}}
-  function scheduleCloudUpload(){if(!cloud.uid||cloud.applying)return;clearTimeout(cloud.timer);cloud.timer=setTimeout(()=>cloudUpload(false),900)}
-  async function cloudUpload(manual=true){if(!cloud.uid)return manual&&toast('سجل الدخول للمزامنة أولًا.','error');try{const payload={app:APP_NAME,version:2,deviceId:getDeviceId(),clientUpdatedAt:Date.now(),updatedAt:firebase.firestore.FieldValue.serverTimestamp(),state:cleanBackupState()};await cloudRef().set(payload);setCloudStatus('متزامن','ok');if(manual)toast('تم رفع نسخة الجهاز للسحابة.')}catch(e){console.error(e);toast('فشل رفع البيانات للسحابة.','error')}}
-  async function cloudDownload(){if(!cloud.uid)return toast('سجل الدخول للمزامنة أولًا.','error');try{const snap=await cloudRef().get();if(!snap.exists)return toast('لا توجد نسخة سحابية بعد.','error');await createSafetySnapshot('before-manual-cloud-download');cloud.applying=true;state=sanitizeState(snap.data().state);await saveState('manual-cloud-download',{skipCloud:true});cloud.applying=false;renderAll();toast('تم تنزيل نسخة السحابة.')}catch(e){console.error(e);toast('فشل تنزيل النسخة السحابية.','error')}}
 
   function renderAll(){renderToday();renderAdd();renderHistory();renderReports();renderSettings();}
 
   function bindEvents(){
     $$('.nav-item,.mobile-nav button').forEach(b=>b.onclick=()=>goView(b.dataset.view)); $$('[data-go]').forEach(b=>b.onclick=()=>{goView(b.dataset.go);if(b.dataset.settingsTab)setSettingsTab(b.dataset.settingsTab)});
-    $('globalAddBtn').onclick=()=>goView('add'); $('lockNowBtn').onclick=showLock; $('unlockBtn').onclick=unlock; $('unlockPassword').onkeydown=e=>{if(e.key==='Enter')unlock()};
+    $('globalAddBtn').onclick=()=>goView('add');
+    $$('[data-dialog-close]').forEach(b=>b.onclick=()=>closeDialog(b.dataset.dialogClose));
     $('quickPresetSearch').oninput=renderPresetSearch; $('quickPresetSearch').onfocus=renderPresetSearch; document.addEventListener('click',e=>{if(!e.target.closest('.search-control')&&!e.target.closest('#presetDropdown'))$('presetDropdown').classList.add('hidden')});
     $('qtyMinus').onclick=()=>{$('addQty').value=Math.max(1,qty($('addQty').value)-1);updateAddPreview()}; $('qtyPlus').onclick=()=>{$('addQty').value=qty($('addQty').value)+1;updateAddPreview()}; $('addQty').oninput=updateAddPreview; $('addPaid').oninput=updateAddPreview; $('saveQuickTransaction').onclick=saveQuickTransaction;
     document.addEventListener('keydown',e=>{if(e.key==='Enter'&&$('view-add').classList.contains('active')&&document.activeElement?.tagName!=='TEXTAREA'&&!document.querySelector('dialog[open]')){if(selectedPresetId){e.preventDefault();saveQuickTransaction()}}});
     $('saveManualBtn').onclick=saveManual;
     $('pasteWalletBtn').onclick=async()=>{try{$('walletMessages').value=await navigator.clipboard.readText();analyzeWallet()}catch{toast('المتصفح منع القراءة التلقائية. الصق يدويًا داخل المربع.','error')}}; $('analyzeWalletBtn').onclick=analyzeWallet; $('importWalletRowsBtn').onclick=importWalletRows;
-    $('historySearch').oninput=renderHistory; $('historyFrom').onchange=renderHistory; $('historyTo').onchange=renderHistory; $('showArchived').onchange=renderHistory; $$('.range-btn').forEach(b=>b.onclick=()=>setHistoryRange(b.dataset.range)); $('historyTable').querySelectorAll('th[data-sort]').forEach(th=>th.onclick=()=>{historySort={key:th.dataset.sort,dir:historySort.key===th.dataset.sort&&historySort.dir==='desc'?'asc':'desc'};renderHistory()}); $('historyExportBtn').onclick=()=>exportExcel($('historyFrom').value,$('historyTo').value); $('saveEditTxBtn').onclick=saveEditTransaction;
+    $('historySearch').oninput=renderHistory; $('historyFrom').onchange=renderHistory; $('historyTo').onchange=renderHistory; $('showArchived').onchange=renderHistory; $$('.range-btn').forEach(b=>b.onclick=()=>setHistoryRange(b.dataset.range)); $('historyTable').querySelectorAll('th[data-sort]').forEach(th=>th.onclick=()=>{historySort={key:th.dataset.sort,dir:historySort.key===th.dataset.sort&&historySort.dir==='desc'?'asc':'desc'};renderHistory()}); $('historyExportBtn').onclick=()=>exportExcel($('historyFrom').value,$('historyTo').value); $('editTransactionForm').onsubmit=saveEditTransaction;
     $('reportFrom').onchange=renderReports; $('reportTo').onchange=renderReports; $('exportExcelBtn').onclick=()=>exportExcel();
-    $$('.settings-tab').forEach(b=>b.onclick=()=>setSettingsTab(b.dataset.tab)); $('newPresetBtn').onclick=()=>openPresetDialog(); $('presetManageSearch').oninput=renderPresetManager; $('presetServiceFilter').onchange=renderPresetManager; $('savePresetBtn').onclick=savePreset;
-    $('newFixedExpenseBtn').onclick=()=>openExpenseDialog('fixed'); $('newVariableExpenseBtn').onclick=()=>openExpenseDialog('variable'); $('saveExpenseBtn').onclick=saveExpense;
+    $$('.settings-tab').forEach(b=>b.onclick=()=>setSettingsTab(b.dataset.tab)); $('newPresetBtn').onclick=()=>openPresetDialog(); $('presetManageSearch').oninput=renderPresetManager; $('presetServiceFilter').onchange=renderPresetManager; $('presetForm').onsubmit=savePreset;
+    $('newFixedExpenseBtn').onclick=()=>openExpenseDialog('fixed'); $('newVariableExpenseBtn').onclick=()=>openExpenseDialog('variable'); $('expenseForm').onsubmit=saveExpense;
+    if($('bulkPresetModeBtn')) $('bulkPresetModeBtn').onclick=()=>toggleBulkPresetMode();
     $('backupBtn').onclick=downloadBackup; $('restoreBtn').onclick=()=>$('restoreFile').click(); $('restoreFile').onchange=e=>{if(e.target.files[0])restoreBackup(e.target.files[0]);e.target.value=''}; $('safetyRestoreBtn').onclick=restoreLatestSafety; $('clearDataBtn').onclick=clearTransactions; $$('[data-action="backup"]').forEach(b=>b.onclick=downloadBackup); $$('[data-action="wallet-import"]').forEach(b=>b.onclick=()=>{goView('add');setTimeout(()=>$('walletImportPanel').scrollIntoView({behavior:'smooth'}),100)});
-    $('saveLockPasswordBtn').onclick=setLockPassword; $('removeLockPasswordBtn').onclick=removeLockPassword;
-    $('cloudSaveConfigBtn').onclick=saveFirebaseConfig; $('cloudSignupBtn').onclick=cloudSignup; $('cloudLoginBtn').onclick=cloudLogin; $('cloudLogoutBtn').onclick=cloudLogout; $('cloudUploadBtn').onclick=()=>cloudUpload(true); $('cloudDownloadBtn').onclick=cloudDownload;
   }
 
   async function init(){
     document.title=APP_NAME; $('todayPill').textContent=new Date().toLocaleDateString('ar-EG',{weekday:'long',day:'numeric',month:'long'}); $('addDate').value=todayISO(); $('manualDate').value=todayISO();
-    await openDB(); await loadState(); bindEvents(); renderAll(); renderReportRangeButtons(); reportRangeQuick('month');
-    const savedCfg=localStorage.getItem(FIREBASE_CONFIG_KEY); if(savedCfg) await initFirebase();
-    if(localStorage.getItem(LOCK_HASH_KEY)) showLock();
+    await openDB(); await loadState();
+    const fixedRepairWasDone=Boolean(state.settings.fixedExpenseHistoryRepaired); const repairedFixed=repairLegacyFixedExpenseStartDates(); if(!fixedRepairWasDone || repairedFixed) await idbSet(STATE_KEY,sanitizeState(state));
+    bindEvents(); renderAll(); renderReportRangeButtons(); reportRangeQuick('month');
     goView(state.settings.lastView||'today');
     if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
   }
