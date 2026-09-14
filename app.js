@@ -768,9 +768,11 @@
 
   function renderHistory() {
     const arr=historyFiltered();
-    $('historyBody').innerHTML=arr.length?arr.map(t=>{const f=txFinancials(t);return `<tr style="opacity:${t.archived?.52:1}"><td>${esc(dateLabel(t.date))}</td><td><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${serviceColor(t.item)};margin-left:6px"></span>${esc(t.item)}</td><td>${esc(t.offer)}</td><td class="money">${t.quantity}</td><td class="money income">${fmt(t.paid)}</td><td class="money cost">${fmt(t.deducted)}</td><td class="money profit">${fmt(f.profit)}</td><td class="note-cell" title="${esc(t.note)}">${esc(t.note||'—')}</td><td><div class="row-actions"><button class="mini-btn" data-edit="${t.id}">تعديل</button><button class="mini-btn ${t.archived?'':'danger'}" data-archive="${t.id}">${t.archived?'استرجاع':'أرشفة'}</button></div></td></tr>`;}).join(''):'<tr><td colspan="9"><div class="empty-state">لا توجد نتائج.</div></td></tr>';
+    $('historyBody').innerHTML=arr.length?arr.map(t=>{const f=txFinancials(t);return `<tr style="opacity:${t.archived?.52:1}"><td>${esc(dateLabel(t.date))}</td><td><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${serviceColor(t.item)};margin-left:6px"></span>${esc(t.item)}</td><td>${esc(t.offer)}</td><td class="money">${t.quantity}</td><td class="money income">${fmt(t.paid)}</td><td class="money cost">${fmt(t.deducted)}</td><td class="money profit">${fmt(f.profit)}</td><td class="note-cell" title="${esc(t.note)}">${esc(t.note||'—')}</td><td><div class="row-actions"><button class="mini-btn" data-edit="${t.id}">تعديل</button><button class="mini-btn ${t.archived?'':'danger'}" data-archive="${t.id}">${t.archived?'استرجاع':'أرشفة'}</button><button class="mini-btn delete-btn" data-delete="${t.id}">حذف</button></div></td></tr>`;}).join(''):'<tr><td colspan="9"><div class="empty-state">لا توجد نتائج.</div></td></tr>';
     const s=arr.reduce((o,t)=>{const f=txFinancials(t);o.in+=f.income;o.cost+=f.cost;o.profit+=f.profit;o.q+=f.quantity;return o},{in:0,cost:0,profit:0,q:0}); $('historyCount').textContent=`${s.q} عملية`; $('historyTotals').textContent=`دخل ${fmt(s.in)} · ربح ${fmt(s.profit)} EGP`;
-    $$('[data-edit]').forEach(b=>b.onclick=()=>openEditTransaction(b.dataset.edit)); $$('[data-archive]').forEach(b=>b.onclick=()=>toggleArchiveTransaction(b.dataset.archive));
+    $$('[data-edit]').forEach(b=>b.onclick=()=>openEditTransaction(b.dataset.edit));
+    $$('[data-archive]').forEach(b=>b.onclick=()=>toggleArchiveTransaction(b.dataset.archive));
+    $$('[data-delete]').forEach(b=>b.onclick=()=>deleteTransaction(b.dataset.delete));
     $$('#historyTable th[data-sort]').forEach(th=>{th.classList.toggle('sort-asc',historySort.key===th.dataset.sort&&historySort.dir==='asc');th.classList.toggle('sort-desc',historySort.key===th.dataset.sort&&historySort.dir==='desc');});
   }
 
@@ -796,6 +798,29 @@
   }
 
   async function toggleArchiveTransaction(id) { const t=state.transactions.find(x=>x.id===id);if(!t)return;t.archived=!t.archived;t.updatedAt=nowIso();audit(state,t.archived?'أرشفة عملية':'استرجاع عملية',t.date,{id});await saveState('archive');renderAll();toast(t.archived?'تمت الأرشفة ويمكن استرجاعها.':'تم استرجاع العملية.'); }
+
+
+  async function deleteTransaction(id) {
+    const index=state.transactions.findIndex(x=>x.id===id);
+    if(index<0) return;
+    const t=state.transactions[index];
+    const label=`${t.item || 'عملية'} — ${t.offer || ''}`.trim();
+    if(!confirm(`حذف ${label} نهائيًا من السجل؟
+
+سيتم أخذ نسخة أمان قبل الحذف.`)) return;
+    await createSafetySnapshot('before-delete-transaction');
+    const removed={...t};
+    state.transactions.splice(index,1);
+    audit(state,'حذف عملية',t.date,{id:t.id,item:t.item,offer:t.offer,paid:t.paid,deducted:t.deducted,quantity:t.quantity});
+    await saveState('delete-transaction');
+    renderAll();
+    toast('تم حذف العملية من السجل.','success',5200,async()=>{
+      state.transactions.splice(Math.min(index,state.transactions.length),0,removed);
+      audit(state,'تراجع عن حذف عملية',removed.date,{id:removed.id,item:removed.item,offer:removed.offer});
+      await saveState('undo-delete-transaction');
+      renderAll();
+    });
+  }
 
   function reportRangeQuick(range) {
     const now=new Date(); let f='',t='';
