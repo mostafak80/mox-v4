@@ -36,3 +36,19 @@
 - Anomaly Detection: flags likely duplicate transactions, losses, very low margins, unusual profit, unusually large quantity, and large differences from the saved offer price.
 - Smart Pricing: analyses the last 90 days and suggests price increases for high-volume / low-margin offers. Prices are never changed automatically; the user must confirm Apply.
 - All smart analysis runs locally in the browser. No store data is sent to an external AI service.
+
+
+## سجل العمليات الاحترافي
+- وضع تحديد متعدد داخل السجل.
+- تحديد الصفحة الحالية، كل نتائج الفلتر، أو كل السجل.
+- تغيير تاريخ كل العمليات المحددة مرة واحدة.
+- Safety Snapshot قبل التعديل الجماعي + زر تراجع بعد التنفيذ.
+- Pagination تلقائي كل 100 صف للحفاظ على السرعة مع آلاف العمليات.
+
+## إصلاحات موثوقية إضافية
+- التحقق من بنية ملف النسخة الاحتياطية قبل الاسترجاع حتى لا يتم مسح البيانات بملف JSON غير صالح.
+- تحسين كشف التكرار الذكي حتى لا يعتبر عمليتين حقيقيتين لنفس العرض خلال دقائق عمليات مكررة.
+- تحسين Smart Pricing حتى لا يتأثر بالمبالغ الزائدة التي يرسلها العميل.
+- إصلاح Service Worker حتى لا يعيد index.html بدل ملفات CSS/JS عند فشل الشبكة.
+
+- استيراد رسائل المحفظة أصبح Batch واحد بدل حفظ قاعدة البيانات بعد كل رسالة، لتحسين السرعة عند لصق عدد كبير من المعاملات.

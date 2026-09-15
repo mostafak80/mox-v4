@@ -28,6 +28,10 @@
   let lastUndo = null;
   let bulkPresetMode = false;
   let bulkPresetSelection = new Set();
+  let historySelectionMode = false;
+  let historySelected = new Set();
+  let historyPage = 1;
+  const HISTORY_PAGE_SIZE = 100;
 
   const $ = (id) => document.getElementById(id);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -314,7 +318,7 @@
     if(!$(`view-${name}`)) name='today';
     $$('.view').forEach(v=>v.classList.toggle('active',v.id===`view-${name}`));
     $$('.nav-item,.mobile-nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===name));
-    state.settings.lastView=name; saveState('view',{skipCloud:true});
+    state.settings.lastView=name; saveState('view');
     $('viewTitle').textContent={today:'اليوم',add:'إضافة عملية',history:'سجل العمليات',reports:'التقارير',settings:'الإعدادات'}[name]||APP_NAME;
     if(name==='today') renderToday(); if(name==='add') renderAdd(); if(name==='history') renderHistory(); if(name==='reports') renderReports(); if(name==='settings') renderSettings();
     window.scrollTo({top:0,behavior:'smooth'});
@@ -638,9 +642,17 @@
       groupStats.set(k,{count:arr.length,medianProfit:median(profits),medianPaid:median(paid)});
     });
     const duplicateIds=new Set();
-    const dupGroups=new Map();
+    const seenExternalRefs=new Map();
     rows.forEach(t=>{
-      const sig=[t.date,normalize(t.item),normalize(t.offer),num(t.paid).toFixed(2),num(t.deducted).toFixed(2),qty(t.quantity)].join('|');
+      const ref=String(t.externalRef||'').trim();
+      if(!ref)return;
+      if(seenExternalRefs.has(ref)) duplicateIds.add(t.id); else seenExternalRefs.set(ref,t.id);
+    });
+    const dupGroups=new Map();
+    rows.filter(t=>!String(t.externalRef||'').trim()).forEach(t=>{
+      // بدون مرجع خارجي لا نعتبر عمليتين متطابقتين مكررتين إلا لو تم تسجيلهما خلال ثوانٍ قليلة جدًا.
+      // ده يمنع إن شحنتين حقيقيتين لنفس العرض في نفس اليوم يتعلموا كمكرر بالغلط.
+      const sig=[t.date,normalize(t.item),normalize(t.offer),num(t.paid).toFixed(2),num(t.deducted).toFixed(2),qty(t.quantity),normalize(t.note),t.source||''].join('|');
       const arr=dupGroups.get(sig)||[];arr.push(t);dupGroups.set(sig,arr);
     });
     dupGroups.forEach(arr=>{
@@ -648,7 +660,7 @@
       arr.sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
       for(let i=1;i<arr.length;i++){
         const prev=new Date(arr[i-1].createdAt).getTime(),cur=new Date(arr[i].createdAt).getTime();
-        if(Number.isFinite(prev)&&Number.isFinite(cur)&&Math.abs(cur-prev)<=10*60*1000) duplicateIds.add(arr[i].id);
+        if(Number.isFinite(prev)&&Number.isFinite(cur)&&Math.abs(cur-prev)<=30*1000) duplicateIds.add(arr[i].id);
       }
     });
     const presetMap=new Map(state.presets.map(p=>[presetKey(p.item,p.offer),p]));
@@ -689,7 +701,10 @@
       let units=0,income=0,cost=0,profit=0;
       arr.forEach(t=>{const f=txFinancials(t);units+=f.quantity;income+=f.income;cost+=f.cost;profit+=f.profit});
       if(!units)return;
-      const avgIncome=income/units,avgCost=cost/units,avgProfit=profit/units,margin=avgIncome?avgProfit/avgIncome:0;
+      const avgCost=cost/units;
+      // التسعير يعتمد على السعر المحفوظ والتكلفة الفعلية، وليس متوسط المبالغ المستلمة؛
+      // لأن العميل أحيانًا يحول مبلغًا زائدًا وده ماينفعش يرفع تقييم السعر تلقائيًا.
+      const currentPrice=num(p.paid),avgProfit=currentPrice-avgCost,margin=currentPrice?avgProfit/currentPrice:0;
       const baseCost=Math.max(num(p.deducted),avgCost);
       const desiredProfit=Math.max(10,baseCost*.12);
       let target=roundUp5(baseCost+desiredProfit);
@@ -754,7 +769,15 @@
 
   async function importWalletRows() {
     const existing=new Set(state.transactions.map(t=>t.externalRef).filter(Boolean)); let added=0,skipped=0;
-    for(const x of walletParsed){ if(existing.has(x.ref)){skipped++;continue;} const p=state.presets.find(z=>z.id===x.presetId); if(!p){skipped++;continue;} await addTransaction({date:x.date,item:p.item,offer:p.offer,paid:x.amount,deducted:p.deducted,quantity:1,note:[x.name||x.sender,`Ref ${x.ref}`].filter(Boolean).join(' · '),source:'wallet',externalRef:x.ref,presetId:p.id},'استيراد محفظة'); existing.add(x.ref); added++; }
+    const created=[];
+    for(const x of walletParsed){
+      if(existing.has(x.ref)){skipped++;continue;}
+      const p=state.presets.find(z=>z.id===x.presetId); if(!p){skipped++;continue;}
+      const t=normalizeTransaction({date:x.date,item:p.item,offer:p.offer,paid:x.amount,deducted:p.deducted,quantity:1,note:[x.name||x.sender,`Ref ${x.ref}`].filter(Boolean).join(' · '),source:'wallet',externalRef:x.ref});
+      state.transactions.push(t);created.push(t);existing.add(x.ref);added++;
+      p.usageCount=num(p.usageCount)+1;p.lastUsedAt=nowIso();p.updatedAt=nowIso();
+    }
+    if(added){audit(state,'استيراد محفظة','',{count:added,refs:created.map(t=>t.externalRef)});await saveState('wallet-import-batch');}
     renderAll(); renderWalletPreview(); toast(`تمت إضافة ${added} عملية${skipped?`، وتخطي ${skipped}`:''}.`,added?'success':'error');
   }
 
@@ -766,18 +789,97 @@
     arr.sort((a,b)=>{let av,bv;if(key==='profit'){av=txFinancials(a).profit;bv=txFinancials(b).profit}else{av=a[key];bv=b[key]} if(typeof av==='number'||typeof bv==='number')return(num(av)-num(bv))*dir;return String(av??'').localeCompare(String(bv??''),'ar',{numeric:true})*dir;}); return arr;
   }
 
+  function cleanHistorySelection(){
+    const live=new Set(state.transactions.map(t=>t.id));
+    [...historySelected].forEach(id=>{if(!live.has(id))historySelected.delete(id)});
+  }
+
+  function setHistorySelectionMode(force){
+    historySelectionMode=typeof force==='boolean'?force:!historySelectionMode;
+    if(!historySelectionMode) historySelected.clear();
+    historyPage=1;
+    renderHistory();
+  }
+
+  function setHistorySelection(ids,checked=true){
+    ids.forEach(id=>checked?historySelected.add(id):historySelected.delete(id));
+    renderHistory();
+  }
+
+  function renderHistoryBulkBar(filtered){
+    const bar=$('historyBulkBar'); if(!bar)return;
+    cleanHistorySelection();
+    const count=historySelected.size;
+    bar.classList.toggle('hidden',!historySelectionMode);
+    $('historyBulkCount').textContent=`${count} عملية محددة`;
+    $('historyBulkHint').textContent=count?`جاهز لتغيير تاريخ ${count} عملية دفعة واحدة.`:`حدد من الجدول أو استخدم «تحديد نتائج الفلتر».`;
+    if(!$('historyBulkDate').value) $('historyBulkDate').value=todayISO();
+    $('historyApplyDateBtn').disabled=!count;
+    $('historySelectFilteredBtn').textContent=`تحديد نتائج الفلتر (${filtered.length})`;
+    const selectable=state.transactions.filter(t=>$('showArchived').checked||!t.archived).length;
+    $('historySelectAllBtn').textContent=`تحديد كل السجل (${selectable})`;
+  }
+
+  function renderHistoryPagination(total){
+    const pages=Math.max(1,Math.ceil(total/HISTORY_PAGE_SIZE));
+    historyPage=Math.min(Math.max(1,historyPage),pages);
+    const box=$('historyPagination'); if(!box)return;
+    if(total<=HISTORY_PAGE_SIZE){box.innerHTML='';return;}
+    box.innerHTML=`<button type="button" class="mini-btn" id="historyPrevPage" ${historyPage<=1?'disabled':''}>السابق</button><span>صفحة <b>${historyPage}</b> من ${pages}</span><button type="button" class="mini-btn" id="historyNextPage" ${historyPage>=pages?'disabled':''}>التالي</button>`;
+    if($('historyPrevPage'))$('historyPrevPage').onclick=()=>{historyPage=Math.max(1,historyPage-1);renderHistory();};
+    if($('historyNextPage'))$('historyNextPage').onclick=()=>{historyPage=Math.min(pages,historyPage+1);renderHistory();};
+  }
+
   function renderHistory() {
-    const arr=historyFiltered();
-    $('historyBody').innerHTML=arr.length?arr.map(t=>{const f=txFinancials(t);return `<tr style="opacity:${t.archived?.52:1}"><td>${esc(dateLabel(t.date))}</td><td><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${serviceColor(t.item)};margin-left:6px"></span>${esc(t.item)}</td><td>${esc(t.offer)}</td><td class="money">${t.quantity}</td><td class="money income">${fmt(t.paid)}</td><td class="money cost">${fmt(t.deducted)}</td><td class="money profit">${fmt(f.profit)}</td><td class="note-cell" title="${esc(t.note)}">${esc(t.note||'—')}</td><td><div class="row-actions"><button class="mini-btn" data-edit="${t.id}">تعديل</button><button class="mini-btn ${t.archived?'':'danger'}" data-archive="${t.id}">${t.archived?'استرجاع':'أرشفة'}</button><button class="mini-btn delete-btn" data-delete="${t.id}">حذف</button></div></td></tr>`;}).join(''):'<tr><td colspan="9"><div class="empty-state">لا توجد نتائج.</div></td></tr>';
-    const s=arr.reduce((o,t)=>{const f=txFinancials(t);o.in+=f.income;o.cost+=f.cost;o.profit+=f.profit;o.q+=f.quantity;return o},{in:0,cost:0,profit:0,q:0}); $('historyCount').textContent=`${s.q} عملية`; $('historyTotals').textContent=`دخل ${fmt(s.in)} · ربح ${fmt(s.profit)} EGP`;
+    cleanHistorySelection();
+    const all=historyFiltered();
+    const pages=Math.max(1,Math.ceil(all.length/HISTORY_PAGE_SIZE));
+    historyPage=Math.min(historyPage,pages);
+    const start=(historyPage-1)*HISTORY_PAGE_SIZE;
+    const arr=all.slice(start,start+HISTORY_PAGE_SIZE);
+    const table=$('historyTable');
+    table.classList.toggle('history-selecting',historySelectionMode);
+    $('historyBody').innerHTML=arr.length?arr.map(t=>{const f=txFinancials(t),selected=historySelected.has(t.id);return `<tr class="${selected?'history-row-selected':''}" style="opacity:${t.archived?.52:1}"><td class="history-select-col"><input class="history-check history-row-check" type="checkbox" data-history-select="${t.id}" ${selected?'checked':''} aria-label="تحديد ${esc(t.item)} ${esc(t.offer)}"></td><td>${esc(dateLabel(t.date))}</td><td><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${serviceColor(t.item)};margin-left:6px"></span>${esc(t.item)}</td><td>${esc(t.offer)}</td><td class="money">${t.quantity}</td><td class="money income">${fmt(t.paid)}</td><td class="money cost">${fmt(t.deducted)}</td><td class="money profit">${fmt(f.profit)}</td><td class="note-cell" title="${esc(t.note)}">${esc(t.note||'—')}</td><td><div class="row-actions"><button class="mini-btn" data-edit="${t.id}">تعديل</button><button class="mini-btn ${t.archived?'':'danger'}" data-archive="${t.id}">${t.archived?'استرجاع':'أرشفة'}</button><button class="mini-btn delete-btn" data-delete="${t.id}">حذف</button></div></td></tr>`;}).join(''):'<tr><td colspan="10"><div class="empty-state">لا توجد نتائج.</div></td></tr>';
+    const totals=all.reduce((o,t)=>{const f=txFinancials(t);o.in+=f.income;o.cost+=f.cost;o.profit+=f.profit;o.q+=f.quantity;return o},{in:0,cost:0,profit:0,q:0});
+    $('historyCount').textContent=`${totals.q} عملية${all.length!==arr.length?` · عرض ${start+1}-${Math.min(start+arr.length,all.length)} من ${all.length}`:''}`;
+    $('historyTotals').textContent=`دخل ${fmt(totals.in)} · ربح ${fmt(totals.profit)} EGP`;
     $$('[data-edit]').forEach(b=>b.onclick=()=>openEditTransaction(b.dataset.edit));
     $$('[data-archive]').forEach(b=>b.onclick=()=>toggleArchiveTransaction(b.dataset.archive));
     $$('[data-delete]').forEach(b=>b.onclick=()=>deleteTransaction(b.dataset.delete));
+    $$('[data-history-select]').forEach(ch=>ch.onchange=()=>{if(ch.checked)historySelected.add(ch.dataset.historySelect);else historySelected.delete(ch.dataset.historySelect);renderHistory();});
+    const pageBox=$('historySelectPageCheckbox');
+    if(pageBox){const pageIds=arr.map(t=>t.id);const selectedOnPage=pageIds.filter(id=>historySelected.has(id)).length;pageBox.checked=pageIds.length>0&&selectedOnPage===pageIds.length;pageBox.indeterminate=selectedOnPage>0&&selectedOnPage<pageIds.length;pageBox.disabled=!historySelectionMode||!pageIds.length;}
+    const modeBtn=$('historySelectModeBtn');if(modeBtn){modeBtn.textContent=historySelectionMode?'✕ إنهاء التحديد':'☑ تحديد';modeBtn.classList.toggle('active-selection',historySelectionMode);}
     $$('#historyTable th[data-sort]').forEach(th=>{th.classList.toggle('sort-asc',historySort.key===th.dataset.sort&&historySort.dir==='asc');th.classList.toggle('sort-desc',historySort.key===th.dataset.sort&&historySort.dir==='desc');});
+    renderHistoryBulkBar(all); renderHistoryPagination(all.length);
+  }
+
+  async function applyBulkHistoryDate(){
+    cleanHistorySelection();
+    const target=$('historyBulkDate').value;
+    const selected=state.transactions.filter(t=>historySelected.has(t.id));
+    if(!selected.length)return toast('حدد عملية واحدة على الأقل.','error');
+    if(!target)return toast('اختار التاريخ الجديد.','error');
+    const changed=selected.filter(t=>t.date!==target);
+    if(!changed.length)return toast('كل العمليات المحددة بالفعل على نفس التاريخ.','error');
+    if(!confirm(`تغيير تاريخ ${changed.length} عملية إلى ${dateLabel(target)}؟
+
+سيتم أخذ نسخة أمان ويمكنك التراجع بعد التنفيذ.`))return;
+    await createSafetySnapshot('before-bulk-history-date');
+    const before=changed.map(t=>({id:t.id,date:t.date,updatedAt:t.updatedAt}));
+    changed.forEach(t=>{t.date=target;t.updatedAt=nowIso();});
+    audit(state,'تغيير تاريخ مجموعة عمليات',target,{count:changed.length,ids:changed.map(t=>t.id),previousDates:[...new Set(before.map(x=>x.date))]});
+    await saveState('bulk-history-date');
+    historySelected.clear(); historySelectionMode=false; historyPage=1; renderAll();
+    toast(`تم تغيير تاريخ ${changed.length} عملية إلى ${dateLabel(target)}.`,'success',6200,async()=>{
+      before.forEach(old=>{const t=state.transactions.find(x=>x.id===old.id);if(t){t.date=old.date;t.updatedAt=old.updatedAt;}});
+      audit(state,'تراجع عن تغيير تاريخ مجموعة','',{count:before.length});
+      await saveState('undo-bulk-history-date'); renderAll();
+    });
   }
 
   function setHistoryRange(range) {
-    const now=new Date(); if(range==='today'){$('historyFrom').value=todayISO();$('historyTo').value=todayISO();} else if(range==='month'){$('historyFrom').value=localDateISO(startOfMonth(now));$('historyTo').value=localDateISO(endOfMonth(now));} else {$('historyFrom').value='';$('historyTo').value='';} renderHistory();
+    const now=new Date(); if(range==='today'){$('historyFrom').value=todayISO();$('historyTo').value=todayISO();} else if(range==='month'){$('historyFrom').value=localDateISO(startOfMonth(now));$('historyTo').value=localDateISO(endOfMonth(now));} else {$('historyFrom').value='';$('historyTo').value='';} historyPage=1; renderHistory();
   }
 
   function openEditTransaction(id) {
@@ -804,6 +906,7 @@
     const index=state.transactions.findIndex(x=>x.id===id);
     if(index<0) return;
     const t=state.transactions[index];
+    historySelected.delete(id);
     const label=`${t.item || 'عملية'} — ${t.offer || ''}`.trim();
     if(!confirm(`حذف ${label} نهائيًا من السجل؟
 
@@ -932,7 +1035,18 @@
   async function deleteExpense(type,id){const arr=type==='fixed'?state.fixedExpenses:state.variableExpenses,e=arr.find(x=>x.id===id);if(!e)return;if(!confirm(`حذف ${e.name}؟`))return;await createSafetySnapshot('before-delete-expense');if(type==='fixed')state.fixedExpenses=arr.filter(x=>x.id!==id);else state.variableExpenses=arr.filter(x=>x.id!==id);audit(state,'حذف مصروف',type==='fixed'?e.startDate:e.date,{name:e.name,amount:e.amount,type});await saveState('delete-expense');renderAll();toast('تم حذف المصروف.');}
 
   async function downloadBackup(){const backup={app:APP_NAME,format:'mox-v2-clean-backup',version:2,exportedAt:nowIso(),state:cleanBackupState()};downloadBlob(new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}),`MOX-V2-backup-${todayISO()}.json`);toast('تم تنزيل النسخة الاحتياطية.');}
-  async function restoreBackup(file){try{const text=await file.text(),b=JSON.parse(text),incoming=sanitizeState(b.state||b);if(!incoming.transactions&&!incoming.presets)throw new Error('invalid');if(!confirm('استرجاع النسخة سيستبدل البيانات الحالية. متابعة؟'))return;await createSafetySnapshot('before-file-restore');state=incoming;await saveState('restore-file');renderAll();toast('تم استرجاع النسخة.');}catch(e){console.error(e);toast('ملف النسخة غير صالح.','error')}}
+  async function restoreBackup(file){
+    try{
+      const text=await file.text(),b=JSON.parse(text),raw=b?.state||b;
+      const valid=raw&&typeof raw==='object'&&(Array.isArray(raw.transactions)||Array.isArray(raw.rows))&&Array.isArray(raw.presets);
+      if(!valid)throw new Error('invalid-backup-structure');
+      const incoming=sanitizeState(raw);
+      if(!confirm(`استرجاع النسخة سيستبدل البيانات الحالية.
+
+النسخة تحتوي على ${incoming.transactions.length} عملية و${incoming.presets.length} عرض. متابعة؟`))return;
+      await createSafetySnapshot('before-file-restore');state=incoming;await saveState('restore-file');renderAll();toast('تم استرجاع النسخة.');
+    }catch(e){console.error(e);toast('ملف النسخة غير صالح أو لا يخص MOX-V2.','error')}
+  }
   async function clearTransactions(){if(!state.transactions.length)return toast('لا توجد عمليات لمسحها.','error');const word=prompt('للتأكيد اكتب: مسح');if(word!=='مسح')return;await createSafetySnapshot('before-clear-transactions');state.transactions=[];audit(state,'مسح كل العمليات','','');await saveState('clear-transactions');renderAll();toast('تم مسح العمليات ويمكن الرجوع لنسخة الأمان.');}
   async function renderStorageInfo(){if(!$('storageInfo'))return;const estimate=await navigator.storage?.estimate?.();const size=new Blob([JSON.stringify(cleanBackupState())]).size;$('storageInfo').textContent=`حجم بيانات MOX-V2 التقريبي: ${(size/1024).toFixed(1)} KB${estimate?.quota?` · مساحة المتصفح المتاحة ${(estimate.quota/1024/1024).toFixed(0)} MB`:''} · العمليات ${state.transactions.length} · العروض ${state.presets.length}`;}
 
@@ -954,7 +1068,17 @@
     document.addEventListener('keydown',e=>{if(e.key==='Enter'&&$('view-add').classList.contains('active')&&document.activeElement?.tagName!=='TEXTAREA'&&!document.querySelector('dialog[open]')){if(selectedPresetId){e.preventDefault();saveQuickTransaction()}}});
     $('saveManualBtn').onclick=saveManual;
     $('pasteWalletBtn').onclick=async()=>{try{$('walletMessages').value=await navigator.clipboard.readText();analyzeWallet()}catch{toast('المتصفح منع القراءة التلقائية. الصق يدويًا داخل المربع.','error')}}; $('analyzeWalletBtn').onclick=analyzeWallet; $('importWalletRowsBtn').onclick=importWalletRows;
-    $('historySearch').oninput=renderHistory; $('historyFrom').onchange=renderHistory; $('historyTo').onchange=renderHistory; $('showArchived').onchange=renderHistory; $$('.range-btn').forEach(b=>b.onclick=()=>setHistoryRange(b.dataset.range)); $('historyTable').querySelectorAll('th[data-sort]').forEach(th=>th.onclick=()=>{historySort={key:th.dataset.sort,dir:historySort.key===th.dataset.sort&&historySort.dir==='desc'?'asc':'desc'};renderHistory()}); $('historyExportBtn').onclick=()=>exportExcel($('historyFrom').value,$('historyTo').value); $('editTransactionForm').onsubmit=saveEditTransaction;
+    const rerenderHistoryFromFilter=()=>{historyPage=1;renderHistory();};
+    $('historySearch').oninput=rerenderHistoryFromFilter; $('historyFrom').onchange=rerenderHistoryFromFilter; $('historyTo').onchange=rerenderHistoryFromFilter; $('showArchived').onchange=rerenderHistoryFromFilter;
+    $$('.range-btn').forEach(b=>b.onclick=()=>setHistoryRange(b.dataset.range));
+    $('historyTable').querySelectorAll('th[data-sort]').forEach(th=>th.onclick=()=>{historySort={key:th.dataset.sort,dir:historySort.key===th.dataset.sort&&historySort.dir==='desc'?'asc':'desc'};historyPage=1;renderHistory()});
+    $('historyExportBtn').onclick=()=>exportExcel($('historyFrom').value,$('historyTo').value); $('editTransactionForm').onsubmit=saveEditTransaction;
+    $('historySelectModeBtn').onclick=()=>setHistorySelectionMode();
+    $('historySelectPageCheckbox').onchange=e=>{const page=historyFiltered().slice((historyPage-1)*HISTORY_PAGE_SIZE,historyPage*HISTORY_PAGE_SIZE);setHistorySelection(page.map(t=>t.id),e.target.checked);};
+    $('historySelectFilteredBtn').onclick=()=>{historySelectionMode=true;setHistorySelection(historyFiltered().map(t=>t.id),true);};
+    $('historySelectAllBtn').onclick=()=>{historySelectionMode=true;const show=$('showArchived').checked;setHistorySelection(state.transactions.filter(t=>show||!t.archived).map(t=>t.id),true);};
+    $('historyClearSelectionBtn').onclick=()=>{historySelected.clear();renderHistory();};
+    $('historyApplyDateBtn').onclick=applyBulkHistoryDate;
     $('reportFrom').onchange=renderReports; $('reportTo').onchange=renderReports; $('exportExcelBtn').onclick=()=>exportExcel();
     $$('.settings-tab').forEach(b=>b.onclick=()=>setSettingsTab(b.dataset.tab)); $('newPresetBtn').onclick=()=>openPresetDialog(); $('presetManageSearch').oninput=renderPresetManager; $('presetServiceFilter').onchange=renderPresetManager; $('presetForm').onsubmit=savePreset;
     $('newFixedExpenseBtn').onclick=()=>openExpenseDialog('fixed'); $('newVariableExpenseBtn').onclick=()=>openExpenseDialog('variable'); $('expenseForm').onsubmit=saveExpense;

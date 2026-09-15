@@ -200,14 +200,42 @@
       </section>
 
       <section id="view-history" class="view">
-        <article class="panel glass">
-          <div class="panel-head stack-mobile"><div><span class="panel-kicker">كل العمليات</span><h3>سجل العمليات</h3></div><div class="panel-actions"><label class="switch"><input id="showArchived" type="checkbox"><span></span><b>إظهار المؤرشف</b></label><button id="historyExportBtn" class="btn btn-secondary">Excel</button></div></div>
+        <article class="panel glass history-panel">
+          <div class="panel-head stack-mobile">
+            <div><span class="panel-kicker">كل العمليات</span><h3>سجل العمليات</h3><p>حدد عملية أو مجموعة عمليات وعدّل تاريخهم كلهم مرة واحدة بأمان.</p></div>
+            <div class="panel-actions">
+              <label class="switch"><input id="showArchived" type="checkbox"><span></span><b>إظهار المؤرشف</b></label>
+              <button id="historySelectModeBtn" type="button" class="btn btn-secondary">☑ تحديد</button>
+              <button id="historyExportBtn" class="btn btn-secondary">Excel</button>
+            </div>
+          </div>
           <div class="filters-row">
             <div class="search-control flex-2"><span>⌕</span><input id="historySearch" class="control" placeholder="بحث بالمنتج أو العرض أو الملاحظة"></div>
             <input id="historyFrom" class="control" type="date"><input id="historyTo" class="control" type="date">
             <button class="btn btn-secondary range-btn" data-range="today">اليوم</button><button class="btn btn-secondary range-btn" data-range="month">الشهر</button><button class="btn btn-ghost range-btn" data-range="all">الكل</button>
           </div>
-          <div class="table-card"><div class="table-scroll"><table id="historyTable"><thead><tr><th data-sort="date">التاريخ</th><th data-sort="item">المنتج / الخدمة</th><th data-sort="offer">العرض</th><th data-sort="quantity">الكمية</th><th data-sort="paid">الداخل / واحدة</th><th data-sort="deducted">مصروف / واحدة</th><th data-sort="profit">ربح الإجمالي</th><th data-sort="note">ملاحظة</th><th>إجراء</th></tr></thead><tbody id="historyBody"></tbody></table></div><div class="table-footer"><span id="historyCount">0 عملية</span><div id="historyTotals"></div></div></div>
+
+          <div id="historyBulkBar" class="history-bulk-bar hidden">
+            <div class="history-bulk-summary">
+              <span class="history-bulk-icon">✓</span>
+              <div><b id="historyBulkCount">0 عملية محددة</b><small id="historyBulkHint">حدد العمليات التي تريد تعديل تاريخها.</small></div>
+            </div>
+            <div class="history-bulk-actions">
+              <button id="historySelectFilteredBtn" type="button" class="mini-btn">تحديد نتائج الفلتر</button>
+              <button id="historySelectAllBtn" type="button" class="mini-btn">تحديد كل السجل</button>
+              <label class="history-bulk-date"><span>التاريخ الجديد</span><input id="historyBulkDate" class="control ltr" type="date"></label>
+              <button id="historyApplyDateBtn" type="button" class="btn btn-primary">نقل للتاريخ</button>
+              <button id="historyClearSelectionBtn" type="button" class="btn btn-ghost">إلغاء التحديد</button>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-scroll"><table id="historyTable"><thead><tr><th class="history-select-col"><input id="historySelectPageCheckbox" class="history-check" type="checkbox" aria-label="تحديد كل العمليات في الصفحة"></th><th data-sort="date">التاريخ</th><th data-sort="item">المنتج / الخدمة</th><th data-sort="offer">العرض</th><th data-sort="quantity">الكمية</th><th data-sort="paid">الداخل / واحدة</th><th data-sort="deducted">مصروف / واحدة</th><th data-sort="profit">ربح الإجمالي</th><th data-sort="note">ملاحظة</th><th>إجراء</th></tr></thead><tbody id="historyBody"></tbody></table></div>
+            <div class="table-footer history-footer">
+              <div class="history-footer-stats"><span id="historyCount">0 عملية</span><div id="historyTotals"></div></div>
+              <div id="historyPagination" class="history-pagination"></div>
+            </div>
+          </div>
         </article>
       </section>
 

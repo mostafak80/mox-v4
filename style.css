@@ -92,3 +92,31 @@
 .row-actions{flex-wrap:wrap;align-items:center}
 .mini-btn.delete-btn{color:#fecaca;border-color:rgba(239,68,68,.28);background:rgba(239,68,68,.08)}
 .mini-btn.delete-btn:hover{color:#fff;border-color:rgba(239,68,68,.58);background:rgba(239,68,68,.18);box-shadow:0 8px 20px rgba(239,68,68,.12)}
+
+/* ===== MOX-V2 History Pro: bulk selection + date move ===== */
+.history-panel{position:relative}
+#historySelectModeBtn.active-selection{background:linear-gradient(135deg,rgba(108,124,255,.22),rgba(45,212,191,.12));border-color:rgba(108,124,255,.42);color:#fff;box-shadow:0 10px 28px rgba(108,124,255,.14)}
+.history-select-col{width:48px;text-align:center!important;padding-inline:8px!important;display:none}
+.history-selecting .history-select-col{display:table-cell}
+.history-check{appearance:none;-webkit-appearance:none;width:20px;height:20px;border-radius:7px;border:1px solid rgba(148,163,184,.34);background:#0b1223;display:inline-grid;place-items:center;vertical-align:middle;cursor:pointer;transition:.16s ease;box-shadow:inset 0 1px 0 rgba(255,255,255,.03)}
+.history-check:before{content:'✓';font-size:.72rem;font-weight:900;color:white;transform:scale(0);transition:transform .14s ease}
+.history-check:hover{border-color:rgba(108,124,255,.72);box-shadow:0 0 0 3px rgba(108,124,255,.08)}
+.history-check:checked{background:linear-gradient(135deg,var(--accent),var(--accent2));border-color:transparent;box-shadow:0 8px 22px rgba(108,124,255,.26)}
+.history-check:checked:before{transform:scale(1)}
+.history-check:indeterminate{background:linear-gradient(135deg,#334155,#475569);border-color:#64748b}
+.history-check:indeterminate:before{content:'−';transform:scale(1)}
+.history-row-selected{background:linear-gradient(90deg,rgba(108,124,255,.11),rgba(45,212,191,.035))!important;box-shadow:inset -3px 0 0 rgba(108,124,255,.62)}
+.history-bulk-bar{position:sticky;top:10px;z-index:25;margin:0 0 12px;padding:12px 14px;border:1px solid rgba(108,124,255,.28);border-radius:18px;background:linear-gradient(135deg,rgba(17,27,52,.96),rgba(9,18,34,.96));box-shadow:0 20px 48px rgba(0,0,0,.28),0 0 0 1px rgba(255,255,255,.025) inset;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);display:flex;align-items:center;justify-content:space-between;gap:12px;animation:historyBulkIn .2s ease}
+@keyframes historyBulkIn{from{opacity:0;transform:translateY(-7px) scale(.99)}to{opacity:1;transform:none}}
+.history-bulk-summary{display:flex;align-items:center;gap:10px;min-width:210px}
+.history-bulk-icon{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--accent),var(--accent2));font-weight:900;box-shadow:0 10px 25px rgba(108,124,255,.22)}
+.history-bulk-summary b{display:block;font-size:.76rem}.history-bulk-summary small{display:block;color:var(--muted);font-size:.61rem;margin-top:2px}
+.history-bulk-actions{display:flex;align-items:end;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.history-bulk-date{display:grid;gap:4px;min-width:160px}.history-bulk-date span{font-size:.58rem;color:var(--muted);font-weight:800}.history-bulk-date .control{min-height:38px}
+.history-bulk-actions .btn{min-height:38px}.history-bulk-actions .mini-btn{min-height:34px;padding-inline:10px}
+.history-bulk-actions button:disabled{opacity:.45;cursor:not-allowed;transform:none!important;filter:none!important}
+.history-footer{display:flex!important;align-items:center!important;justify-content:space-between!important;flex-direction:row!important;gap:12px!important}
+.history-footer-stats{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.history-pagination{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.64rem}.history-pagination b{color:#fff}.history-pagination .mini-btn:disabled{opacity:.35;cursor:not-allowed}
+@media(max-width:900px){.history-bulk-bar{position:relative;top:auto;align-items:stretch;flex-direction:column}.history-bulk-actions{justify-content:stretch}.history-bulk-actions>*{flex:1}.history-bulk-date{min-width:180px}.history-footer{align-items:flex-start!important;flex-direction:column!important}.history-pagination{width:100%;justify-content:space-between}}
+@media(max-width:680px){.history-bulk-actions{display:grid;grid-template-columns:1fr 1fr}.history-bulk-date{grid-column:span 2;min-width:0}.history-bulk-actions #historyApplyDateBtn,.history-bulk-actions #historyClearSelectionBtn{grid-column:span 1}.history-bulk-summary{min-width:0}.history-select-col{width:40px}.history-check{width:18px;height:18px}}
