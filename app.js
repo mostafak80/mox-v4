@@ -945,7 +945,7 @@
 
   function renderReports() {
     renderReportRangeButtons(); if(!$('reportFrom').value||!$('reportTo').value){const n=new Date();$('reportFrom').value=localDateISO(startOfMonth(n));$('reportTo').value=todayISO();}
-    const from=$('reportFrom').value,to=$('reportTo').value,s=statsForRange(from,to); $('reportIncome').textContent=fmt(s.income);$('reportCost').textContent=fmt(s.cost);$('reportVariable').textContent=fmt(s.variable);$('reportFixed').textContent=fmt(s.fixed);$('reportProfit').textContent=fmt(s.profit); renderRevenueChart('reportChart',7,from,to); renderTopServices(s.rows);
+    const from=$('reportFrom').value,to=$('reportTo').value,s=statsForRange(from,to); const profitBeforeFixed=s.income-s.cost-s.variable; $('reportIncome').textContent=fmt(s.income);$('reportCost').textContent=fmt(s.cost);$('reportVariable').textContent=fmt(s.variable);$('reportFixed').textContent=fmt(s.fixed);$('reportProfitBeforeFixed').textContent=fmt(profitBeforeFixed);$('reportProfit').textContent=fmt(s.profit); renderRevenueChart('reportChart',7,from,to); renderTopServices(s.rows);
   }
 
   function renderTopServices(rows) {

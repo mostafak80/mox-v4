@@ -1,4 +1,4 @@
-const CACHE='mox-v2-history-pro-20260915-1';
+const CACHE='mox-v2-history-pro-20260915-2';
 const APP_ASSETS=['./','./index.html','./style.css','./app.js','./manifest.webmanifest','./assets/logo.png'];
 
 self.addEventListener('install',event=>{
