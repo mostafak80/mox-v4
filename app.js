@@ -22,7 +22,6 @@
 
   let db;
   let state;
-  let selectedPresetId = '';
   let walletParsed = [];
   let historySort = { key: 'date', dir: 'desc' };
   let lastUndo = null;
@@ -33,6 +32,7 @@
   let historyPage = 1;
   const HISTORY_PAGE_SIZE = 100;
   let quickCart = [];
+  let quickCartSaving = false;
 
   const $ = (id) => document.getElementById(id);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -120,7 +120,7 @@
     return new Promise((resolve,reject)=>{
       const tx=db.transaction(STORE,'readwrite');
       tx.objectStore(STORE).put(value,key);
-      tx.oncomplete=()=>resolve(); tx.onerror=()=>reject(tx.error);
+      tx.oncomplete=()=>resolve(); tx.onerror=()=>reject(tx.error); tx.onabort=()=>reject(tx.error || new Error('Storage transaction aborted'));
     });
   }
   function idbDelete(key) {
@@ -459,22 +459,22 @@
   }
 
   function renderAdd() {
-    $('addDate').value ||= todayISO(); $('manualDate').value ||= todayISO(); renderQuickServicePicker(); renderRecentPresets(); renderSelectedPreset(); renderQuickCart(); updateAddPreview();
+    $('addDate').value ||= todayISO(); $('manualDate').value ||= todayISO(); renderQuickServicePicker(); renderRecentPresets(); renderQuickCart();
   }
 
   function renderRecentPresets() {
     const all=sortedPresets();
     const serviceFilter=getQuickPresetServiceFilter();
     const filtered=serviceFilter ? all.filter(p=>p.item===serviceFilter) : all;
-    const list=filtered.slice(0,bulkPresetMode?60:12);
+    const list=filtered;
     const wrap=$('recentPresets');
     wrap.classList.toggle('bulk-mode',bulkPresetMode);
     wrap.innerHTML=list.length?list.map((p,idx)=>{
       const selected=bulkPresetSelection.has(p.id);
-      return `<button type="button" class="recent-preset-card ${selected?'selected':''}" data-preset-id="${p.id}" style="animation-delay:${Math.min(idx*45,420)}ms">
+      return `<button type="button" class="recent-preset-card ${selected?'selected':''}" data-preset-id="${esc(p.id)}" style="animation-delay:${Math.min(idx*45,420)}ms">
         <i class="service-bar" style="--service-color:${serviceColor(p.item)}"></i>
         <span><b>${esc(p.item)} — ${esc(p.offer)}</b><small>الداخل ${fmt(p.paid)} · المصروف ${fmt(p.deducted)} · الربح ${fmt(p.paid-p.deducted)}</small></span>
-        <strong>${bulkPresetMode?`<span class="bulk-check">${selected?'✓':'＋'}</span>`:`${fmt(p.paid)}`}</strong>
+        <strong>${bulkPresetMode?`<span class="bulk-check">${selected?'✓':'＋'}</span>`:`<span class="offer-cart-count" aria-label="عدد الشحنات في السلة">${quickCart.find(r=>r.id===p.id)?.quantity || '+'}</span>`}</strong>
       </button>`;
     }).join(''):'<div class="empty-state">لا توجد عروض لهذه الخدمة. اختر خدمة أخرى أو أضف عرضًا من الإعدادات.</div>';
     $$('#recentPresets [data-preset-id]').forEach(b=>b.onclick=()=>{
@@ -484,15 +484,18 @@
     renderQuickServicePicker();
     renderQuickPresetFilterMeta(list.length,all.length);
     renderBulkPresetBar();
+    syncOfferCartCounts();
   }
 
   function toggleBulkPresetMode(force){
+    if(quickCartSaving) return;
     bulkPresetMode=typeof force==='boolean'?force:!bulkPresetMode;
     if(!bulkPresetMode) bulkPresetSelection.clear();
     renderRecentPresets();
   }
 
   function toggleBulkPreset(id){
+    if(quickCartSaving) return;
     if(bulkPresetSelection.has(id)) bulkPresetSelection.delete(id); else bulkPresetSelection.add(id);
     renderRecentPresets();
   }
@@ -508,42 +511,22 @@
     if($('addBulkPresetsBtn')) $('addBulkPresetsBtn').onclick=addBulkPresets;
   }
 
-  async function addBulkPresets(){
-    const chosen=[...bulkPresetSelection].map(id=>state.presets.find(p=>p.id===id)).filter(Boolean);
+  function addBulkPresets(){
+    if(quickCartSaving) return;
+    const chosen=[...bulkPresetSelection].map(id=>state.presets.find(p=>p.id===id && p.active!==false)).filter(Boolean);
     if(!chosen.length) return toast('حدد عرض واحد على الأقل.','error');
-    const date=$('addDate').value||todayISO();
-    const created=[];
-    for(const p of chosen){
-      const t=normalizeTransaction({date,item:p.item,offer:p.offer,paid:p.paid,deducted:p.deducted,quantity:1,note:'',source:'bulk-cashier'});
-      state.transactions.push(t); created.push(t);
-      p.usageCount=num(p.usageCount)+1; p.lastUsedAt=nowIso(); p.updatedAt=nowIso();
-    }
-    audit(state,'إضافة عروض متعددة',date,{count:created.length,offers:created.map(t=>`${t.item} — ${t.offer}`)});
-    await saveState('bulk-add');
-    bulkPresetSelection.clear(); bulkPresetMode=false; renderAll();
-    toast(`تمت إضافة ${created.length} عملية مرة واحدة.`,'success',4200);
-  }
-
-  function selectPreset(id) {
-    selectedPresetId=id; const p=state.presets.find(x=>x.id===id); if(!p)return;
-    $('addPaid').value=p.paid; $('quickPresetSearch').value=`${p.item} — ${p.offer}`; $('presetDropdown').classList.add('hidden'); renderSelectedPreset(); updateAddPreview();
-  }
-  function renderSelectedPreset() {
-    const p=state.presets.find(x=>x.id===selectedPresetId);
-    $('selectedPresetCard').classList.toggle('empty-card',!p);
-    $('selectedPresetCard').innerHTML=p?`<div class="selected-preset-grid"><div><b>${esc(p.item)} — ${esc(p.offer)}</b><small>الداخل ${fmt(p.paid)} · المصروف ${fmt(p.deducted)} · الربح ${fmt(p.paid-p.deducted)}</small></div><span class="pill">جاهز للإضافة</span></div>`:'اختار عرض من البحث أو من العروض الأخيرة.';
-  }
-  function updateAddPreview() {
-    const p=state.presets.find(x=>x.id===selectedPresetId); const q=qty($('addQty')?.value); const paid=num($('addPaid')?.value); const cost=p?num(p.deducted):0;
-    $('addCostPreview').textContent=fmt(cost*q); $('addProfitPreview').textContent=fmt((paid-cost)*q);
+    chosen.forEach(p=>addToQuickCart(p.id,false));
+    bulkPresetSelection.clear(); bulkPresetMode=false;
+    renderQuickCart(); renderRecentPresets();
+    toast(`تمت إضافة ${chosen.length} عروض للسلة. اضغط حفظ العمليات لما تخلص.`);
   }
 
   function renderPresetSearch() {
     const q=normalize($('quickPresetSearch').value); const box=$('presetDropdown');
     if(!q){ box.classList.add('hidden'); box.innerHTML=''; return; }
     const matches=sortedPresets().filter(p=>normalize(`${p.item} ${p.offer} ${p.paid}`).includes(q)).slice(0,12);
-    box.innerHTML=matches.length?matches.map(p=>`<button class="preset-option" data-id="${p.id}"><span><b>${esc(p.item)} — ${esc(p.offer)}</b><small>الداخل ${fmt(p.paid)} · المصروف ${fmt(p.deducted)}</small></span><span class="preset-money">${fmt(p.paid)} EGP</span></button>`).join(''):'<div class="empty-state">لا يوجد عرض مطابق.</div>';
-    box.classList.remove('hidden'); $$('#presetDropdown [data-id]').forEach(b=>b.onclick=()=>selectPreset(b.dataset.id));
+    box.innerHTML=matches.length?matches.map(p=>`<button class="preset-option" data-id="${esc(p.id)}"><span><b>${esc(p.item)} — ${esc(p.offer)}</b><small>الداخل ${fmt(p.paid)} · المصروف ${fmt(p.deducted)}</small></span><span class="preset-money">${fmt(p.paid)} EGP</span></button>`).join(''):'<div class="empty-state">لا يوجد عرض مطابق.</div>';
+    box.classList.remove('hidden'); $$('#presetDropdown [data-id]').forEach(b=>b.onclick=()=>{addToQuickCart(b.dataset.id);$('quickPresetSearch').value='';box.classList.add('hidden');});
   }
 
   async function addTransaction(data, reason='إضافة عملية') {
@@ -553,50 +536,141 @@
     await saveState(reason); return t;
   }
 
-  function addToQuickCart(id){
-    const p=state.presets.find(x=>x.id===id); if(!p)return;
+  function addToQuickCart(id, render=true){
+    if(quickCartSaving) return;
+    const p=state.presets.find(x=>x.id===id && x.active!==false); if(!p)return;
     const row=quickCart.find(x=>x.id===id);
-    if(row) row.quantity++; else quickCart.push({id:p.id,quantity:1});
-    renderQuickCart();
-    toast('تم إضافة العرض للسلة.');
+    if(row) row.quantity++;
+    else quickCart.push({id:p.id,item:p.item,offer:p.offer,paid:p.paid,deducted:p.deducted,quantity:1});
+    if(render){renderQuickCart(id);syncOfferCartCounts();}
   }
-  function changeCartQty(id,delta){
-    const r=quickCart.find(x=>x.id===id); if(!r)return;
-    r.quantity+=delta; if(r.quantity<1) quickCart=quickCart.filter(x=>x.id!==id);
-    renderQuickCart();
-  }
-  function removeCartItem(id){quickCart=quickCart.filter(x=>x.id!==id);renderQuickCart();}
-  function renderQuickCart(){
-    const box=$('quickCart'); if(!box)return;
-    if(!quickCart.length){box.innerHTML='<div class="cart-empty">🛒 السلة فارغة</div>';return;}
-    let c=0,total=0,profit=0;
-    box.innerHTML=quickCart.map(r=>{
-      const p=state.presets.find(x=>x.id===r.id); if(!p)return '';
-      c+=r.quantity; total+=p.paid*r.quantity; profit+=(p.paid-p.deducted)*r.quantity;
-      return `<div class="cart-card"><i style="--service-color:${serviceColor(p.item)}"></i><div><b>${esc(p.item)} — ${esc(p.offer)}</b><small>${fmt(p.paid)} EGP</small></div><div class="cart-actions"><button onclick="changeCartQty('${p.id}',-1)">−</button><b>${r.quantity}</b><button onclick="changeCartQty('${p.id}',1)">+</button><button onclick="removeCartItem('${p.id}')">×</button></div></div>`;
-    }).join('');
-    $('cartSummary').textContent=`عدد العمليات: ${c} | الداخل: ${fmt(total)} | الربح: ${fmt(profit)}`;
-    $('saveQuickTransaction').textContent=`حفظ ${c} عمليات`;
-  }
-  window.changeCartQty=changeCartQty; window.removeCartItem=removeCartItem;
 
-  async function saveQuickTransaction() {
-    if(!quickCart.length){
-      if(selectedPresetId) addToQuickCart(selectedPresetId);
-      else return toast('اختار عرض محفوظ الأول.','error');
-    }
-    const date=$('addDate').value||todayISO();
-    const note=$('addNote').value.trim();
+  function syncOfferCartCounts(){
+    $$('#recentPresets [data-preset-id]').forEach(button=>{
+      const count=quickCart.find(row=>row.id===button.dataset.presetId)?.quantity || 0;
+      button.classList.toggle('in-cart',count>0);
+      const badge=button.querySelector('.offer-cart-count');
+      if(badge) badge.textContent=count || '+';
+    });
+  }
+
+  function changeCartQty(id,delta){
+    if(quickCartSaving) return;
+    const row=quickCart.find(x=>x.id===id); if(!row)return;
+    row.quantity=Math.max(1,row.quantity+delta);
+    renderQuickCart(id);syncOfferCartCounts();
+  }
+
+  function removeCartItem(id){
+    if(quickCartSaving) return;
+    quickCart=quickCart.filter(x=>x.id!==id);
+    renderQuickCart();syncOfferCartCounts();
+  }
+
+  function cartTotals(){
+    return quickCart.reduce((t,r)=>({count:t.count+r.quantity,income:t.income+r.paid*r.quantity,cost:t.cost+r.deducted*r.quantity}),{count:0,income:0,cost:0});
+  }
+
+  function updateCartSummary(){
+    const t=cartTotals();
+    $('cartSummary').textContent=`${fmt(t.count,0)} شحنة · ${fmt(quickCart.length,0)} عرض`;
+    $('addIncomePreview').textContent=fmt(t.income);
+    $('addCostPreview').textContent=fmt(t.cost);
+    $('addProfitPreview').textContent=fmt(t.income-t.cost);
+    $('addProfitPreview').classList.toggle('negative',t.income<t.cost);
+    const save=$('saveQuickTransaction');
+    save.disabled=quickCartSaving || !t.count;
+    save.textContent=quickCartSaving?'جارٍ حفظ العمليات…':t.count?`حفظ العمليات · ${fmt(t.count,0)} شحنة`:'حفظ العمليات';
+    save.setAttribute('aria-busy',String(quickCartSaving));
+    $('clearQuickCart').disabled=quickCartSaving || !t.count;
+  }
+
+  function renderQuickCart(changedId=''){
+    const box=$('quickCart'); if(!box)return;
+    const active=document.activeElement;
+    const focused=active?.closest('[data-cart-id]');
+    const focusId=focused?.dataset.cartId,focusAction=active?.dataset.cartAction;
+    // Keep existing rows and focus when quantities change; only new rows animate in.
+    const existing=new Map([...box.querySelectorAll('[data-cart-id]')].map(el=>[el.dataset.cartId,el]));
+    box.querySelector('.cart-empty')?.remove();
     for(const row of quickCart){
-      const p=state.presets.find(x=>x.id===row.id); if(!p)continue;
-      for(let i=0;i<row.quantity;i++){
-        await addTransaction({date,item:p.item,offer:p.offer,paid:p.paid,deducted:p.deducted,quantity:1,note,source:'cashier',presetId:p.id},'إضافة سريعة');
+      let el=existing.get(row.id);
+      if(el)existing.delete(row.id);
+      else{
+        el=document.createElement('div');el.className='cart-card';el.dataset.cartId=row.id;el.setAttribute('role','listitem');
+        el.innerHTML=`<div class="cart-item-copy"><span class="cart-service"></span><b class="cart-offer"></b><small class="cart-unit-cost"></small></div>
+          <label class="cart-price"><span>الداخل / شحنة</span><input class="control ltr" data-cart-action="price" type="number" min="0" step="0.01" required inputmode="decimal"></label>
+          <div class="cart-stepper"><button type="button" data-cart-action="minus" aria-label="تقليل عدد الشحنات">−</button><output class="cart-quantity" aria-label="عدد الشحنات"></output><button type="button" data-cart-action="plus" aria-label="زيادة عدد الشحنات">+</button></div>
+          <div class="cart-line-total"><small>إجمالي الداخل</small><b></b><small>EGP</small></div>
+          <button type="button" class="cart-remove" data-cart-action="remove" aria-label="حذف العرض من السلة">×</button>`;
+        el.style.setProperty('--service-color',serviceColor(row.item));
+        el.querySelector('.cart-service').textContent=row.item;
+        el.querySelector('.cart-offer').textContent=row.offer;
+        el.querySelector('.cart-unit-cost').textContent=`المصروف / شحنة: ${fmt(row.deducted)} EGP`;
+        el.querySelector('input').value=row.paid;
+        el.querySelector('input').setAttribute('aria-label',`الداخل لكل شحنة ${row.item} ${row.offer}`);
+        box.append(el);
+      }
+      el.querySelector('.cart-quantity').textContent=row.quantity;
+      el.querySelector('.cart-line-total b').textContent=fmt(row.paid*row.quantity);
+      el.querySelectorAll('button,input').forEach(control=>control.disabled=quickCartSaving);
+      el.querySelector('[data-cart-action="minus"]').disabled=quickCartSaving || row.quantity<=1;
+      if(changedId===row.id && !matchMedia('(prefers-reduced-motion: reduce)').matches){
+        el.querySelector('.cart-quantity').animate?.([{transform:'scale(1.25)',color:'#fff'},{transform:'scale(1)',color:'#a5b4fc'}],{duration:180});
       }
     }
-    quickCart=[]; renderQuickCart();
-    $('addNote').value='';
-    renderAll();
-    toast('تم حفظ العمليات.');
+    existing.forEach(el=>el.remove());
+    if(!quickCart.length)box.innerHTML='<div class="cart-empty"><span class="cart-empty-icon" aria-hidden="true">＋</span><b>ابدأ بأول عرض</b><p>اختار من العروض السريعة أو ابحث فوق.<br>كل عرض هيظهر هنا وتقدر تزود عدد شحناته.</p></div>';
+    updateCartSummary();
+    if(focusId && focusAction && !document.contains(active)){
+      const row=[...box.querySelectorAll('[data-cart-id]')].find(el=>el.dataset.cartId===focusId);
+      (row?.querySelector(`[data-cart-action="${focusAction}"]`) || box.querySelector('button:not(:disabled)') || $('quickPresetSearch')).focus();
+    }
+  }
+
+  function setCashierSaving(saving){
+    quickCartSaving=saving;
+    $$('#view-add .cashier-layout button, #view-add .cashier-layout input').forEach(el=>el.disabled=saving);
+    renderQuickCart();
+  }
+
+  async function saveQuickTransaction() {
+    if(quickCartSaving || !quickCart.length)return;
+    if(!$('addDate').reportValidity())return;
+    for(const input of $$('#quickCart input'))if(!input.reportValidity())return;
+    const date=$('addDate').value, note=$('addNote').value.trim();
+    if(quickCart.some(r=>!Number.isSafeInteger(r.quantity)||r.quantity<1||!Number.isFinite(r.paid)||r.paid<0||!Number.isFinite(r.deducted)||r.deducted<0))return toast('راجع الكميات والأسعار في السلة.','error');
+    const created=[], usageBefore=new Map(), previousMeta={...state.meta};
+    const previousAudit=[...state.audit];
+    setCashierSaving(true);
+    try{
+      for(const row of quickCart){
+        for(let i=0;i<row.quantity;i++)created.push(normalizeTransaction({date,item:row.item,offer:row.offer,paid:row.paid,deducted:row.deducted,quantity:1,note,source:'cashier'}));
+        const preset=state.presets.find(p=>p.id===row.id);
+        if(preset){
+          usageBefore.set(preset.id,{usageCount:preset.usageCount,lastUsedAt:preset.lastUsedAt,updatedAt:preset.updatedAt});
+          preset.usageCount=num(preset.usageCount)+row.quantity;preset.lastUsedAt=nowIso();preset.updatedAt=nowIso();
+        }
+      }
+      state.transactions=state.transactions.concat(created);
+      audit(state,'حفظ سلة العمليات',date,{count:created.length,offers:quickCart.map(r=>({item:r.item,offer:r.offer,quantity:r.quantity}))});
+      state.meta.updatedAt=nowIso();state.meta.reason='cashier-batch';
+      // One IndexedDB transaction: every shipment commits together or none do.
+      await idbSet(STATE_KEY,sanitizeState(state));
+    }catch(error){
+      const ids=new Set(created.map(t=>t.id));
+      state.transactions=state.transactions.filter(t=>!ids.has(t.id));
+      usageBefore.forEach((before,id)=>{const p=state.presets.find(p=>p.id===id);if(p)Object.assign(p,before);});
+      state.audit=previousAudit;state.meta=previousMeta;
+      setCashierSaving(false);
+      toast('تعذر الحفظ. السلة محفوظة أمامك؛ جرّب مرة تانية.','error',6000);
+      console.error('Cashier batch save failed',error);
+      return;
+    }
+    quickCart=[];bulkPresetSelection.clear();bulkPresetMode=false;
+    $('addNote').value='';$('quickPresetSearch').value='';$('presetDropdown').classList.add('hidden');
+    setCashierSaving(false);renderAll();renderStorageInfo();
+    toast(`تم حفظ ${created.length} شحنة، كل شحنة في صف مستقل في السجل.`,'success',5000);
   }
 
   async function saveManual() {
@@ -1104,8 +1178,29 @@
       if(!e.target.closest('.quick-service-filter')) closeQuickServiceMenu();
     });
     document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeQuickServiceMenu(); });
-    $('qtyMinus').onclick=()=>{$('addQty').value=Math.max(1,qty($('addQty').value)-1);updateAddPreview()}; $('qtyPlus').onclick=()=>{$('addQty').value=qty($('addQty').value)+1;updateAddPreview()}; $('addQty').oninput=updateAddPreview; $('addPaid').oninput=updateAddPreview; $('saveQuickTransaction').onclick=saveQuickTransaction;
-    document.addEventListener('keydown',e=>{if(e.key==='Enter'&&$('view-add').classList.contains('active')&&document.activeElement?.tagName!=='TEXTAREA'&&!document.querySelector('dialog[open]')){if(selectedPresetId){e.preventDefault();saveQuickTransaction()}}});
+    $('saveQuickTransaction').onclick=saveQuickTransaction;
+    $('clearQuickCart').onclick=()=>{
+      if(quickCartSaving || !quickCart.length)return;
+      if(!confirm('تفريغ كل العروض من السلة؟ العمليات المحفوظة في السجل لن تتأثر.'))return;
+      quickCart=[];renderQuickCart();syncOfferCartCounts();
+    };
+    $('quickCart').onclick=e=>{
+      const button=e.target.closest('button[data-cart-action]');if(!button)return;
+      const id=button.closest('[data-cart-id]').dataset.cartId;
+      if(button.dataset.cartAction==='remove')removeCartItem(id);
+      else changeCartQty(id,button.dataset.cartAction==='plus'?1:-1);
+    };
+    $('quickCart').oninput=e=>{
+      if(quickCartSaving || e.target.dataset.cartAction!=='price')return;
+      const row=quickCart.find(r=>r.id===e.target.closest('[data-cart-id]').dataset.cartId);
+      if(!row)return;
+      row.paid=e.target.valueAsNumber;
+      e.target.closest('[data-cart-id]').querySelector('.cart-line-total b').textContent=fmt(row.paid*row.quantity);
+      updateCartSummary();
+    };
+    document.addEventListener('keydown',e=>{
+      if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)&&!e.repeat&&$('view-add').classList.contains('active')&&!document.querySelector('dialog[open]')){e.preventDefault();saveQuickTransaction();}
+    });
     $('saveManualBtn').onclick=saveManual;
     $('pasteWalletBtn').onclick=async()=>{try{$('walletMessages').value=await navigator.clipboard.readText();analyzeWallet()}catch{toast('المتصفح منع القراءة التلقائية. الصق يدويًا داخل المربع.','error')}}; $('analyzeWalletBtn').onclick=analyzeWallet; $('importWalletRowsBtn').onclick=importWalletRows;
     const rerenderHistoryFromFilter=()=>{historyPage=1;renderHistory();};

@@ -127,27 +127,35 @@
       </section>
 
       <section id="view-add" class="view">
-        <div class="two-col-layout">
-          <article class="panel glass">
-            <div class="panel-head"><div><span class="panel-kicker">Cashier Mode</span><h3>إضافة عملية في ثواني</h3></div><span class="kbd-hint">Enter للحفظ</span></div>
+        <div class="two-col-layout cashier-layout">
+          <article class="panel glass cashier-panel">
+            <div class="panel-head"><div><span class="panel-kicker">سجّل يومك بسهولة</span><h3>سلة العمليات</h3><p>اختار عروضك من الشمال، وزوّد عدد الشحنات لكل عرض.</p></div><span class="cart-status">● جاهز للتسجيل</span></div>
             <div class="form-stack">
-              <label class="field"><span>بحث عن العرض</span><div class="search-control"><span>⌕</span><input id="quickPresetSearch" class="control" placeholder="مثال: ببجي 60 أو Google"></div></label>
+              <label class="field"><span>بحث سريع وإضافة للسلة</span><div class="search-control"><span>⌕</span><input id="quickPresetSearch" class="control" placeholder="مثال: ببجي 120 أو Netflix" autocomplete="off"></div></label>
               <div id="presetDropdown" class="preset-dropdown hidden"></div>
-              <div id="selectedPresetCard" class="selected-preset empty-card">اختار عرض من البحث أو من العروض الأخيرة.</div>
-              <div class="quick-cart-panel"><div class="cart-head"><b>🛒 سلة العمليات</b><span id="cartSummary">عدد العمليات: 0</span></div><div id="quickCart" class="quick-cart"></div></div>
-              <div class="form-grid-3">
-                <label class="field"><span>التاريخ</span><input id="addDate" class="control" type="date"></label>
-                <label class="field"><span>الكمية</span><div class="qty-box"><button id="qtyMinus">−</button><input id="addQty" class="control" type="number" min="1" value="1"><button id="qtyPlus">＋</button></div></label>
-                <label class="field"><span>الداخل / واحدة</span><input id="addPaid" class="control ltr" type="number" min="0" step="0.01" placeholder="0.00"></label>
+              <div class="quick-cart-panel">
+                <div class="cart-head"><span id="cartSummary" role="status" aria-live="polite">0 شحنة · 0 عرض</span><button id="clearQuickCart" type="button" class="text-btn" disabled>تفريغ السلة</button></div>
+                <div id="quickCart" class="quick-cart" role="list" aria-label="العروض المختارة"></div>
               </div>
-              <label class="field"><span>ملاحظة <em>اختياري</em></span><input id="addNote" class="control" placeholder="مثال: العميل زود 10 جنيه"></label>
-              <div class="calc-strip"><span>المصروف: <b id="addCostPreview">0.00</b></span><span>الربح المتوقع: <b id="addProfitPreview">0.00</b></span></div>
-              <button id="saveQuickTransaction" class="btn btn-primary btn-block btn-lg">حفظ العملية</button>
+              <div class="cart-totals" aria-label="إجماليات السلة">
+                <div><span>إجمالي الداخل</span><strong id="addIncomePreview">0.00</strong><small>EGP</small></div>
+                <div><span>إجمالي المصروف</span><strong id="addCostPreview">0.00</strong><small>EGP</small></div>
+                <div class="cart-profit"><span>الربح المتوقع</span><strong id="addProfitPreview">0.00</strong><small>EGP</small></div>
+              </div>
+              <div class="cart-details">
+                <label class="field"><span>تاريخ كل الشحنات</span><input id="addDate" class="control" type="date" required></label>
+                <label class="field"><span>ملاحظة للدفعة <em>اختياري</em></span><input id="addNote" class="control" placeholder="تُضاف لكل شحنة في السلة"></label>
+              </div>
+              <div class="cart-save-area">
+                <p class="cart-save-hint">✓ كل شحنة هتتحفظ في صف مستقل في السجل، حتى لو نفس العرض.</p>
+                <button id="saveQuickTransaction" type="button" class="btn btn-primary btn-block btn-lg" disabled>حفظ العمليات</button>
+                <span class="cart-shortcut">Ctrl + Enter للحفظ السريع</span>
+              </div>
             </div>
           </article>
 
           <article class="panel glass">
-            <div class="panel-head"><div><span class="panel-kicker">آخر استخدام</span><h3>العروض السريعة</h3><p>فلتر حسب الخدمة، واختار من أكتر من خدمة في نفس التحديد ثم أضفهم كلهم مرة واحدة.</p></div><div class="panel-actions"><button id="bulkPresetModeBtn" type="button" class="btn btn-secondary btn-sm">تحديد متعدد</button><button class="text-btn" data-go="settings" data-settings-tab="presets">إدارة العروض</button></div></div>
+            <div class="panel-head"><div><span class="panel-kicker">آخر استخدام</span><h3>العروض السريعة</h3><p>اضغط على أي عرض لإضافته للسلة. كل ضغطة إضافية تزود شحنة.</p></div><div class="panel-actions"><button id="bulkPresetModeBtn" type="button" class="btn btn-secondary btn-sm">تحديد متعدد</button><button class="text-btn" data-go="settings" data-settings-tab="presets">إدارة العروض</button></div></div>
             <div class="quick-preset-filter-row">
               <div class="field quick-service-filter">
                 <span>الخدمة</span>
