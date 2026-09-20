@@ -32,6 +32,7 @@
   let historySelected = new Set();
   let historyPage = 1;
   const HISTORY_PAGE_SIZE = 100;
+  let quickCart = [];
 
   const $ = (id) => document.getElementById(id);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -458,7 +459,7 @@
   }
 
   function renderAdd() {
-    $('addDate').value ||= todayISO(); $('manualDate').value ||= todayISO(); renderQuickServicePicker(); renderRecentPresets(); renderSelectedPreset(); updateAddPreview();
+    $('addDate').value ||= todayISO(); $('manualDate').value ||= todayISO(); renderQuickServicePicker(); renderRecentPresets(); renderSelectedPreset(); renderQuickCart(); updateAddPreview();
   }
 
   function renderRecentPresets() {
@@ -477,7 +478,7 @@
       </button>`;
     }).join(''):'<div class="empty-state">لا توجد عروض لهذه الخدمة. اختر خدمة أخرى أو أضف عرضًا من الإعدادات.</div>';
     $$('#recentPresets [data-preset-id]').forEach(b=>b.onclick=()=>{
-      if(bulkPresetMode) toggleBulkPreset(b.dataset.presetId); else selectPreset(b.dataset.presetId);
+      if(bulkPresetMode) toggleBulkPreset(b.dataset.presetId); else addToQuickCart(b.dataset.presetId);
     });
     const btn=$('bulkPresetModeBtn'); if(btn) btn.textContent=bulkPresetMode?'إنهاء التحديد':'تحديد متعدد';
     renderQuickServicePicker();
@@ -552,11 +553,50 @@
     await saveState(reason); return t;
   }
 
+  function addToQuickCart(id){
+    const p=state.presets.find(x=>x.id===id); if(!p)return;
+    const row=quickCart.find(x=>x.id===id);
+    if(row) row.quantity++; else quickCart.push({id:p.id,quantity:1});
+    renderQuickCart();
+    toast('تم إضافة العرض للسلة.');
+  }
+  function changeCartQty(id,delta){
+    const r=quickCart.find(x=>x.id===id); if(!r)return;
+    r.quantity+=delta; if(r.quantity<1) quickCart=quickCart.filter(x=>x.id!==id);
+    renderQuickCart();
+  }
+  function removeCartItem(id){quickCart=quickCart.filter(x=>x.id!==id);renderQuickCart();}
+  function renderQuickCart(){
+    const box=$('quickCart'); if(!box)return;
+    if(!quickCart.length){box.innerHTML='<div class="cart-empty">🛒 السلة فارغة</div>';return;}
+    let c=0,total=0,profit=0;
+    box.innerHTML=quickCart.map(r=>{
+      const p=state.presets.find(x=>x.id===r.id); if(!p)return '';
+      c+=r.quantity; total+=p.paid*r.quantity; profit+=(p.paid-p.deducted)*r.quantity;
+      return `<div class="cart-card"><i style="--service-color:${serviceColor(p.item)}"></i><div><b>${esc(p.item)} — ${esc(p.offer)}</b><small>${fmt(p.paid)} EGP</small></div><div class="cart-actions"><button onclick="changeCartQty('${p.id}',-1)">−</button><b>${r.quantity}</b><button onclick="changeCartQty('${p.id}',1)">+</button><button onclick="removeCartItem('${p.id}')">×</button></div></div>`;
+    }).join('');
+    $('cartSummary').textContent=`عدد العمليات: ${c} | الداخل: ${fmt(total)} | الربح: ${fmt(profit)}`;
+    $('saveQuickTransaction').textContent=`حفظ ${c} عمليات`;
+  }
+  window.changeCartQty=changeCartQty; window.removeCartItem=removeCartItem;
+
   async function saveQuickTransaction() {
-    const p=state.presets.find(x=>x.id===selectedPresetId); if(!p) return toast('اختار عرض محفوظ الأول.','error');
-    const paid=num($('addPaid').value), q=qty($('addQty').value), date=$('addDate').value||todayISO(); if(paid<0)return toast('قيمة الداخل غير صحيحة.','error');
-    await addTransaction({date,item:p.item,offer:p.offer,paid,deducted:p.deducted,quantity:q,note:$('addNote').value.trim(),source:'cashier',presetId:p.id},'إضافة سريعة');
-    $('addQty').value=1; $('addPaid').value=p.paid; $('addNote').value=''; updateAddPreview(); renderAll(); toast('تم حفظ العملية.','success',4200,async()=>{ const t=state.transactions.pop(); audit(state,'تراجع عن إضافة',t?.date,'Undo'); await saveState('undo-add'); renderAll(); });
+    if(!quickCart.length){
+      if(selectedPresetId) addToQuickCart(selectedPresetId);
+      else return toast('اختار عرض محفوظ الأول.','error');
+    }
+    const date=$('addDate').value||todayISO();
+    const note=$('addNote').value.trim();
+    for(const row of quickCart){
+      const p=state.presets.find(x=>x.id===row.id); if(!p)continue;
+      for(let i=0;i<row.quantity;i++){
+        await addTransaction({date,item:p.item,offer:p.offer,paid:p.paid,deducted:p.deducted,quantity:1,note,source:'cashier',presetId:p.id},'إضافة سريعة');
+      }
+    }
+    quickCart=[]; renderQuickCart();
+    $('addNote').value='';
+    renderAll();
+    toast('تم حفظ العمليات.');
   }
 
   async function saveManual() {
