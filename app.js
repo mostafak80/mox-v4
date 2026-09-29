@@ -320,6 +320,10 @@ import {
     const snap=await idbGet(keys[0]);
     state=sanitizeState(snap.state);
     await saveState('restore-safety');
+    _cloudSync(async()=>{
+      const { uploadFullState: upload } = await import('./cloud-sync.js');
+      await upload(state,()=>{});
+    });
     renderAll();
     toast('تم استرجاع آخر نسخة أمان.','success');
   }
@@ -1331,6 +1335,157 @@ import {
   // ============================================================
   // Account & Sync Tab
   // ============================================================
+  // ============================================================
+  // Account & Sync Tab & Local Migration
+  // ============================================================
+
+  function readRawDatabase(dbName) {
+    return new Promise((resolve) => {
+      try {
+        const req = indexedDB.open(dbName, 1);
+        req.onerror = () => resolve(null);
+        req.onsuccess = () => {
+          const dbInstance = req.result;
+          if (!dbInstance.objectStoreNames.contains(STORE)) {
+            dbInstance.close();
+            resolve(null);
+            return;
+          }
+          try {
+            const tx = dbInstance.transaction(STORE, 'readonly');
+            const store = tx.objectStore(STORE);
+            const getReq = store.get(STATE_KEY);
+            getReq.onsuccess = () => {
+              const res = getReq.result;
+              if (res && ((res.transactions && res.transactions.length) || (res.presets && res.presets.length))) {
+                dbInstance.close();
+                resolve(res);
+                return;
+              }
+              // If state is empty, check latest backup snapshot in this db
+              const allReq = store.getAllKeys();
+              allReq.onsuccess = () => {
+                const bKeys = (allReq.result || []).filter(k => String(k).startsWith('backup:')).sort().reverse();
+                if (bKeys.length > 0) {
+                  const bReq = store.get(bKeys[0]);
+                  bReq.onsuccess = () => {
+                    dbInstance.close();
+                    resolve(bReq.result?.state || res || null);
+                  };
+                  bReq.onerror = () => {
+                    dbInstance.close();
+                    resolve(res || null);
+                  };
+                } else {
+                  dbInstance.close();
+                  resolve(res || null);
+                }
+              };
+              allReq.onerror = () => {
+                dbInstance.close();
+                resolve(res || null);
+              };
+            };
+            getReq.onerror = () => {
+              dbInstance.close();
+              resolve(null);
+            };
+          } catch {
+            dbInstance.close();
+            resolve(null);
+          }
+        };
+      } catch {
+        resolve(null);
+      }
+    });
+  }
+
+  async function migrateLocalDataToGoogle() {
+    const user = getCurrentUser();
+    if (!user) {
+      toast('يرجى تسجيل الدخول بحساب Google أولاً لنقل البيانات إليه.', 'warn', 4000);
+      showLoginScreen();
+      return;
+    }
+
+    toast('جارٍ فحص البيانات المحلية السابقة على هذا الجهاز…', 'info', 2000);
+
+    let localState = null;
+    try {
+      localState = await readRawDatabase('mox-v4-db');
+      if (!localState || (!localState.transactions?.length && !localState.presets?.length)) {
+        const v2 = await readRawDatabase('mox-v2-db');
+        if (v2 && (v2.transactions?.length || v2.presets?.length)) {
+          localState = v2;
+        }
+      }
+    } catch(err) {
+      console.warn('[MOX Migration] Read local db error:', err);
+    }
+
+    const localTxs = localState?.transactions || [];
+    const localPresets = localState?.presets || [];
+    const localFixed = localState?.fixedExpenses || [];
+    const localVariable = localState?.variableExpenses || [];
+
+    const totalLocalFound = localTxs.length + localPresets.length + localFixed.length + localVariable.length;
+
+    if (totalLocalFound === 0) {
+      // If no local db, check if current active state has items that can be synced
+      const currentCount = (state.transactions?.length || 0) + (state.presets?.length || 0);
+      if (currentCount > 0) {
+        if (!confirm(`لم يتم العثور على قاعدة بيانات محلية منفصلة، ولكن لديك ${currentCount} عنصر مسجل في البرنامج حاليًا.\n\nهل تريد مزامنتها ورفعها بالكامل إلى حسابك (${user.email}) الآن؟`)) return;
+        await forceSyncNow();
+        return;
+      }
+      toast('لم يتم العثور على أي عمليات محلية غير متزامنة على هذا الجهاز. جميع بياناتك محدثة بالسحابة!', 'success', 5000);
+      return;
+    }
+
+    const confirmed = confirm(
+      `تم العثور على بيانات محلية على هذا الجهاز:\n` +
+      `• ${localTxs.length} عملية مسجلة\n` +
+      `• ${localPresets.length} عرض\n` +
+      `• ${localFixed.length} مصروف ثابت\n` +
+      `• ${localVariable.length} مصروف يومي\n\n` +
+      `هل تريد نقل هذه البيانات ودمجها مع حسابك (${user.email}) ورفعها إلى السحابة فوراً؟`
+    );
+    if (!confirmed) return;
+
+    toast('جارٍ نقل ودمج البيانات المحلية ورفعها إلى السحابة… برجاء الانتظار…', 'info', 4000);
+
+    try {
+      await createSafetySnapshot('before-local-migration');
+
+      // Merge local records with current state
+      state.transactions     = mergeTransactions(state.transactions || [], localTxs);
+      state.presets          = mergePresets(state.presets || [], localPresets);
+      state.fixedExpenses    = mergeTransactions(state.fixedExpenses || [], localFixed);
+      state.variableExpenses = mergeTransactions(state.variableExpenses || [], localVariable);
+      if (localState.settings) {
+        state.settings = { ...localState.settings, ...state.settings };
+      }
+
+      // Save into active user's IndexedDB
+      await saveState('migrated-from-local-device');
+
+      // Upload merged state to Firestore cloud
+      const { uploadFullState: upload } = await import('./cloud-sync.js');
+      await upload(state, () => {});
+
+      // Mark migration complete
+      await markMigrated(user.uid, idbSet);
+
+      renderAll();
+      renderAccountTab();
+      toast(`✓ تم بنجاح نقل ومزامنة ${localTxs.length} عملية و${localPresets.length} عرض إلى حساب Google الخاص بك!`, 'success', 7000);
+    } catch(err) {
+      console.error('[MOX Local Transfer Error]', err);
+      toast('حدث خطأ أثناء رفع البيانات للسحابة. تحقق من اتصال الإنترنت.', 'error', 5000);
+    }
+  }
+
   function renderAccountTab() {
     const pane = $('settings-account');
     if (!pane) return;
@@ -1339,11 +1494,11 @@ import {
     const { status, pendingCount } = getSyncStatus();
 
     const statusLabel = {
-      [SyncStatus.ONLINE]:  '🟢 متصل — تمت المزامنة',
-      [SyncStatus.SYNCING]: '🔄 جارٍ المزامنة…',
+      [SyncStatus.ONLINE]:  '🟢 متصل — السحابة محدثة بالكامل',
+      [SyncStatus.SYNCING]: '🔄 جارٍ المزامنة السحابية…',
       [SyncStatus.PENDING]: `🟠 ${pendingCount} تغيير في انتظار المزامنة`,
-      [SyncStatus.OFFLINE]: '🔴 بدون إنترنت',
-      [SyncStatus.ERROR]:   '🔴 فشل في المزامنة',
+      [SyncStatus.OFFLINE]: '🔴 بدون إنترنت (الوضع المحلي يعمل بكفاءة)',
+      [SyncStatus.ERROR]:   '🔴 تعذر المزامنة السحابية',
     }[status] || '—';
 
     const photoHtml = user?.photoURL
@@ -1353,76 +1508,181 @@ import {
     pane.innerHTML = `
       <article class="panel glass">
         <div class="panel-head">
-          <div><span class="panel-kicker">Cloud Account</span><h3>الحساب والمزامنة</h3></div>
+          <div><span class="panel-kicker">Cloud & Data Control</span><h3>إدارة الحساب ومزامنة البيانات</h3></div>
         </div>
+
         ${!user ? `
           <div class="account-guest-banner">
             <div>
-              <h4>الوضع المحلي (بدون تسجيل)</h4>
-              <p>بياناتك محفوظة بأمان على هذا الجهاز في المتصفح. يمكنك تسجيل الدخول بحساب Google لحفظ بياناتك سحابيًا والوصول إليها من هاتفك أو أجهزة أخرى في أي وقت.</p>
+              <h4>أنت الآن في الوضع المحلي (بدون حساب)</h4>
+              <p>بياناتك المالية محفوظة بأمان على هذا المتصفح. يمكنك تسجيل الدخول بحساب Google لحفظها سحابيًا والوصول إليها من هاتفك أو أي جهاز آخر في أي وقت.</p>
             </div>
             <button id="accountLoginBtn" class="btn btn-primary" type="button">تسجيل الدخول بحساب Google ☁️</button>
           </div>
         ` : `
           <div class="account-profile-row">
-            ${photoHtml}<div><b>${esc(user.displayName||'مستخدم')}</b><small>${esc(user.email||'')}</small></div>
+            ${photoHtml}
+            <div>
+              <b>${esc(user.displayName||'مستخدم')}</b>
+              <small>${esc(user.email||'')}</small>
+            </div>
           </div>
           <div class="account-sync-status">
             <span>${statusLabel}</span>
-            ${pendingCount?`<small>${pendingCount} تغيير في انتظار المزامنة</small>`:''}
+            ${pendingCount ? `<small>${pendingCount} في الانتظار</small>` : ''}
           </div>
         `}
-        <div class="data-actions" style="margin-top:1rem">
+
+        <div class="data-actions">
           ${user ? `
-            <button id="syncNowBtn" class="action-card">
-              <span>🔄</span><b>مزامنة الآن</b><small>رفع التغييرات المحلية</small>
+            <!-- زر نقل البيانات المحلية من الجهاز إلى حساب جوجل -->
+            <button id="accountMigrateLocalBtn" class="action-card card-highlight" type="button">
+              <div class="action-card-head">
+                <div class="action-card-icon icon-migrate">📲</div>
+                <span class="action-card-badge highlight">🌟 ترحيل سحابي</span>
+              </div>
+              <div class="action-card-body">
+                <b>نقل بيانات الجهاز إلى Google</b>
+                <small>استيراد ودمج كل العمليات والعروض المحفوظة سابقًا على هذا الجهاز ورفعها للسحابة</small>
+              </div>
+            </button>
+
+            <!-- زر مزامنة الآن -->
+            <button id="accountSyncNowBtn" class="action-card" type="button">
+              <div class="action-card-head">
+                <div class="action-card-icon icon-sync">🔄</div>
+                <span class="action-card-badge primary">سحابي</span>
+              </div>
+              <div class="action-card-body">
+                <b>مزامنة سحابية الآن</b>
+                <small>رفع وتحديث كافة البيانات المحلية مع السحابة فوراً</small>
+              </div>
             </button>
           ` : `
-            <button id="guestSyncBtn" class="action-card">
-              <span>☁️</span><b>تسجيل الدخول</b><small>تفعيل المزامنة السحابية</small>
+            <button id="accountLoginCardBtn" class="action-card card-highlight" type="button">
+              <div class="action-card-head">
+                <div class="action-card-icon icon-migrate">☁️</div>
+                <span class="action-card-badge highlight">مزامنة سحابية</span>
+              </div>
+              <div class="action-card-body">
+                <b>تسجيل الدخول بحساب Google</b>
+                <small>تفعيل الحفظ السحابي والمزامنة عبر جميع أجهزتك</small>
+              </div>
             </button>
           `}
-          <button id="backupBtn" class="action-card">
-            <span>↓</span><b>تنزيل نسخة احتياطية</b><small>JSON كامل بدون نسخ متداخلة</small>
+
+          <!-- زر تنزيل نسخة احتياطية -->
+          <button id="accountBackupBtn" class="action-card" type="button">
+            <div class="action-card-head">
+              <div class="action-card-icon icon-backup">📥</div>
+              <span class="action-card-badge success">آمن</span>
+            </div>
+            <div class="action-card-body">
+              <b>تنزيل نسخة احتياطية</b>
+              <small>تصدير ملف JSON كامل ومستقل بدون نسخ متداخلة</small>
+            </div>
           </button>
-          <button id="restoreBtn" class="action-card">
-            <span>↑</span><b>استرجاع نسخة</b><small>مع Safety Snapshot قبل الاستبدال</small>
+
+          <!-- زر استرجاع نسخة -->
+          <button id="accountRestoreBtn" class="action-card" type="button">
+            <div class="action-card-head">
+              <div class="action-card-icon icon-restore">📤</div>
+            </div>
+            <div class="action-card-body">
+              <b>استرجاع نسخة احتياطية</b>
+              <small>استيراد ملف JSON مع لقطة أمان تلقائية قبل الاستبدال</small>
+            </div>
           </button>
-          <button id="safetyRestoreBtn" class="action-card">
-            <span>↶</span><b>آخر نسخة أمان</b><small>استرجاع سريع بعد أي خطأ</small>
+
+          <!-- زر آخر نسخة أمان -->
+          <button id="accountSafetyRestoreBtn" class="action-card" type="button">
+            <div class="action-card-head">
+              <div class="action-card-icon icon-safety">🛡️</div>
+            </div>
+            <div class="action-card-body">
+              <b>آخر نسخة أمان</b>
+              <small>استرجاع فوري وسريع لآخر لقطة أمان في حالة أي خطأ</small>
+            </div>
           </button>
-          <button id="clearDataBtn" class="action-card danger">
-            <span>⌫</span><b>مسح العمليات</b><small>يتطلب تأكيد واضح</small>
+
+          <!-- زر مسح العمليات -->
+          <button id="accountClearDataBtn" class="action-card danger" type="button">
+            <div class="action-card-head">
+              <div class="action-card-icon icon-danger">🗑️</div>
+            </div>
+            <div class="action-card-body">
+              <b>مسح العمليات</b>
+              <small>يتطلب تأكيد كتابي صريح لمنع أي مسح بالخطأ</small>
+            </div>
           </button>
-          ${user?`<button id="accountLogoutBtn" class="action-card danger"><span>↪</span><b>تسجيل الخروج</b><small>${esc(user.email||'')}</small></button>`:''}
+
+          ${user ? `
+            <!-- زر تسجيل الخروج -->
+            <button id="accountLogoutBtn" class="action-card" type="button">
+              <div class="action-card-head">
+                <div class="action-card-icon icon-logout">🚪</div>
+              </div>
+              <div class="action-card-body">
+                <b>تسجيل الخروج</b>
+                <small>العودة للوضع المحلي الآمن (${esc(user.email||'')})</small>
+              </div>
+            </button>
+          ` : ''}
         </div>
-        <input id="restoreFile" type="file" accept="application/json" hidden>
-        <div id="storageInfo" class="storage-info"></div>
+
+        <input id="accountRestoreFile" type="file" accept="application/json" hidden>
+        <div id="accountStorageInfo" class="storage-info"></div>
       </article>
     `;
 
-    // Re-bind buttons
-    if($('accountLoginBtn')) $('accountLoginBtn').onclick = () => showLoginScreen();
-    if($('guestSyncBtn')) $('guestSyncBtn').onclick = () => showLoginScreen();
-    if($('backupBtn'))   $('backupBtn').onclick   = downloadBackup;
-    if($('restoreBtn'))  $('restoreBtn').onclick  = ()=>$('restoreFile').click();
-    if($('restoreFile')) $('restoreFile').onchange = e=>{if(e.target.files[0])restoreBackup(e.target.files[0]);e.target.value='';};
-    if($('safetyRestoreBtn')) $('safetyRestoreBtn').onclick = restoreLatestSafety;
-    if($('clearDataBtn')) $('clearDataBtn').onclick = clearTransactions;
-    if($('syncNowBtn')) $('syncNowBtn').onclick = forceSyncNow;
-    if($('accountLogoutBtn')) $('accountLogoutBtn').onclick = handleLogout;
+    // Strictly scope all listeners to `pane` to avoid ANY global ID collisions
+    const bindClick = (sel, fn) => {
+      const el = pane.querySelector(sel);
+      if (el) el.onclick = fn;
+    };
+
+    bindClick('#accountLoginBtn', () => showLoginScreen());
+    bindClick('#accountLoginCardBtn', () => showLoginScreen());
+    bindClick('#accountMigrateLocalBtn', migrateLocalDataToGoogle);
+    bindClick('#accountSyncNowBtn', forceSyncNow);
+    bindClick('#accountBackupBtn', downloadBackup);
+
+    const restoreBtn = pane.querySelector('#accountRestoreBtn');
+    const restoreFileInput = pane.querySelector('#accountRestoreFile');
+    if (restoreBtn && restoreFileInput) {
+      restoreBtn.onclick = () => restoreFileInput.click();
+      restoreFileInput.onchange = e => {
+        if (e.target.files && e.target.files[0]) {
+          restoreBackup(e.target.files[0]);
+        }
+        e.target.value = '';
+      };
+    }
+
+    bindClick('#accountSafetyRestoreBtn', restoreLatestSafety);
+    bindClick('#accountClearDataBtn', clearTransactions);
+    bindClick('#accountLogoutBtn', handleLogout);
 
     renderStorageInfo();
   }
 
   async function forceSyncNow() {
-    toast('جارٍ رفع البيانات المحلية إلى السحابة…','success',2000);
+    const user = getCurrentUser();
+    if (!user) {
+      toast('يرجى تسجيل الدخول بحساب Google أولاً.','warn');
+      showLoginScreen();
+      return;
+    }
+    toast('جارٍ رفع وتحديث البيانات مع السحابة…','info',2000);
     try {
       const { uploadFullState: upload } = await import('./cloud-sync.js');
-      await upload(state, ()=>{});
-      toast('تمت المزامنة بنجاح.','success');
+      await upload(state, () => {});
+      renderAccountTab();
+      renderSyncStatus();
+      toast('✓ تمت المزامنة السحابية بنجاح! جميع بياناتك محدثة.', 'success', 4000);
     } catch(e) {
-      toast('فشلت المزامنة. تحقق من الاتصال وحاول مجددًا.','error');
+      console.error('[MOX Sync Error]', e);
+      toast('تعذر إتمام المزامنة السحابية. تحقق من اتصال الإنترنت وحاول مجددًا.', 'error', 4000);
     }
   }
 
@@ -1470,15 +1730,21 @@ import {
     state.transactions=[];
     audit(state,'مسح كل العمليات','','');
     await saveState('clear-transactions');
+    _cloudSync(async()=>{
+      const { uploadFullState: upload } = await import('./cloud-sync.js');
+      await upload(state,()=>{});
+    });
     renderAll();toast('تم مسح العمليات ويمكن الرجوع لنسخة الأمان.');
   }
 
   async function renderStorageInfo(){
-    if(!$('storageInfo'))return;
+    const targets = [$('storageInfo'), $('dataStorageInfo'), $('accountStorageInfo')].filter(Boolean);
+    if (!targets.length) return;
     const estimate=await navigator.storage?.estimate?.();
     const size=new Blob([JSON.stringify(cleanBackupState())]).size;
     const unclassifiedCount=getUnclassifiedTransactions().length;
-    $('storageInfo').textContent=`حجم بيانات MOX-V4 التقريبي: ${(size/1024).toFixed(1)} KB${estimate?.quota?` · مساحة المتصفح المتاحة ${(estimate.quota/1024/1024).toFixed(0)} MB`:''} · العمليات ${state.transactions.length} · العروض ${state.presets.length}${unclassifiedCount?` · تحتاج مراجعة ${unclassifiedCount}`:''}`;
+    const text = `حجم بيانات MOX-V4 التقريبي: ${(size/1024).toFixed(1)} KB${estimate?.quota?` · مساحة المتصفح المتاحة ${(estimate.quota/1024/1024).toFixed(0)} MB`:''} · العمليات ${state.transactions.length} · العروض ${state.presets.length}${unclassifiedCount?` · تحتاج مراجعة ${unclassifiedCount}`:''}`;
+    targets.forEach(el => el.textContent = text);
   }
 
   // ============================================================
@@ -1566,7 +1832,20 @@ import {
     $$('.settings-tab').forEach(b=>b.onclick=()=>setSettingsTab(b.dataset.tab));
     $('newPresetBtn').onclick=()=>openPresetDialog();$('presetManageSearch').oninput=renderPresetManager;$('presetServiceFilter').onchange=renderPresetManager;$('presetForm').onsubmit=savePreset;
     $('newFixedExpenseBtn').onclick=()=>openExpenseDialog('fixed');$('newVariableExpenseBtn').onclick=()=>openExpenseDialog('variable');$('expenseForm').onsubmit=saveExpense;
-    if($('bulkPresetModeBtn'))$('bulkPresetModeBtn').onclick=()=>toggleBulkPresetMode();
+    // Settings -> Data tab action buttons
+    if ($('dataBackupBtn')) $('dataBackupBtn').onclick = downloadBackup;
+    if ($('dataRestoreBtn') && $('dataRestoreFile')) {
+      $('dataRestoreBtn').onclick = () => $('dataRestoreFile').click();
+      $('dataRestoreFile').onchange = e => {
+        if (e.target.files && e.target.files[0]) {
+          restoreBackup(e.target.files[0]);
+        }
+        e.target.value = '';
+      };
+    }
+    if ($('dataSafetyRestoreBtn')) $('dataSafetyRestoreBtn').onclick = restoreLatestSafety;
+    if ($('dataClearDataBtn')) $('dataClearDataBtn').onclick = clearTransactions;
+
     // Legacy data tab buttons (renderAccountTab also re-binds them).
     $$('[data-action="backup"]').forEach(b=>b.onclick=downloadBackup);
     $$('[data-action="wallet-import"]').forEach(b=>b.onclick=()=>{goView('add');setTimeout(()=>$('walletImportPanel').scrollIntoView({behavior:'smooth'}),100)});

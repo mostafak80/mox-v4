@@ -197,11 +197,11 @@ export async function uploadFullState(state, onProgress) {
   setSyncStatus(SyncStatus.SYNCING);
 
   const records = [
-    ...state.transactions.map(r => ({ col: 'transactions', id: r.id, data: r })),
-    ...state.presets.map(r => ({ col: 'presets', id: r.id, data: r })),
-    ...state.fixedExpenses.map(r => ({ col: 'fixedExpenses', id: r.id, data: r })),
-    ...state.variableExpenses.map(r => ({ col: 'variableExpenses', id: r.id, data: r })),
-    ...state.closings.map(r => ({ col: 'closings', id: r.id || `c_${Date.now()}`, data: r })),
+    ...(state.transactions || []).map(r => ({ col: 'transactions', id: r.id, data: r })),
+    ...(state.presets || []).map(r => ({ col: 'presets', id: r.id, data: r })),
+    ...(state.fixedExpenses || []).map(r => ({ col: 'fixedExpenses', id: r.id, data: r })),
+    ...(state.variableExpenses || []).map(r => ({ col: 'variableExpenses', id: r.id, data: r })),
+    ...(state.closings || []).map(r => ({ col: 'closings', id: r.id || `c_${Date.now()}`, data: r })),
     ...(state.audit || []).slice(-200).map(r => ({ col: 'audit', id: r.id, data: r })),
   ];
 
