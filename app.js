@@ -183,7 +183,7 @@ import {
     };
   }
   function normalizePreset(p){
-    return { id:p.id||uid('preset'),item:String(p.item||'').trim(),offer:String(p.offer||'').trim(),paid:num(p.paid),deducted:num(p.deducted),active:p.active!==false,usageCount:num(p.usageCount),lastUsedAt:p.lastUsedAt||'',createdAt:p.createdAt||nowIso(),updatedAt:p.updatedAt||p.createdAt||nowIso() };
+    return { id:p.id||uid('preset'),item:String(p.item||'').trim(),offer:String(p.offer||'').trim(),paid:num(p.paid),deducted:num(p.deducted),customOrder:num(p.customOrder||p.order||0),active:p.active!==false,usageCount:num(p.usageCount),lastUsedAt:p.lastUsedAt||'',createdAt:p.createdAt||nowIso(),updatedAt:p.updatedAt||p.createdAt||nowIso() };
   }
   function normalizeFixedExpense(e){
     return { id:e.id||uid('fx'),name:String(e.name||'').trim(),amount:num(e.amount),recurrence:['once','monthly','yearly'].includes(e.recurrence)?e.recurrence:'monthly',startDate:String(e.startDate||e.date||todayISO()).slice(0,10),note:String(e.note||''),createdAt:e.createdAt||nowIso() };
@@ -658,7 +658,21 @@ import {
     if (itemCmp !== 0) return itemCmp;
 
     // 2. Sorting within the same service based on user preference:
-    if (order === 'usage') {
+    if (order === 'custom') {
+      const ordA = num(a.customOrder || a.order || 0);
+      const ordB = num(b.customOrder || b.order || 0);
+      if (ordA > 0 && ordB > 0 && ordA !== ordB) {
+        return ordA - ordB;
+      }
+      if (ordA > 0 && ordB <= 0) return -1;
+      if (ordB > 0 && ordA <= 0) return 1;
+      // Fallback within custom if customOrder not set or equal: natural-asc
+      const valA = extractOfferNumber(a.offer, a.paid);
+      const valB = extractOfferNumber(b.offer, b.paid);
+      if (valA !== valB) return valA - valB;
+      const paidDiff = num(a.paid) - num(b.paid);
+      if (paidDiff !== 0) return paidDiff;
+    } else if (order === 'usage') {
       const usageDiff = num(b.usageCount || 0) - num(a.usageCount || 0);
       if (usageDiff !== 0) return usageDiff;
     } else if (order === 'recent') {
@@ -1465,6 +1479,87 @@ import {
   // ============================================================
   function renderSettings(){ renderPresetManager();renderExpenses();renderStorageInfo();renderAccountTab(); }
 
+  let draggedPresetId = null;
+
+  async function movePresetOrder(id, direction) {
+    const target = state.presets.find(p => p.id === id);
+    if (!target) return;
+
+    const svc = target.item;
+    const svcPresets = state.presets.filter(p => p.item === svc).sort(comparePresets);
+    const currIdx = svcPresets.findIndex(p => p.id === id);
+    if (currIdx === -1) return;
+
+    const newIdx = currIdx + direction;
+    if (newIdx < 0 || newIdx >= svcPresets.length) return;
+
+    // Normalize order 1..N
+    svcPresets.forEach((p, idx) => {
+      p.customOrder = idx + 1;
+      p.updatedAt = nowIso();
+    });
+
+    // Reorder
+    const [moved] = svcPresets.splice(currIdx, 1);
+    svcPresets.splice(newIdx, 0, moved);
+
+    svcPresets.forEach((p, idx) => {
+      p.customOrder = idx + 1;
+      p.updatedAt = nowIso();
+    });
+
+    state.settings.presetSortOrder = 'custom';
+    if ($('presetSortOrderSelect')) $('presetSortOrderSelect').value = 'custom';
+    if ($('mobCartSortSelect')) $('mobCartSortSelect').value = 'custom';
+
+    await saveState('reorder-preset');
+    _cloudSync(async () => {
+      await syncPresetBatch(svcPresets);
+      await syncSettings(state.settings);
+    });
+
+    renderAll();
+    toast(`تم نقل "${target.offer}" للترتيب #${newIdx + 1} (تعديل حر)`, 'info');
+  }
+
+  async function reorderPresetsByDrop(sourceId, targetId) {
+    const source = state.presets.find(p => p.id === sourceId);
+    const target = state.presets.find(p => p.id === targetId);
+    if (!source || !target || source.id === target.id) return;
+
+    const svc = source.item;
+    if (target.item !== svc) {
+      toast('يمكن السحب والترتيب فقط بين باقات نفس الخدمة', 'warning');
+      return;
+    }
+
+    const svcPresets = state.presets.filter(p => p.item === svc).sort(comparePresets);
+    const srcIdx = svcPresets.findIndex(p => p.id === sourceId);
+    const tgtIdx = svcPresets.findIndex(p => p.id === targetId);
+    if (srcIdx === -1 || tgtIdx === -1) return;
+
+    const [moved] = svcPresets.splice(srcIdx, 1);
+    svcPresets.splice(tgtIdx, 0, moved);
+
+    svcPresets.forEach((p, idx) => {
+      p.customOrder = idx + 1;
+      p.updatedAt = nowIso();
+    });
+
+    state.settings.presetSortOrder = 'custom';
+    if ($('presetSortOrderSelect')) $('presetSortOrderSelect').value = 'custom';
+    if ($('mobCartSortSelect')) $('mobCartSortSelect').value = 'custom';
+
+    await saveState('reorder-preset-drop');
+    _cloudSync(async () => {
+      await syncPresetBatch(svcPresets);
+      await syncSettings(state.settings);
+    });
+
+    renderAll();
+    toast(`تم نقل "${source.offer}" للترتيب #${tgtIdx + 1} (تعديل حر)`, 'info');
+  }
+
   function renderPresetManager(){
     const q=normalize($('presetManageSearch')?.value||''),svc=$('presetServiceFilter')?.value||'';
     const sortSelect = $('presetSortOrderSelect');
@@ -1472,27 +1567,154 @@ import {
     const services=[...new Set(state.presets.map(p=>p.item).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
     if($('presetServiceFilter')){$('presetServiceFilter').innerHTML='<option value="">كل الخدمات</option>'+services.map(s=>`<option ${s===svc?'selected':''}>${esc(s)}</option>`).join('')}
     const arr=state.presets.filter(p=>(!svc||p.item===svc)&&(!q||normalize(`${p.item} ${p.offer} ${p.paid}`).includes(q))).sort(comparePresets);
-    $('presetManageGrid').innerHTML=arr.length?arr.map(p=>`<div class="preset-manage-card" style="--service-color:${serviceColor(p.item)}"><h4>${esc(p.item)} — ${esc(p.offer)}</h4><p>استخدم ${p.usageCount||0} مرة</p><div class="preset-manage-meta"><span>الداخل<b>${fmt(p.paid)}</b></span><span>المصروف<b>${fmt(p.deducted)}</b></span><span>الربح<b>${fmt(p.paid-p.deducted)}</b></span></div><div class="preset-manage-actions"><button class="mini-btn" data-pedit="${p.id}">تعديل</button><button class="mini-btn danger" data-pdelete="${p.id}">حذف</button></div></div>`).join(''):'<div class="empty-state">لا توجد عروض مطابقة.</div>';
-    $$('[data-pedit]').forEach(b=>b.onclick=()=>openPresetDialog(b.dataset.pedit));$$('[data-pdelete]').forEach(b=>b.onclick=()=>deletePreset(b.dataset.pdelete));
+
+    $('presetManageGrid').innerHTML=arr.length?arr.map(p=>{
+      const svcPresets = state.presets.filter(x => x.item === p.item).sort(comparePresets);
+      const rankInSvc = svcPresets.findIndex(x => x.id === p.id) + 1;
+      const totalInSvc = svcPresets.length;
+      return `<div class="preset-manage-card" draggable="true" data-preset-id="${esc(p.id)}" style="--service-color:${serviceColor(p.item)}">
+        <div class="preset-manage-head">
+          <div class="preset-manage-title-box">
+            <span class="preset-order-badge" title="الترتيب الحالي في ${esc(p.item)}">#${rankInSvc}</span>
+            <h4>${esc(p.item)} — ${esc(p.offer)}</h4>
+          </div>
+          <div class="preset-order-btns">
+            <button type="button" class="preset-order-btn" data-pmove-up="${p.id}" ${rankInSvc <= 1 ? 'disabled' : ''} title="تقديم لأعلى" aria-label="تقديم لأعلى">▲</button>
+            <button type="button" class="preset-order-btn" data-pmove-down="${p.id}" ${rankInSvc >= totalInSvc ? 'disabled' : ''} title="تأخير لأسفل" aria-label="تأخير لأسفل">▼</button>
+          </div>
+        </div>
+        <p>استخدم ${p.usageCount||0} مرة</p>
+        <div class="preset-manage-meta">
+          <span>الداخل<b>${fmt(p.paid)}</b></span>
+          <span>المصروف<b>${fmt(p.deducted)}</b></span>
+          <span>الربح<b>${fmt(p.paid-p.deducted)}</b></span>
+        </div>
+        <div class="preset-manage-actions">
+          <button class="mini-btn" data-pedit="${p.id}">تعديل</button>
+          <button class="mini-btn danger" data-pdelete="${p.id}">حذف</button>
+        </div>
+      </div>`;
+    }).join(''):'<div class="empty-state">لا توجد عروض مطابقة.</div>';
+
+    $$('[data-pedit]').forEach(b=>b.onclick=()=>openPresetDialog(b.dataset.pedit));
+    $$('[data-pdelete]').forEach(b=>b.onclick=()=>deletePreset(b.dataset.pdelete));
+    $$('[data-pmove-up]').forEach(b=>b.onclick=()=>movePresetOrder(b.dataset.pmoveUp, -1));
+    $$('[data-pmove-down]').forEach(b=>b.onclick=()=>movePresetOrder(b.dataset.pmoveDown, 1));
+
+    // Drag and drop support
+    $$('.preset-manage-card[draggable="true"]').forEach(card => {
+      card.ondragstart = (e) => {
+        draggedPresetId = card.dataset.presetId;
+        card.classList.add('is-dragging');
+        if (e.dataTransfer) {
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', card.dataset.presetId);
+        }
+      };
+      card.ondragend = () => {
+        draggedPresetId = null;
+        card.classList.remove('is-dragging');
+        $$('.preset-manage-card').forEach(c => c.classList.remove('drag-over'));
+      };
+      card.ondragover = (e) => {
+        e.preventDefault();
+        if (draggedPresetId && draggedPresetId !== card.dataset.presetId) {
+          card.classList.add('drag-over');
+          if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+        }
+      };
+      card.ondragleave = () => {
+        card.classList.remove('drag-over');
+      };
+      card.ondrop = (e) => {
+        e.preventDefault();
+        card.classList.remove('drag-over');
+        const targetId = card.dataset.presetId;
+        if (draggedPresetId && draggedPresetId !== targetId) {
+          reorderPresetsByDrop(draggedPresetId, targetId);
+        }
+        draggedPresetId = null;
+      };
+    });
   }
 
-  function openPresetDialog(id=''){const p=state.presets.find(x=>x.id===id);$('presetId').value=p?.id||'';$('presetDialogTitle').textContent=p?'تعديل العرض':'عرض جديد';$('presetItem').value=p?.item||'';$('presetOffer').value=p?.offer||'';$('presetPaid').value=p?.paid??'';$('presetCost').value=p?.deducted??'';$('presetColor').value=p?serviceColor(p.item):COLORS[state.presets.length%COLORS.length];setDialogError('presetDialog','');$('presetDialog').showModal();setTimeout(()=>$('presetItem').focus(),30);}
+  function openPresetDialog(id=''){
+    const p=state.presets.find(x=>x.id===id);
+    $('presetId').value=p?.id||'';
+    $('presetDialogTitle').textContent=p?'تعديل العرض':'عرض جديد';
+    $('presetItem').value=p?.item||'';
+    $('presetOffer').value=p?.offer||'';
+    $('presetPaid').value=p?.paid??'';
+    $('presetCost').value=p?.deducted??'';
+    let currentOrder = '';
+    if (p) {
+      if (p.customOrder > 0) {
+        currentOrder = p.customOrder;
+      } else {
+        const svcPresets = state.presets.filter(x => x.item === p.item).sort(comparePresets);
+        const rank = svcPresets.findIndex(x => x.id === p.id) + 1;
+        currentOrder = rank > 0 ? rank : '';
+      }
+    }
+    if ($('presetCustomOrder')) $('presetCustomOrder').value = currentOrder;
+    $('presetColor').value=p?serviceColor(p.item):COLORS[state.presets.length%COLORS.length];
+    setDialogError('presetDialog','');
+    $('presetDialog').showModal();
+    setTimeout(()=>$('presetItem').focus(),30);
+  }
 
   async function savePreset(e){
-    e.preventDefault();const item=$('presetItem').value.trim(),offer=$('presetOffer').value.trim();
+    e.preventDefault();
+    const item=$('presetItem').value.trim(),offer=$('presetOffer').value.trim();
     const paidRaw=$('presetPaid').value,costRaw=$('presetCost').value,paid=Number(paidRaw),deducted=Number(costRaw);
+    const customOrderRaw=$('presetCustomOrder')?.value?.trim();
+    const customOrderVal = customOrderRaw ? Math.max(1, parseInt(customOrderRaw, 10) || 0) : 0;
+
     if(!item)return setDialogError('presetDialog','اكتب اسم المنتج / الخدمة.','presetItem');
     if(!offer)return setDialogError('presetDialog','اكتب العرض.','presetOffer');
     if(!Number.isFinite(paid)||paid<0)return setDialogError('presetDialog','اكتب قيمة الداخل بشكل صحيح.','presetPaid');
     if(!Number.isFinite(deducted)||deducted<0)return setDialogError('presetDialog','اكتب قيمة المصروف بشكل صحيح.','presetCost');
     setDialogError('presetDialog','');
-    const id=$('presetId').value,p=state.presets.find(x=>x.id===id);const data={item,offer,paid,deducted,updatedAt:nowIso()};
+
+    const id=$('presetId').value,p=state.presets.find(x=>x.id===id);
+    const data={item,offer,paid,deducted,updatedAt:nowIso()};
+    if (customOrderVal > 0) {
+      data.customOrder = customOrderVal;
+    } else if (p && p.customOrder > 0) {
+      data.customOrder = p.customOrder;
+    }
+
     let saved;
-    if(p){Object.assign(p,data);saved=p;}else{saved=normalizePreset({...data,id:uid('preset')});state.presets.push(saved);}
+    if(p){
+      Object.assign(p,data);
+      saved=p;
+    } else {
+      saved=normalizePreset({...data,id:uid('preset')});
+      state.presets.push(saved);
+    }
+
+    let siblingsToSync = [saved];
+    if (customOrderVal > 0) {
+      const svcPresets = state.presets.filter(x => x.item === item && x.id !== saved.id).sort(comparePresets);
+      const insertIdx = Math.min(Math.max(0, customOrderVal - 1), svcPresets.length);
+      svcPresets.splice(insertIdx, 0, saved);
+      svcPresets.forEach((x, idx) => {
+        x.customOrder = idx + 1;
+        x.updatedAt = nowIso();
+      });
+      siblingsToSync = svcPresets;
+      state.settings.presetSortOrder = 'custom';
+      if ($('presetSortOrderSelect')) $('presetSortOrderSelect').value = 'custom';
+      if ($('mobCartSortSelect')) $('mobCartSortSelect').value = 'custom';
+    }
+
     state.settings.serviceColors[item]=$('presetColor').value;
     audit(state,p?'تعديل عرض':'إضافة عرض','',`${item} — ${offer}`);
     await saveState('preset');
-    _cloudSync(async()=>{ if(saved) await syncPreset(saved); await syncSettings(state.settings); });
+    _cloudSync(async()=>{
+      await syncPresetBatch(siblingsToSync);
+      await syncSettings(state.settings);
+    });
     closeDialog('presetDialog');renderAll();toast('تم حفظ العرض.');
   }
 
