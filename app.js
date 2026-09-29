@@ -22,7 +22,7 @@ import {
 } from './cloud-sync.js';
 
 import {
-  isMigrated, showMigrationDialog, closeMigrationDialog,
+  isMigrated, markMigrated, showMigrationDialog, closeMigrationDialog,
   showMigrationError, runMigration
 } from './migration.js';
 
@@ -375,6 +375,7 @@ import {
     if(undoFn) el.querySelector('button').onclick=async()=>{await undoFn();el.remove();};
     setTimeout(()=>el.remove(),duration);
   }
+  window.moxToast = toast;
 
   function setDialogError(dialogId, message='', focusId=''){
     const dialog=$(dialogId); if(!dialog) return;
