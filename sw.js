@@ -1,4 +1,4 @@
-const CACHE='mox-v4-v15';
+const CACHE='mox-v4-v16';
 const APP_ASSETS=[
   './',
   './index.html',

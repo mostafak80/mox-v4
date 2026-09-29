@@ -3621,7 +3621,25 @@
   .mob-cart-tool-btns {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+  }
+  .mob-quick-sort-select {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 10px;
+    color: #cbd5e1;
+    font-family: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 6px;
+    height: 32px;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.2s ease;
+  }
+  .mob-quick-sort-select:focus {
+    border-color: #6c7cff;
+    box-shadow: 0 0 0 2px rgba(108, 124, 255, 0.25);
   }
 
   /* Mobile Presets Grid */

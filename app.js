@@ -134,7 +134,8 @@ import {
         serviceColors: {},
         migratedLegacy: false,
         lastView: 'today',
-        quickPresetServiceFilter: ''
+        quickPresetServiceFilter: '',
+        presetSortOrder: 'natural-asc'
       },
       meta: { createdAt: nowIso(), updatedAt: nowIso() }
     };
@@ -650,25 +651,60 @@ import {
   }
 
   function comparePresets(a, b) {
+    const order = state?.settings?.presetSortOrder || 'natural-asc';
+
     // 1. Group by service (item) in natural Arabic alphabetical order
     const itemCmp = (a.item || '').localeCompare(b.item || '', 'ar', { sensitivity: 'base' });
     if (itemCmp !== 0) return itemCmp;
 
-    // 2. Sort by extracted package quantity / tier number (e.g. 60, 120, 325, 385, 445, 660, 1800)
-    const valA = extractOfferNumber(a.offer, a.paid);
-    const valB = extractOfferNumber(b.offer, b.paid);
-    if (valA !== valB) return valA - valB;
+    // 2. Sorting within the same service based on user preference:
+    if (order === 'usage') {
+      const usageDiff = num(b.usageCount || 0) - num(a.usageCount || 0);
+      if (usageDiff !== 0) return usageDiff;
+    } else if (order === 'recent') {
+      const timeDiff = new Date(b.lastUsedAt || 0) - new Date(a.lastUsedAt || 0);
+      if (timeDiff !== 0) return timeDiff;
+    } else if (order === 'natural-desc') {
+      const valA = extractOfferNumber(a.offer, a.paid);
+      const valB = extractOfferNumber(b.offer, b.paid);
+      if (valA !== valB) return valB - valA;
+      const paidDiff = num(b.paid) - num(a.paid);
+      if (paidDiff !== 0) return paidDiff;
+    } else if (order === 'price-asc') {
+      const paidDiff = num(a.paid) - num(b.paid);
+      if (paidDiff !== 0) return paidDiff;
+    } else if (order === 'price-desc') {
+      const paidDiff = num(b.paid) - num(a.paid);
+      if (paidDiff !== 0) return paidDiff;
+    } else if (order === 'alpha') {
+      return (a.offer || '').localeCompare(b.offer || '', 'ar', { numeric: true });
+    } else {
+      // Default: 'natural-asc' (تصاعدي: 60، 120، 325...)
+      const valA = extractOfferNumber(a.offer, a.paid);
+      const valB = extractOfferNumber(b.offer, b.paid);
+      if (valA !== valB) return valA - valB;
+      const paidDiff = num(a.paid) - num(b.paid);
+      if (paidDiff !== 0) return paidDiff;
+    }
 
-    // 3. If tier numbers are identical or absent, sort by price (paid) ascending
-    const paidDiff = num(a.paid) - num(b.paid);
-    if (paidDiff !== 0) return paidDiff;
-
-    // 4. Then by cost (deducted) ascending
+    // Tie-breaker
     const costDiff = num(a.deducted) - num(b.deducted);
     if (costDiff !== 0) return costDiff;
 
-    // 5. Final fallback: natural text sort on offer name
     return (a.offer || '').localeCompare(b.offer || '', 'ar', { numeric: true });
+  }
+
+  function setPresetSortOrder(order) {
+    if (!order) order = 'natural-asc';
+    state.settings.presetSortOrder = order;
+    if ($('presetSortOrderSelect')) $('presetSortOrderSelect').value = order;
+    if ($('mobCartSortSelect')) $('mobCartSortSelect').value = order;
+    saveState('preset-sort-order').catch(() => {});
+    _cloudSync(() => syncSettings(state.settings));
+    renderRecentPresets();
+    renderMobileCashier();
+    renderMobileQuickAdd();
+    renderPresetManager();
   }
 
   function sortedPresets(){
@@ -1431,6 +1467,8 @@ import {
 
   function renderPresetManager(){
     const q=normalize($('presetManageSearch')?.value||''),svc=$('presetServiceFilter')?.value||'';
+    const sortSelect = $('presetSortOrderSelect');
+    if (sortSelect) sortSelect.value = state.settings.presetSortOrder || 'natural-asc';
     const services=[...new Set(state.presets.map(p=>p.item).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
     if($('presetServiceFilter')){$('presetServiceFilter').innerHTML='<option value="">كل الخدمات</option>'+services.map(s=>`<option ${s===svc?'selected':''}>${esc(s)}</option>`).join('')}
     const arr=state.presets.filter(p=>(!svc||p.item===svc)&&(!q||normalize(`${p.item} ${p.offer} ${p.paid}`).includes(q))).sort(comparePresets);
@@ -2086,6 +2124,13 @@ import {
     $('reportFrom').onchange=renderReports;$('reportTo').onchange=renderReports;$('exportExcelBtn').onclick=()=>exportExcel();
     $$('.settings-tab').forEach(b=>b.onclick=()=>setSettingsTab(b.dataset.tab));
     $('newPresetBtn').onclick=()=>openPresetDialog();$('presetManageSearch').oninput=renderPresetManager;$('presetServiceFilter').onchange=renderPresetManager;$('presetForm').onsubmit=savePreset;
+    const sortSelect = $('presetSortOrderSelect');
+    if (sortSelect) {
+      sortSelect.onchange = () => {
+        setPresetSortOrder(sortSelect.value);
+        toast(`تم ضبط ترتيب العروض: ${sortSelect.options[sortSelect.selectedIndex]?.text || ''}`, 'info');
+      };
+    }
     $('newFixedExpenseBtn').onclick=()=>openExpenseDialog('fixed');$('newVariableExpenseBtn').onclick=()=>openExpenseDialog('variable');$('expenseForm').onsubmit=saveExpense;
     // Settings -> Data tab action buttons
     if ($('dataBackupBtn')) $('dataBackupBtn').onclick = downloadBackup;
@@ -3157,6 +3202,8 @@ import {
   function renderMobileCashier() {
     const grid = $('mobCartPresetsGrid');
     if (!grid) return;
+    const mobSortSelect = $('mobCartSortSelect');
+    if (mobSortSelect) mobSortSelect.value = state.settings.presetSortOrder || 'natural-asc';
     const all = sortedPresets();
     const services = ['كل الخدمات', ...new Set(all.map(p => p.item).filter(Boolean))];
 
@@ -3427,6 +3474,14 @@ import {
         _mobCartBulkMode = !_mobCartBulkMode;
         if (!_mobCartBulkMode) _mobCartBulkSelection.clear();
         renderMobileCashier();
+      };
+    }
+
+    const mobSortSelect = $('mobCartSortSelect');
+    if (mobSortSelect) {
+      mobSortSelect.onchange = () => {
+        setPresetSortOrder(mobSortSelect.value);
+        toast(`تم ضبط ترتيب العروض: ${mobSortSelect.options[mobSortSelect.selectedIndex]?.text || ''}`, 'info');
       };
     }
 
