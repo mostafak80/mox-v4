@@ -672,7 +672,16 @@ import {
     const selectedCount=[...bulkPresetSelection].length;
     meta.innerHTML=`<span class="meta-chip ${selectedService?'active':''}">${selectedService?`الخدمة الحالية: ${esc(selectedService)}`:'فلتر مفتوح على كل الخدمات'}</span><span class="meta-chip">المعروض ${fmt(totalVisible,0)} من ${fmt(totalAll,0)}</span><span class="meta-chip ${selectedCount?'active':''}">المحدد ${fmt(selectedCount,0)}</span><span class="meta-tip">تقدر تبدّل بين الخدمات وتكمل التحديد بدون ما الاختيارات تضيع.</span>`;
   }
-  function renderAdd(){ $('addDate').value||=todayISO();$('manualDate').value||=todayISO();renderQuickServicePicker();renderRecentPresets();renderQuickCart(); }
+  function renderAdd(){
+    if($('addDate')) $('addDate').value||=todayISO();
+    if($('manualDate')) $('manualDate').value||=todayISO();
+    if($('mobCartBatchDate')) $('mobCartBatchDate').value||=todayISO();
+    if($('mobManualDate')) $('mobManualDate').value||=todayISO();
+    renderQuickServicePicker();
+    renderRecentPresets();
+    renderQuickCart();
+    renderMobileCashier();
+  }
   function renderRecentPresets(){
     const all=sortedPresets();
     const serviceFilter=getQuickPresetServiceFilter();
@@ -720,63 +729,192 @@ import {
   }
 
   function addToQuickCart(id, render=true){ if(quickCartSaving)return;const p=state.presets.find(x=>x.id===id&&x.active!==false);if(!p)return;const row=quickCart.find(x=>x.id===id);if(row)row.quantity++;else quickCart.push({id:p.id,item:p.item,offer:p.offer,paid:p.paid,deducted:p.deducted,quantity:1});if(render){renderQuickCart(id);syncOfferCartCounts();} }
-  function syncOfferCartCounts(){ $$('#recentPresets [data-preset-id]').forEach(button=>{const count=quickCart.find(row=>row.id===button.dataset.presetId)?.quantity||0;button.classList.toggle('in-cart',count>0);const badge=button.querySelector('.offer-cart-count');if(badge)badge.textContent=count||'+'; }); }
+  function syncOfferCartCounts(){
+    $$('#recentPresets [data-preset-id], #mobCartPresetsGrid [data-preset-id]').forEach(button=>{
+      const count=quickCart.find(row=>row.id===button.dataset.presetId)?.quantity||0;
+      button.classList.toggle('in-cart',count>0);
+      const badge=button.querySelector('.offer-cart-count, .mob-preset-cart-badge');
+      if(badge) badge.textContent=count||'+';
+    });
+  }
   function changeCartQty(id,delta){ if(quickCartSaving)return;const row=quickCart.find(x=>x.id===id);if(!row)return;row.quantity=Math.max(1,row.quantity+delta);renderQuickCart(id);syncOfferCartCounts(); }
   function removeCartItem(id){ if(quickCartSaving)return;quickCart=quickCart.filter(x=>x.id!==id);renderQuickCart();syncOfferCartCounts(); }
   function cartTotals(){ return quickCart.reduce((t,r)=>({count:t.count+r.quantity,income:t.income+r.paid*r.quantity,cost:t.cost+r.deducted*r.quantity}),{count:0,income:0,cost:0}); }
   function updateCartSummary(){
     const t=cartTotals();
-    $('cartSummary').textContent=`${fmt(t.count,0)} شحنة · ${fmt(quickCart.length,0)} عرض`;
-    $('addIncomePreview').textContent=fmt(t.income);$('addCostPreview').textContent=fmt(t.cost);$('addProfitPreview').textContent=fmt(t.income-t.cost);
-    $('addProfitPreview').classList.toggle('negative',t.income<t.cost);
+    if($('cartSummary')) $('cartSummary').textContent=`${fmt(t.count,0)} شحنة · ${fmt(quickCart.length,0)} عرض`;
+    if($('addIncomePreview')) $('addIncomePreview').textContent=fmt(t.income);
+    if($('addCostPreview')) $('addCostPreview').textContent=fmt(t.cost);
+    if($('addProfitPreview')) {
+      $('addProfitPreview').textContent=fmt(t.income-t.cost);
+      $('addProfitPreview').classList.toggle('negative',t.income<t.cost);
+    }
     const save=$('saveQuickTransaction');
-    save.disabled=quickCartSaving||!t.count;
-    save.textContent=quickCartSaving?'جارٍ حفظ العمليات…':t.count?`حفظ العمليات · ${fmt(t.count,0)} شحنة`:'حفظ العمليات';
-    save.setAttribute('aria-busy',String(quickCartSaving));
-    $('clearQuickCart').disabled=quickCartSaving||!t.count;
+    if(save) {
+      save.disabled=quickCartSaving||!t.count;
+      save.textContent=quickCartSaving?'جارٍ حفظ العمليات…':t.count?`حفظ العمليات · ${fmt(t.count,0)} شحنة`:'حفظ العمليات';
+      save.setAttribute('aria-busy',String(quickCartSaving));
+    }
+    if($('clearQuickCart')) $('clearQuickCart').disabled=quickCartSaving||!t.count;
+
+    // Mobile Elements Sync
+    const mobCountBadge = $('mobCartTopCountBadge');
+    if (mobCountBadge) {
+      mobCountBadge.textContent = t.count;
+      mobCountBadge.classList.toggle('hidden', t.count === 0);
+    }
+    const mobFloatBadge = $('mobFloatingCartBadge');
+    if (mobFloatBadge) mobFloatBadge.textContent = t.count;
+
+    const mobFloatCount = $('mobFloatingCartCount');
+    if (mobFloatCount) mobFloatCount.textContent = t.count ? `${fmt(t.count,0)} شحنة في السلة` : 'سلة العمليات فارغة';
+
+    const mobFloatProfit = $('mobFloatingCartProfit');
+    if (mobFloatProfit) mobFloatProfit.textContent = `الربح المتوقع: ${fmt(t.income - t.cost)} EGP`;
+
+    const mobFloatBar = $('mobFloatingCartBar');
+    if (mobFloatBar) {
+      mobFloatBar.classList.toggle('visible', t.count > 0 && _mobInputTab === 'cart');
+    }
+
+    const mobSheetSummary = $('mobSheetCartSummary');
+    if (mobSheetSummary) mobSheetSummary.textContent = `${fmt(t.count,0)} شحنة · ${fmt(quickCart.length,0)} عرض مختار`;
+
+    if ($('mobCartIncomePreview')) $('mobCartIncomePreview').textContent = fmt(t.income);
+    if ($('mobCartCostPreview')) $('mobCartCostPreview').textContent = fmt(t.cost);
+    if ($('mobCartProfitPreview')) {
+      $('mobCartProfitPreview').textContent = fmt(t.income - t.cost);
+      $('mobCartProfitPreview').classList.toggle('negative', t.income < t.cost);
+    }
+
+    const mobSaveBtn = $('mobQuickSaveCartBtn');
+    if (mobSaveBtn) {
+      mobSaveBtn.disabled = quickCartSaving || !t.count;
+      mobSaveBtn.textContent = quickCartSaving ? 'جارٍ الحفظ…' : (t.count ? `حفظ (${fmt(t.count,0)})` : 'حفظ العمليات');
+    }
+
+    const mobSaveSheetBtn = $('mobSaveCartSheetBtn');
+    if (mobSaveSheetBtn) {
+      mobSaveSheetBtn.disabled = quickCartSaving || !t.count;
+      mobSaveSheetBtn.textContent = quickCartSaving ? 'جارٍ حفظ العمليات…' : (t.count ? `حفظ العمليات · ${fmt(t.count,0)} شحنة` : 'حفظ العمليات');
+    }
   }
+
+  function renderMobileCartList() {
+    const box = $('mobCartItemsList');
+    if (!box) return;
+    if (!quickCart.length) {
+      box.innerHTML = '<div class="empty-state" style="padding:24px 12px;text-align:center;"><span style="font-size:2rem;display:block;margin-bottom:8px;">🛒</span><b>سلة العمليات فارغة</b><p style="font-size:0.8rem;color:#94a3b8;margin:4px 0 0;">اضغط على أي باقة لإضافتها هنا وزيادة عدد شحناتها.</p></div>';
+      return;
+    }
+    box.innerHTML = quickCart.map(row => {
+      const lineCost = row.deducted * row.quantity;
+      const lineProfit = (row.paid - row.deducted) * row.quantity;
+      return `<div class="mob-cart-card" data-mob-cart-id="${esc(row.id)}">
+        <div class="mob-cart-card-top">
+          <span class="mob-service-pill" style="--service-color:${serviceColor(row.item)}">${esc(row.item)}</span>
+          <b class="mob-cart-offer">${esc(row.offer)}</b>
+          <button type="button" class="mob-cart-del-btn" data-mob-cart-action="remove" data-id="${esc(row.id)}" aria-label="حذف">✕</button>
+        </div>
+        <div class="mob-cart-card-middle">
+          <label class="mob-cart-price-field">
+            <span>الداخل / شحنة (EGP)</span>
+            <div class="mob-input-with-currency">
+              <input type="number" class="control ltr" data-mob-cart-action="price" data-id="${esc(row.id)}" min="0" step="0.01" value="${row.paid}" inputmode="decimal">
+              <small>EGP</small>
+            </div>
+          </label>
+          <div class="mob-cart-stepper">
+            <button type="button" data-mob-cart-action="minus" data-id="${esc(row.id)}" aria-label="تقليل" ${row.quantity<=1?'disabled':''}>−</button>
+            <span class="mob-cart-qty">${row.quantity}</span>
+            <button type="button" data-mob-cart-action="plus" data-id="${esc(row.id)}" aria-label="زيادة">＋</button>
+          </div>
+        </div>
+        <div class="mob-cart-card-bottom">
+          <small>المصروف: ${fmt(lineCost)} EGP</small>
+          <strong class="mob-cart-line-profit ${lineProfit<0?'negative':''}">الربح: ${lineProfit>=0?'+':''}${fmt(lineProfit)} EGP</strong>
+        </div>
+      </div>`;
+    }).join('');
+
+    box.querySelectorAll('[data-mob-cart-action="minus"]').forEach(b => {
+      b.onclick = () => changeCartQty(b.dataset.id, -1);
+    });
+    box.querySelectorAll('[data-mob-cart-action="plus"]').forEach(b => {
+      b.onclick = () => changeCartQty(b.dataset.id, 1);
+    });
+    box.querySelectorAll('[data-mob-cart-action="remove"]').forEach(b => {
+      b.onclick = () => removeCartItem(b.dataset.id);
+    });
+    box.querySelectorAll('[data-mob-cart-action="price"]').forEach(input => {
+      input.oninput = () => {
+        const row = quickCart.find(r => r.id === input.dataset.id);
+        if (row) {
+          row.paid = num(input.value);
+          updateCartSummary();
+          const card = input.closest('.mob-cart-card');
+          if (card) {
+            const lineProfit = (row.paid - row.deducted) * row.quantity;
+            const profitEl = card.querySelector('.mob-cart-line-profit');
+            if (profitEl) {
+              profitEl.textContent = `الربح: ${lineProfit>=0?'+':''}${fmt(lineProfit)} EGP`;
+              profitEl.classList.toggle('negative', lineProfit < 0);
+            }
+          }
+        }
+      };
+    });
+  }
+
   function renderQuickCart(changedId=''){
-    const box=$('quickCart');if(!box)return;
-    const active=document.activeElement;
-    const focused=active?.closest('[data-cart-id]');
-    const focusId=focused?.dataset.cartId,focusAction=active?.dataset.cartAction;
-    const existing=new Map([...box.querySelectorAll('[data-cart-id]')].map(el=>[el.dataset.cartId,el]));
-    box.querySelector('.cart-empty')?.remove();
-    for(const row of quickCart){
-      let el=existing.get(row.id);
-      if(el)existing.delete(row.id);
-      else{
-        el=document.createElement('div');el.className='cart-card';el.dataset.cartId=row.id;el.setAttribute('role','listitem');
-        el.innerHTML=`<div class="cart-item-copy"><span class="cart-service"></span><b class="cart-offer"></b><small class="cart-unit-cost"></small></div>
-          <label class="cart-price"><span>الداخل / شحنة</span><input class="control ltr" data-cart-action="price" type="number" min="0" step="0.01" required inputmode="decimal"></label>
-          <div class="cart-stepper"><button type="button" data-cart-action="minus" aria-label="تقليل عدد الشحنات">−</button><output class="cart-quantity" aria-label="عدد الشحنات"></output><button type="button" data-cart-action="plus" aria-label="زيادة عدد الشحنات">+</button></div>
-          <div class="cart-line-total"><small>إجمالي الداخل</small><b></b><small>EGP</small></div>
-          <button type="button" class="cart-remove" data-cart-action="remove" aria-label="حذف العرض من السلة">×</button>`;
-        el.style.setProperty('--service-color',serviceColor(row.item));
-        el.querySelector('.cart-service').textContent=row.item;
-        el.querySelector('.cart-offer').textContent=row.offer;
-        el.querySelector('.cart-unit-cost').textContent=`المصروف / شحنة: ${fmt(row.deducted)} EGP`;
-        el.querySelector('input').value=row.paid;
-        el.querySelector('input').setAttribute('aria-label',`الداخل لكل شحنة ${row.item} ${row.offer}`);
-        box.append(el);
+    const box=$('quickCart');
+    if(box){
+      const active=document.activeElement;
+      const focused=active?.closest('[data-cart-id]');
+      const focusId=focused?.dataset.cartId,focusAction=active?.dataset.cartAction;
+      const existing=new Map([...box.querySelectorAll('[data-cart-id]')].map(el=>[el.dataset.cartId,el]));
+      box.querySelector('.cart-empty')?.remove();
+      for(const row of quickCart){
+        let el=existing.get(row.id);
+        if(el)existing.delete(row.id);
+        else{
+          el=document.createElement('div');el.className='cart-card';el.dataset.cartId=row.id;el.setAttribute('role','listitem');
+          el.innerHTML=`<div class="cart-item-copy"><span class="cart-service"></span><b class="cart-offer"></b><small class="cart-unit-cost"></small></div>
+            <label class="cart-price"><span>الداخل / شحنة</span><input class="control ltr" data-cart-action="price" type="number" min="0" step="0.01" required inputmode="decimal"></label>
+            <div class="cart-stepper"><button type="button" data-cart-action="minus" aria-label="تقليل عدد الشحنات">−</button><output class="cart-quantity" aria-label="عدد الشحنات"></output><button type="button" data-cart-action="plus" aria-label="زيادة عدد الشحنات">+</button></div>
+            <div class="cart-line-total"><small>إجمالي الداخل</small><b></b><small>EGP</small></div>
+            <button type="button" class="cart-remove" data-cart-action="remove" aria-label="حذف العرض من السلة">×</button>`;
+          el.style.setProperty('--service-color',serviceColor(row.item));
+          el.querySelector('.cart-service').textContent=row.item;
+          el.querySelector('.cart-offer').textContent=row.offer;
+          el.querySelector('.cart-unit-cost').textContent=`المصروف / شحنة: ${fmt(row.deducted)} EGP`;
+          el.querySelector('input').value=row.paid;
+          el.querySelector('input').setAttribute('aria-label',`الداخل لكل شحنة ${row.item} ${row.offer}`);
+          box.append(el);
+        }
+        el.querySelector('.cart-quantity').textContent=row.quantity;
+        el.querySelector('.cart-line-total b').textContent=fmt(row.paid*row.quantity);
+        el.querySelectorAll('button,input').forEach(control=>control.disabled=quickCartSaving);
+        el.querySelector('[data-cart-action="minus"]').disabled=quickCartSaving||row.quantity<=1;
+        if(changedId===row.id&&!matchMedia('(prefers-reduced-motion: reduce)').matches){
+          el.querySelector('.cart-quantity').animate?.([{transform:'scale(1.25)',color:'#fff'},{transform:'scale(1)',color:'#a5b4fc'}],{duration:180});
+        }
       }
-      el.querySelector('.cart-quantity').textContent=row.quantity;
-      el.querySelector('.cart-line-total b').textContent=fmt(row.paid*row.quantity);
-      el.querySelectorAll('button,input').forEach(control=>control.disabled=quickCartSaving);
-      el.querySelector('[data-cart-action="minus"]').disabled=quickCartSaving||row.quantity<=1;
-      if(changedId===row.id&&!matchMedia('(prefers-reduced-motion: reduce)').matches){
-        el.querySelector('.cart-quantity').animate?.([{transform:'scale(1.25)',color:'#fff'},{transform:'scale(1)',color:'#a5b4fc'}],{duration:180});
+      existing.forEach(el=>el.remove());
+      if(!quickCart.length)box.innerHTML='<div class="cart-empty"><span class="cart-empty-icon" aria-hidden="true">＋</span><b>ابدأ بأول عرض</b><p>اختار من العروض السريعة أو ابحث فوق.<br>كل عرض هيظهر هنا وتقدر تزود عدد شحناته.</p></div>';
+      if(focusId&&focusAction&&!document.contains(active)){
+        const row=[...box.querySelectorAll('[data-cart-id]')].find(el=>el.dataset.cartId===focusId);
+        (row?.querySelector(`[data-cart-action="${focusAction}"]`)||box.querySelector('button:not(:disabled)')||$('quickPresetSearch')).focus();
       }
     }
-    existing.forEach(el=>el.remove());
-    if(!quickCart.length)box.innerHTML='<div class="cart-empty"><span class="cart-empty-icon" aria-hidden="true">＋</span><b>ابدأ بأول عرض</b><p>اختار من العروض السريعة أو ابحث فوق.<br>كل عرض هيظهر هنا وتقدر تزود عدد شحناته.</p></div>';
+    renderMobileCartList();
     updateCartSummary();
-    if(focusId&&focusAction&&!document.contains(active)){
-      const row=[...box.querySelectorAll('[data-cart-id]')].find(el=>el.dataset.cartId===focusId);
-      (row?.querySelector(`[data-cart-action="${focusAction}"]`)||box.querySelector('button:not(:disabled)')||$('quickPresetSearch')).focus();
-    }
   }
-  function setCashierSaving(saving){ quickCartSaving=saving;$$('#view-add .cashier-layout button, #view-add .cashier-layout input').forEach(el=>el.disabled=saving);renderQuickCart(); }
+  function setCashierSaving(saving){
+    quickCartSaving=saving;
+    $$('#view-add .cashier-layout button, #view-add .cashier-layout input, #mobileAddView button, #sheetMobileCart button').forEach(el=>el.disabled=saving);
+    renderQuickCart();
+  }
 
   async function saveQuickTransaction() {
     if(quickCartSaving||!quickCart.length)return;
@@ -2731,6 +2869,367 @@ import {
     }
   }
 
+  // ============================================================
+  // Mobile Cashier & Input Suite State & Methods
+  // ============================================================
+  let _mobInputTab = 'cart';
+  let _mobCartServiceFilter = '';
+  let _mobCartBulkMode = false;
+  const _mobCartBulkSelection = new Set();
+  let _mobWalletParsed = [];
+
+  function setMobileInputTab(tab) {
+    _mobInputTab = tab;
+    $$('.mob-seg-tab').forEach(b => {
+      const active = b.dataset.mobInputTab === tab;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-selected', String(active));
+    });
+    if ($('mobPaneCart')) $('mobPaneCart').classList.toggle('hidden', tab !== 'cart');
+    if ($('mobPaneManual')) $('mobPaneManual').classList.toggle('hidden', tab !== 'manual');
+    if ($('mobPaneWallet')) $('mobPaneWallet').classList.toggle('hidden', tab !== 'wallet');
+    if ($('mobPaneAmount')) $('mobPaneAmount').classList.toggle('hidden', tab !== 'amount');
+
+    const floatBar = $('mobFloatingCartBar');
+    if (floatBar) {
+      floatBar.classList.toggle('visible', tab === 'cart' && quickCart.length > 0);
+    }
+
+    if (tab === 'cart') {
+      renderMobileCashier();
+    } else if (tab === 'manual') {
+      if ($('mobManualDate') && !$('mobManualDate').value) $('mobManualDate').value = todayISO();
+      populateMobileServicesDatalist();
+      updateMobileManualProfit();
+    }
+  }
+
+  function populateMobileServicesDatalist() {
+    const list = $('mobServicesList');
+    if (!list) return;
+    const services = [...new Set(state.presets.map(p => p.item).filter(Boolean))].sort();
+    list.innerHTML = services.map(s => `<option value="${esc(s)}"></option>`).join('');
+  }
+
+  function updateMobileManualProfit() {
+    const paid = num($('mobManualPaid')?.value);
+    const cost = num($('mobManualCost')?.value);
+    const qtyVal = qty($('mobManualQty')?.value || 1);
+    const profit = (paid - cost) * qtyVal;
+    const badge = $('mobManualProfitBadge');
+    const val = $('mobManualProfitVal');
+    if (!badge || !val) return;
+    val.textContent = `${profit >= 0 ? '+' : ''}${fmt(profit)} EGP (${paid > 0 ? Math.round((profit / (paid * qtyVal)) * 100) : 0}%)`;
+    badge.className = `mob-manual-profit-box ${profit > 0 ? 'positive' : profit < 0 ? 'negative' : 'neutral'}`;
+  }
+
+  async function saveMobileManual() {
+    const item = $('mobManualItem')?.value.trim();
+    const offer = $('mobManualOffer')?.value.trim();
+    if (!item || !offer) return toast('يرجى إدخال اسم الخدمة والعرض.', 'error');
+
+    const paid = num($('mobManualPaid')?.value);
+    const cost = num($('mobManualCost')?.value);
+    const date = $('mobManualDate')?.value || todayISO();
+    const quantity = qty($('mobManualQty')?.value || 1);
+    const note = $('mobManualNote')?.value.trim() || '';
+
+    await addTransaction({
+      date,
+      item,
+      offer,
+      paid,
+      deducted: cost,
+      quantity,
+      note,
+      source: 'manual',
+      classificationStatus: 'classified'
+    }, 'إضافة عملية يدويًا');
+
+    ['mobManualItem', 'mobManualOffer', 'mobManualPaid', 'mobManualCost', 'mobManualNote'].forEach(id => {
+      if ($(id)) $(id).value = '';
+    });
+    if ($('mobManualQty')) $('mobManualQty').value = 1;
+    updateMobileManualProfit();
+    renderAll();
+    toast('تم حفظ العملية يدويًا بنجاح.', 'success');
+  }
+
+  async function mobPasteWallet() {
+    try {
+      const text = await navigator.clipboard.readText();
+      const ta = $('mobWalletMessages');
+      if (ta) ta.value = text;
+      mobAnalyzeWallet();
+    } catch {
+      toast('تعذر قراءة الحافظة تلقائيًا. الصق الرسائل يدويًا في المربع.', 'error');
+    }
+  }
+
+  function mobAnalyzeWallet() {
+    const ta = $('mobWalletMessages');
+    const text = ta ? ta.value.trim() : '';
+    if (!text) return toast('يرجى لصق رسائل المحفظة أولاً.', 'error');
+    
+    _mobWalletParsed = parseWalletMessages(text).map(x => {
+      const suggestions = rankPresetSuggestions(x);
+      const top = suggestions[0];
+      return {
+        ...x,
+        suggestions,
+        presetId: top && top.confidence >= 38 ? top.preset.id : '',
+        confidence: top?.confidence || 0,
+        suggestionReason: top?.reason || 'لم أجد عرضًا مناسبًا'
+      };
+    });
+
+    renderMobileWalletPreview();
+    const confident = _mobWalletParsed.filter(x => x.confidence >= 75).length;
+    toast(_mobWalletParsed.length ? `تم تحليل ${_mobWalletParsed.length} رسالة · ${confident} اقتراح بثقة عالية.` : 'لم أجد رسائل قابلة للتحليل.', _mobWalletParsed.length ? 'success' : 'error');
+  }
+
+  function renderMobileWalletPreview() {
+    const wrap = $('mobWalletPreviewWrap');
+    const stats = $('mobWalletStats');
+    const list = $('mobWalletPreviewList');
+    if (!wrap || !list) return;
+
+    if (!_mobWalletParsed.length) {
+      wrap.classList.add('hidden');
+      if (stats) stats.classList.add('hidden');
+      return;
+    }
+
+    const existing = new Set(state.transactions.map(t => t.externalRef).filter(Boolean));
+    const fresh = _mobWalletParsed.filter(x => !existing.has(x.ref));
+    const total = _mobWalletParsed.reduce((s, x) => s + x.amount, 0);
+    const high = _mobWalletParsed.filter(x => x.confidence >= 75).length;
+    const review = _mobWalletParsed.filter(x => x.confidence < 55).length;
+
+    if (stats) {
+      stats.innerHTML = `<span class="stat-chip">الرسائل: <b>${_mobWalletParsed.length}</b></span>
+        <span class="stat-chip">الجديدة: <b>${fresh.length}</b></span>
+        <span class="stat-chip ai-chip">اقتراح قوي: <b>${high}</b></span>
+        <span class="stat-chip ${review ? 'warn-chip' : ''}">تحتاج مراجعة: <b>${review}</b></span>
+        <span class="stat-chip">إجمالي المستلم: <b>${fmt(total)} EGP</b></span>`;
+      stats.classList.remove('hidden');
+    }
+
+    const countChip = $('mobWalletItemsCount');
+    if (countChip) countChip.textContent = `${_mobWalletParsed.length} عملية`;
+
+    list.innerHTML = _mobWalletParsed.map((x, i) => {
+      const p = state.presets.find(z => z.id === x.presetId);
+      const duplicate = existing.has(x.ref);
+      const profit = p ? x.amount - num(p.deducted) : 0;
+      const level = x.confidence >= 75 ? 'high' : x.confidence >= 55 ? 'medium' : 'low';
+      return `<div class="mob-wallet-tx-card" style="opacity:${duplicate ? 0.6 : 1}">
+        <div class="mob-wallet-tx-top">
+          <div>
+            <div class="mob-wallet-sender">${esc(x.name || x.sender || 'مرسل غير معروف')}</div>
+            <small style="font-size:0.7rem;color:#94a3b8;">${esc(dateLabel(x.date))} · ${esc(x.time || '')}</small>
+          </div>
+          <div class="mob-wallet-amount">${fmt(x.amount)} EGP</div>
+        </div>
+        <div class="mob-wallet-match-box">
+          <div class="ai-confidence ${level}"><span>MOX Smart</span> <b>${x.confidence}%</b></div>
+          <span class="pill ${duplicate ? 'danger-pill' : (x.confidence < 55 ? 'review-pill' : '')}">${duplicate ? 'مكرر' : (x.confidence < 55 ? 'راجع' : 'جديد')}</span>
+        </div>
+        <select class="control mob-wallet-preset-select" data-i="${i}">
+          <option value="">— بدون ربط بعرض (مبلغ فقط) —</option>
+          ${sortedPresets().map(y => `<option value="${y.id}" ${y.id === x.presetId ? 'selected' : ''}>${esc(y.item)} — ${esc(y.offer)} (${fmt(y.paid)} EGP)</option>`).join('')}
+        </select>
+        <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:#94a3b8;padding-top:4px;">
+          <span>المصروف: ${p ? fmt(p.deducted) : '0'} EGP</span>
+          <strong style="color:#4ade80;">الربح: +${p ? fmt(profit) : fmt(x.amount)} EGP</strong>
+        </div>
+      </div>`;
+    }).join('');
+
+    wrap.classList.remove('hidden');
+
+    list.querySelectorAll('.mob-wallet-preset-select').forEach(sel => {
+      sel.onchange = () => {
+        _mobWalletParsed[+sel.dataset.i].presetId = sel.value;
+        renderMobileWalletPreview();
+      };
+    });
+  }
+
+  async function mobImportWalletRows() {
+    if (!_mobWalletParsed.length) return;
+    const existing = new Set(state.transactions.map(t => t.externalRef).filter(Boolean));
+    let added = 0;
+    const created = [];
+    for (const x of _mobWalletParsed) {
+      if (existing.has(x.ref)) continue;
+      const p = state.presets.find(z => z.id === x.presetId);
+      let t;
+      if (p) {
+        t = normalizeTransaction({
+          date: x.date,
+          item: p.item,
+          offer: p.offer,
+          paid: x.amount,
+          deducted: p.deducted,
+          quantity: 1,
+          note: [x.name || x.sender, `Ref ${x.ref}`].filter(Boolean).join(' · '),
+          source: 'wallet',
+          externalRef: x.ref,
+          classificationStatus: 'classified'
+        });
+        p.usageCount = num(p.usageCount) + 1;
+        p.lastUsedAt = nowIso();
+        p.updatedAt = nowIso();
+      } else {
+        t = normalizeTransaction({
+          date: x.date,
+          item: '',
+          offer: '',
+          paid: x.amount,
+          deducted: 0,
+          quantity: 1,
+          note: [x.name || x.sender, x.ref ? `Ref ${x.ref}` : ''].filter(Boolean).join(' · '),
+          source: 'wallet',
+          externalRef: x.ref,
+          classificationStatus: 'unclassified'
+        });
+      }
+      state.transactions.push(t);
+      created.push(t);
+      existing.add(x.ref);
+      added++;
+    }
+
+    if (added) {
+      audit(state, 'استيراد محفظة', '', { count: added, refs: created.map(t => t.externalRef) });
+      await saveState('wallet-import-batch');
+      _cloudSync(() => syncTransactionBatch(created));
+      renderAll();
+      toast(`تمت إضافة ${added} عمليات بنجاح إلى السجل.`, 'success');
+      if ($('mobWalletMessages')) $('mobWalletMessages').value = '';
+      _mobWalletParsed = [];
+      renderMobileWalletPreview();
+      goView('history');
+    } else {
+      toast('جميع العمليات مكررة أو مسجلة مسبقًا.', 'info');
+    }
+  }
+
+  async function saveMobileCart() {
+    if (quickCartSaving || !quickCart.length) return;
+    const batchDate = $('mobCartBatchDate')?.value || $('addDate')?.value || todayISO();
+    const batchNote = $('mobCartBatchNote')?.value || $('addNote')?.value || '';
+    if ($('addDate')) $('addDate').value = batchDate;
+    if ($('addNote')) $('addNote').value = batchNote;
+    closeMobileSheet('sheetMobileCart');
+    await saveQuickTransaction();
+  }
+
+  function renderMobileCashier() {
+    const grid = $('mobCartPresetsGrid');
+    if (!grid) return;
+    const all = sortedPresets();
+    const services = ['كل الخدمات', ...new Set(all.map(p => p.item).filter(Boolean))];
+
+    // Render horizontal chips
+    const chipBox = $('mobCartServiceChips');
+    if (chipBox) {
+      chipBox.innerHTML = services.map(s => {
+        const isAll = s === 'كل الخدمات';
+        const active = isAll ? (!_mobCartServiceFilter) : (_mobCartServiceFilter === s);
+        const count = isAll ? all.length : all.filter(p => p.item === s).length;
+        return `<button type="button" class="mob-chip ${active ? 'active' : ''}" data-mob-service="${esc(isAll ? '' : s)}">
+          <span>${esc(s)}</span>
+          <span class="mob-chip-count">${count}</span>
+        </button>`;
+      }).join('');
+
+      chipBox.querySelectorAll('[data-mob-service]').forEach(btn => {
+        btn.onclick = () => {
+          _mobCartServiceFilter = btn.dataset.mobService;
+          renderMobileCashier();
+        };
+      });
+    }
+
+    // Filter presets
+    const searchVal = normalize($('mobCartPresetSearch')?.value || '');
+    let filtered = _mobCartServiceFilter ? all.filter(p => p.item === _mobCartServiceFilter) : all;
+    if (searchVal) {
+      filtered = filtered.filter(p => normalize(`${p.item} ${p.offer} ${p.paid}`).includes(searchVal));
+    }
+
+    // Update meta
+    const meta = $('mobCartFilterMeta');
+    if (meta) {
+      meta.textContent = `المعروض ${filtered.length} من ${all.length} عرض`;
+    }
+
+    // Bulk mode toggle & bar
+    const bulkBtn = $('mobCartBulkModeBtn');
+    if (bulkBtn) {
+      bulkBtn.textContent = _mobCartBulkMode ? 'إنهاء التحديد' : 'تحديد متعدد';
+    }
+    const bulkBar = $('mobCartBulkBar');
+    if (bulkBar) {
+      bulkBar.classList.toggle('hidden', !_mobCartBulkMode);
+      if (_mobCartBulkMode) {
+        const chosen = [..._mobCartBulkSelection].map(id => state.presets.find(p => p.id === id)).filter(Boolean);
+        if ($('mobCartBulkSummary')) $('mobCartBulkSummary').textContent = `${chosen.length} عرض محدد`;
+        if ($('mobAddBulkBtn')) $('mobAddBulkBtn').disabled = !chosen.length;
+      }
+    }
+
+    // Render presets grid
+    if (!filtered.length) {
+      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;padding:24px 12px;text-align:center;">لا توجد عروض مطابقة للبحث أو الفلتر.</div>';
+    } else {
+      grid.innerHTML = filtered.map(p => {
+        const cartItem = quickCart.find(r => r.id === p.id);
+        const count = cartItem ? cartItem.quantity : 0;
+        const selected = _mobCartBulkSelection.has(p.id);
+        const profit = num(p.paid) - num(p.deducted);
+        return `<div class="mob-preset-card ${count > 0 ? 'in-cart' : ''} ${selected ? 'bulk-selected' : ''}" data-preset-id="${esc(p.id)}" style="--service-color:${serviceColor(p.item)}">
+          <div class="mob-preset-card-accent"></div>
+          <div>
+            <div class="mob-preset-card-top">
+              <span class="mob-preset-service-name">${esc(p.item)}</span>
+            </div>
+            <div class="mob-preset-offer-name">${esc(p.offer)}</div>
+          </div>
+          <div class="mob-preset-card-bottom">
+            <div class="mob-preset-prices">
+              <span class="mob-preset-paid-val">${fmt(p.paid)} EGP</span>
+              <span class="mob-preset-profit-tag ${profit < 0 ? 'negative' : ''}">ربح +${fmt(profit)}</span>
+            </div>
+            <span class="mob-preset-cart-badge" aria-label="عدد الشحنات">${_mobCartBulkMode ? (selected ? '✓' : '＋') : (count || '＋')}</span>
+          </div>
+        </div>`;
+      }).join('');
+
+      grid.querySelectorAll('[data-preset-id]').forEach(card => {
+        card.onclick = () => {
+          const id = card.dataset.presetId;
+          if (_mobCartBulkMode) {
+            if (_mobCartBulkSelection.has(id)) _mobCartBulkSelection.delete(id);
+            else _mobCartBulkSelection.add(id);
+            renderMobileCashier();
+          } else {
+            addToQuickCart(id);
+            const badge = card.querySelector('.mob-preset-cart-badge');
+            if (badge && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+              badge.animate([{ transform: 'scale(1.35)' }, { transform: 'scale(1)' }], { duration: 200 });
+            }
+          }
+        };
+      });
+    }
+
+    renderMobileCartList();
+    updateCartSummary();
+  }
+
   function bindMobileEvents() {
     const userBtn = $('mobileHeaderUserBtn');
     if (userBtn) userBtn.onclick = () => openMobileSheet('sheetAccount');
@@ -2739,7 +3238,12 @@ import {
     if (syncBtn) syncBtn.onclick = () => openMobileSheet('sheetAccount');
 
     const navAddBtn = $('mobileNavAddBtn');
-    if (navAddBtn) navAddBtn.onclick = () => openMobileSheet('sheetQuickAdd');
+    if (navAddBtn) {
+      navAddBtn.onclick = () => {
+        setMobileInputTab('cart');
+        goView('add');
+      };
+    }
 
     const navMoreBtn = $('mobileNavMoreBtn');
     if (navMoreBtn) navMoreBtn.onclick = () => openMobileSheet('sheetMobileMore');
@@ -2754,34 +3258,200 @@ import {
       };
     });
 
-    const heroAdd = $('mobQuickAddBtnHero');
-    if (heroAdd) heroAdd.onclick = () => openMobileSheet('sheetQuickAdd');
+    // Mobile Home Action Buttons
+    const heroAdd = $('mobActionAddBtn') || $('mobQuickAddBtnHero');
+    if (heroAdd) {
+      heroAdd.onclick = () => {
+        setMobileInputTab('cart');
+        goView('add');
+      };
+    }
 
-    const heroWallet = $('mobQuickWalletBtn');
+    const heroWallet = $('mobActionWalletBtn') || $('mobQuickWalletBtn');
     if (heroWallet) {
       heroWallet.onclick = () => {
+        setMobileInputTab('wallet');
         goView('add');
-        setTimeout(() => $('walletImportPanel')?.scrollIntoView({ behavior: 'smooth' }), 120);
       };
     }
 
-    const heroAmount = $('mobQuickAmountOnlyBtn');
-    if (heroAmount) heroAmount.onclick = () => openMobileSheet('sheetAmountOnly');
+    const heroAmount = $('mobActionAmountBtn') || $('mobQuickAmountOnlyBtn');
+    if (heroAmount) {
+      heroAmount.onclick = () => {
+        setMobileInputTab('amount');
+        goView('add');
+      };
+    }
 
-    const heroExpense = $('mobQuickExpenseBtn');
+    const heroExpense = $('mobActionExpenseBtn') || $('mobQuickExpenseBtn');
     if (heroExpense) heroExpense.onclick = () => openExpenseDialog('variable');
 
-    const reviewUnclass = $('mobReviewUnclassifiedBtn');
-    if (reviewUnclass) {
-      reviewUnclass.onclick = () => {
-        setMobileHistoryRange('all');
-        _mobHistorySearch = 'غير مصنفة';
-        goView('history');
+    // Add View Mode Switcher
+    $$('.mob-seg-tab').forEach(btn => {
+      btn.onclick = () => setMobileInputTab(btn.dataset.mobInputTab);
+    });
+
+    // Mobile Cashier Top & Floating Cart Buttons
+    const openCartTopBtn = $('mobAddOpenCartTopBtn');
+    if (openCartTopBtn) {
+      openCartTopBtn.onclick = () => {
+        if ($('mobCartBatchDate') && $('addDate')) $('mobCartBatchDate').value = $('addDate').value;
+        if ($('mobCartBatchNote') && $('addNote')) $('mobCartBatchNote').value = $('addNote').value;
+        openMobileSheet('sheetMobileCart');
       };
     }
 
-    const seeAllTx = $('mobSeeAllTxBtn');
-    if (seeAllTx) seeAllTx.onclick = () => goView('history');
+    const floatCartTrigger = $('mobFloatingCartTrigger');
+    if (floatCartTrigger) {
+      floatCartTrigger.onclick = () => {
+        if ($('mobCartBatchDate') && $('addDate')) $('mobCartBatchDate').value = $('addDate').value;
+        if ($('mobCartBatchNote') && $('addNote')) $('mobCartBatchNote').value = $('addNote').value;
+        openMobileSheet('sheetMobileCart');
+      };
+    }
+
+    const openCartSheetBtn = $('mobOpenCartSheetBtn');
+    if (openCartSheetBtn) {
+      openCartSheetBtn.onclick = () => {
+        if ($('mobCartBatchDate') && $('addDate')) $('mobCartBatchDate').value = $('addDate').value;
+        if ($('mobCartBatchNote') && $('addNote')) $('mobCartBatchNote').value = $('addNote').value;
+        openMobileSheet('sheetMobileCart');
+      };
+    }
+
+    const quickSaveCartBtn = $('mobQuickSaveCartBtn');
+    if (quickSaveCartBtn) quickSaveCartBtn.onclick = saveMobileCart;
+
+    const saveCartSheetBtn = $('mobSaveCartSheetBtn');
+    if (saveCartSheetBtn) saveCartSheetBtn.onclick = saveMobileCart;
+
+    const clearCartSheetBtn = $('mobClearCartSheetBtn');
+    if (clearCartSheetBtn) {
+      clearCartSheetBtn.onclick = () => {
+        if (!quickCart.length) return;
+        if (!confirm('هل تريد تفريغ كل العناصر من السلة؟')) return;
+        quickCart = [];
+        renderQuickCart();
+        syncOfferCartCounts();
+        closeMobileSheet('sheetMobileCart');
+      };
+    }
+
+    // Mobile Cashier Search & Dropdown
+    const cartSearch = $('mobCartPresetSearch');
+    const cartSearchClear = $('mobCartSearchClear');
+    const cartDropdown = $('mobCartPresetDropdown');
+    if (cartSearch) {
+      cartSearch.oninput = () => {
+        const q = normalize(cartSearch.value);
+        if (cartSearchClear) cartSearchClear.classList.toggle('hidden', !q);
+        if (!q) {
+          if (cartDropdown) {
+            cartDropdown.classList.add('hidden');
+            cartDropdown.innerHTML = '';
+          }
+          renderMobileCashier();
+          return;
+        }
+        const matches = sortedPresets().filter(p => normalize(`${p.item} ${p.offer} ${p.paid}`).includes(q)).slice(0, 8);
+        if (cartDropdown) {
+          cartDropdown.innerHTML = matches.length ? matches.map(p => `<button type="button" class="mob-preset-option" data-id="${esc(p.id)}">
+            <div>
+              <b>${esc(p.item)} — ${esc(p.offer)}</b>
+              <small>المصروف: ${fmt(p.deducted)} EGP · الربح: +${fmt(num(p.paid) - num(p.deducted))} EGP</small>
+            </div>
+            <span class="mob-preset-option-price">${fmt(p.paid)} EGP</span>
+          </button>`).join('') : '<div class="empty-state" style="padding:10px;text-align:center;">لا يوجد عرض مطابق.</div>';
+          cartDropdown.classList.remove('hidden');
+
+          cartDropdown.querySelectorAll('[data-id]').forEach(b => {
+            b.onclick = () => {
+              addToQuickCart(b.dataset.id);
+              cartSearch.value = '';
+              if (cartSearchClear) cartSearchClear.classList.add('hidden');
+              cartDropdown.classList.add('hidden');
+            };
+          });
+        }
+        renderMobileCashier();
+      };
+    }
+
+    if (cartSearchClear) {
+      cartSearchClear.onclick = () => {
+        if (cartSearch) {
+          cartSearch.value = '';
+          cartSearch.focus();
+        }
+        cartSearchClear.classList.add('hidden');
+        if (cartDropdown) {
+          cartDropdown.classList.add('hidden');
+          cartDropdown.innerHTML = '';
+        }
+        renderMobileCashier();
+      };
+    }
+
+    // Bulk Mode buttons
+    const mobBulkBtn = $('mobCartBulkModeBtn');
+    if (mobBulkBtn) {
+      mobBulkBtn.onclick = () => {
+        _mobCartBulkMode = !_mobCartBulkMode;
+        if (!_mobCartBulkMode) _mobCartBulkSelection.clear();
+        renderMobileCashier();
+      };
+    }
+
+    const mobClearBulkBtn = $('mobClearBulkBtn');
+    if (mobClearBulkBtn) {
+      mobClearBulkBtn.onclick = () => {
+        _mobCartBulkSelection.clear();
+        renderMobileCashier();
+      };
+    }
+
+    const mobAddBulkBtn = $('mobAddBulkBtn');
+    if (mobAddBulkBtn) {
+      mobAddBulkBtn.onclick = () => {
+        const chosen = [..._mobCartBulkSelection].map(id => state.presets.find(p => p.id === id && p.active !== false)).filter(Boolean);
+        if (!chosen.length) return toast('حدد عرض واحد على الأقل.', 'error');
+        chosen.forEach(p => addToQuickCart(p.id, false));
+        _mobCartBulkSelection.clear();
+        _mobCartBulkMode = false;
+        renderQuickCart();
+        renderMobileCashier();
+        toast(`تمت إضافة ${chosen.length} عروض للسلة بنجاح.`, 'success');
+      };
+    }
+
+    const mobManageBtn = $('mobCartManageBtn');
+    if (mobManageBtn) {
+      mobManageBtn.onclick = () => {
+        goView('settings');
+        setSettingsTab('presets');
+      };
+    }
+
+    // Manual Form Listeners
+    $('mobManualPaid')?.addEventListener('input', updateMobileManualProfit);
+    $('mobManualCost')?.addEventListener('input', updateMobileManualProfit);
+    $('mobManualQty')?.addEventListener('input', updateMobileManualProfit);
+    const saveManualBtn = $('mobSaveManualBtn');
+    if (saveManualBtn) saveManualBtn.onclick = saveMobileManual;
+
+    // Wallet Import Listeners
+    const pasteWalletBtn = $('mobPasteWalletBtn');
+    if (pasteWalletBtn) pasteWalletBtn.onclick = mobPasteWallet;
+
+    const analyzeWalletBtn = $('mobAnalyzeWalletBtn');
+    if (analyzeWalletBtn) analyzeWalletBtn.onclick = mobAnalyzeWallet;
+
+    const importWalletBtn = $('mobImportWalletRowsBtn');
+    if (importWalletBtn) importWalletBtn.onclick = mobImportWalletRows;
+
+    // Amount Only Listeners
+    const saveAmountOnlyBtn = $('mobSaveAmountOnlyBtn');
+    if (saveAmountOnlyBtn) saveAmountOnlyBtn.onclick = saveMobileAmountOnly;
 
     document.addEventListener('click', (e) => {
       const card = e.target.closest('.mob-tx-card[data-tx-id]');
@@ -2820,8 +3490,8 @@ import {
     if (openWalletFromSheet) {
       openWalletFromSheet.onclick = () => {
         closeMobileSheet('sheetQuickAdd');
+        setMobileInputTab('wallet');
         goView('add');
-        setTimeout(() => $('walletImportPanel')?.scrollIntoView({ behavior: 'smooth' }), 120);
       };
     }
 
@@ -2948,8 +3618,8 @@ import {
         const action = btn.dataset.mobAction;
         closeMobileSheet('sheetMobileMore');
         if (action === 'wallet') {
+          setMobileInputTab('wallet');
           goView('add');
-          setTimeout(() => $('walletImportPanel')?.scrollIntoView({ behavior: 'smooth' }), 120);
         }
       };
     });

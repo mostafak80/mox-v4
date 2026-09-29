@@ -2694,6 +2694,10 @@
     transform: translateY(-10px) scale(0.92);
     box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
   }
+  .mob-nav-add-btn.active {
+    background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
+    box-shadow: 0 0 0 3px rgba(108, 124, 255, 0.4), 0 8px 28px rgba(99, 102, 241, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
   .mob-add-plus {
     font-size: 1.85rem;
     font-weight: 300;
@@ -3447,6 +3451,684 @@
   .mob-filter-footer-actions button {
     flex: 1;
     min-height: 48px;
+  }
+
+  /* ============================================================
+     Mobile Add View & Full Mobile Cashier Suite
+     ============================================================ */
+  .mobile-add-view {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-bottom: 90px;
+    animation: mobFadeIn 0.25s ease-out;
+  }
+  .mob-add-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .mob-add-title-group h2 {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #f8fafc;
+    margin: 2px 0 0;
+  }
+  .mob-cart-pill-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: rgba(108, 124, 255, 0.15);
+    border: 1px solid rgba(108, 124, 255, 0.35);
+    color: #cbd5e1;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+  }
+  .mob-cart-pill-btn:active {
+    transform: scale(0.96);
+    background: rgba(108, 124, 255, 0.25);
+  }
+  .mob-cart-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #6c7cff, #8b5cf6);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 800;
+    box-shadow: 0 2px 8px rgba(108, 124, 255, 0.4);
+  }
+
+  /* 4 Segmented Mode Tabs */
+  .mob-segment-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    padding: 4px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    border-radius: 16px;
+    backdrop-filter: blur(12px);
+  }
+  .mob-seg-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 4px;
+    border: none;
+    background: transparent;
+    border-radius: 12px;
+    color: #94a3b8;
+    font-family: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .mob-seg-tab span {
+    font-size: 1.1rem;
+    line-height: 1;
+  }
+  .mob-seg-tab.active {
+    background: linear-gradient(135deg, rgba(108, 124, 255, 0.25), rgba(139, 92, 246, 0.2));
+    border: 1px solid rgba(108, 124, 255, 0.4);
+    color: #f8fafc;
+    box-shadow: 0 4px 14px rgba(108, 124, 255, 0.15);
+  }
+
+  /* Panes */
+  .mob-input-pane {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .mob-input-pane.hidden {
+    display: none !important;
+  }
+
+  /* Preset Dropdown Search */
+  .mob-preset-dropdown {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 8px;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid rgba(108, 124, 255, 0.3);
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(16px);
+  }
+  .mob-preset-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    color: #e2e8f0;
+    font-family: inherit;
+    text-align: right;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .mob-preset-option:active {
+    background: rgba(108, 124, 255, 0.2);
+  }
+  .mob-preset-option b {
+    display: block;
+    font-size: 0.85rem;
+    color: #f1f5f9;
+  }
+  .mob-preset-option small {
+    font-size: 0.72rem;
+    color: #94a3b8;
+  }
+  .mob-preset-option-price {
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: #38bdf8;
+    white-space: nowrap;
+  }
+
+  /* Tools & Meta Row */
+  .mob-cart-tools-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.78rem;
+    color: #94a3b8;
+  }
+  .mob-cart-meta-text {
+    font-weight: 600;
+  }
+  .mob-cart-tool-btns {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* Mobile Presets Grid */
+  .mob-presets-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+  }
+  .mob-preset-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 120px;
+    padding: 12px;
+    background: rgba(30, 41, 59, 0.45);
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    border-radius: 16px;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mob-preset-card:active {
+    transform: scale(0.97);
+  }
+  .mob-preset-card.in-cart {
+    border-color: rgba(108, 124, 255, 0.5);
+    background: linear-gradient(135deg, rgba(108, 124, 255, 0.12), rgba(30, 41, 59, 0.6));
+    box-shadow: 0 4px 18px rgba(108, 124, 255, 0.15);
+  }
+  .mob-preset-card-accent {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 3px;
+    background: var(--service-color, #6c7cff);
+  }
+  .mob-preset-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .mob-preset-service-name {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--service-color, #a5b4fc);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mob-preset-offer-name {
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: #f8fafc;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .mob-preset-card-bottom {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  .mob-preset-prices {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .mob-preset-paid-val {
+    font-size: 0.95rem;
+    font-weight: 900;
+    color: #38bdf8;
+  }
+  .mob-preset-profit-tag {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #4ade80;
+  }
+  .mob-preset-cart-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #cbd5e1;
+    font-size: 0.9rem;
+    font-weight: 800;
+    transition: all 0.2s ease;
+  }
+  .mob-preset-card.in-cart .mob-preset-cart-badge {
+    background: linear-gradient(135deg, #6c7cff, #8b5cf6);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 2px 10px rgba(108, 124, 255, 0.4);
+    transform: scale(1.05);
+  }
+
+  /* Floating Sticky Bottom Cart Bar */
+  .mob-floating-cart-bar {
+    position: fixed;
+    bottom: calc(var(--mob-nav-h) + env(safe-area-inset-bottom, 0px) + 12px);
+    right: 12px;
+    left: 12px;
+    z-index: 85;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(108, 124, 255, 0.4);
+    border-radius: 20px;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.6), 0 0 20px rgba(108, 124, 255, 0.2);
+    transform: translateY(120%);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.28s ease;
+  }
+  .mob-floating-cart-bar.visible {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .mob-floating-cart-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    flex: 1;
+    min-width: 0;
+  }
+  .mob-floating-cart-icon-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: rgba(108, 124, 255, 0.2);
+    border: 1px solid rgba(108, 124, 255, 0.35);
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+  .mob-floating-badge {
+    position: absolute;
+    top: -5px;
+    left: -5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 800;
+  }
+  .mob-floating-cart-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .mob-floating-cart-text strong {
+    font-size: 0.85rem;
+    color: #f8fafc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mob-floating-cart-text small {
+    font-size: 0.72rem;
+    color: #4ade80;
+    font-weight: 700;
+  }
+  .mob-floating-cart-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  /* Cart Drawer Panel & Cart Items */
+  .mob-cart-drawer-panel {
+    max-height: 85vh;
+  }
+  .mob-cart-summary-pill {
+    display: inline-block;
+    padding: 4px 10px;
+    background: rgba(108, 124, 255, 0.12);
+    border: 1px solid rgba(108, 124, 255, 0.25);
+    border-radius: 30px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: #a5b4fc;
+    margin-bottom: 12px;
+  }
+  .mob-cart-items-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 40vh;
+    overflow-y: auto;
+    padding: 4px 2px;
+  }
+  .mob-cart-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    border-radius: 14px;
+  }
+  .mob-cart-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .mob-service-pill {
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border-inline-start: 3px solid var(--service-color, #6c7cff);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #cbd5e1;
+  }
+  .mob-cart-offer {
+    font-size: 0.85rem;
+    color: #f8fafc;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mob-cart-del-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: none;
+    background: rgba(244, 63, 94, 0.1);
+    color: #fb7185;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .mob-cart-card-middle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .mob-cart-price-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+  }
+  .mob-cart-price-field span {
+    font-size: 0.68rem;
+    color: #94a3b8;
+  }
+  .mob-input-with-currency {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .mob-input-with-currency input {
+    height: 38px;
+    padding-left: 36px;
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+  .mob-input-with-currency small {
+    position: absolute;
+    left: 8px;
+    font-size: 0.68rem;
+    color: #94a3b8;
+    pointer-events: none;
+  }
+  .mob-cart-stepper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 3px;
+  }
+  .mob-cart-stepper button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: rgba(108, 124, 255, 0.15);
+    border-radius: 8px;
+    color: #cbd5e1;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .mob-cart-stepper button:disabled {
+    opacity: 0.3;
+    pointer-events: none;
+  }
+  .mob-cart-qty {
+    min-width: 24px;
+    text-align: center;
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: #fff;
+  }
+  .mob-cart-card-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    color: #94a3b8;
+    padding-top: 6px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  }
+  .mob-cart-line-profit {
+    color: #4ade80;
+    font-weight: 800;
+  }
+
+  /* Batch Box in Drawer */
+  .mob-cart-batch-box {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 10px 0;
+  }
+
+  /* Cart Totals Card */
+  .mob-cart-totals-card {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    margin-bottom: 12px;
+  }
+  .mob-cart-total-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .mob-cart-total-cell span {
+    font-size: 0.68rem;
+    color: #94a3b8;
+  }
+  .mob-cart-total-cell strong {
+    font-size: 1rem;
+    font-weight: 900;
+    color: #cbd5e1;
+  }
+  .mob-cart-total-cell.profit strong {
+    color: #4ade80;
+  }
+  .mob-cart-total-cell small {
+    font-size: 0.6rem;
+    color: #64748b;
+  }
+
+  /* Manual Entry Card */
+  .mob-manual-card, .mob-wallet-card, .mob-amount-card {
+    padding: 16px;
+    border-radius: 20px;
+  }
+  .mob-pane-head {
+    margin-bottom: 14px;
+  }
+  .mob-pane-head h3 {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #f8fafc;
+    margin: 2px 0 4px;
+  }
+  .mob-pane-head p {
+    font-size: 0.78rem;
+    color: #94a3b8;
+    line-height: 1.5;
+    margin: 0;
+  }
+  .mob-manual-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .mob-form-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .mob-manual-profit-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: rgba(74, 222, 128, 0.08);
+    border: 1px solid rgba(74, 222, 128, 0.25);
+    border-radius: 12px;
+    font-size: 0.85rem;
+    color: #4ade80;
+    font-weight: 700;
+  }
+  .mob-manual-profit-box.neutral {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #94a3b8;
+  }
+
+  /* Wallet Import Mobile */
+  .mob-wallet-actions-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .mob-wallet-actions-bar button {
+    flex: 1;
+    min-height: 44px;
+  }
+  .mob-wallet-textarea {
+    width: 100%;
+    font-family: monospace;
+    font-size: 0.8rem;
+    margin-bottom: 10px;
+  }
+  .mob-wallet-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .mob-wallet-preview-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .mob-wallet-cards-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 45vh;
+    overflow-y: auto;
+  }
+  .mob-wallet-tx-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    border-radius: 14px;
+  }
+  .mob-wallet-tx-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .mob-wallet-sender {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #f8fafc;
+  }
+  .mob-wallet-amount {
+    font-size: 1.05rem;
+    font-weight: 900;
+    color: #4ade80;
+  }
+  .mob-wallet-match-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.75rem;
+  }
+  .mob-wallet-preset-select {
+    width: 100%;
+    font-size: 0.8rem;
+    height: 38px;
   }
 }
 

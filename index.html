@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./style.css?v=12">
+  <link rel="stylesheet" href="./style.css?v=14">
 </head>
 <body>
   <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
@@ -232,85 +232,295 @@
       </section>
 
       <section id="view-add" class="view">
-        <div class="two-col-layout cashier-layout">
-          <article class="panel glass cashier-panel">
-            <div class="panel-head"><div><span class="panel-kicker">سجّل يومك بسهولة</span><h3>سلة العمليات</h3><p>اختار عروضك من الشمال، وزوّد عدد الشحنات لكل عرض.</p></div><span class="cart-status">● جاهز للتسجيل</span></div>
-            <div class="form-stack">
-              <label class="field"><span>بحث سريع وإضافة للسلة</span><div class="search-control"><span>⌕</span><input id="quickPresetSearch" class="control" placeholder="مثال: ببجي 120 أو Netflix" autocomplete="off"></div></label>
-              <div id="presetDropdown" class="preset-dropdown hidden"></div>
-              <div class="quick-cart-panel">
-                <div class="cart-head"><span id="cartSummary" role="status" aria-live="polite">0 شحنة · 0 عرض</span><button id="clearQuickCart" type="button" class="text-btn" disabled>تفريغ السلة</button></div>
-                <div id="quickCart" class="quick-cart" role="list" aria-label="العروض المختارة"></div>
+        <div class="desktop-only">
+          <div class="two-col-layout cashier-layout">
+            <article class="panel glass cashier-panel">
+              <div class="panel-head"><div><span class="panel-kicker">سجّل يومك بسهولة</span><h3>سلة العمليات</h3><p>اختار عروضك من الشمال، وزوّد عدد الشحنات لكل عرض.</p></div><span class="cart-status">● جاهز للتسجيل</span></div>
+              <div class="form-stack">
+                <label class="field"><span>بحث سريع وإضافة للسلة</span><div class="search-control"><span>⌕</span><input id="quickPresetSearch" class="control" placeholder="مثال: ببجي 120 أو Netflix" autocomplete="off"></div></label>
+                <div id="presetDropdown" class="preset-dropdown hidden"></div>
+                <div class="quick-cart-panel">
+                  <div class="cart-head"><span id="cartSummary" role="status" aria-live="polite">0 شحنة · 0 عرض</span><button id="clearQuickCart" type="button" class="text-btn" disabled>تفريغ السلة</button></div>
+                  <div id="quickCart" class="quick-cart" role="list" aria-label="العروض المختارة"></div>
+                </div>
+                <div class="cart-totals" aria-label="إجماليات السلة">
+                  <div><span>إجمالي الداخل</span><strong id="addIncomePreview">0.00</strong><small>EGP</small></div>
+                  <div><span>إجمالي المصروف</span><strong id="addCostPreview">0.00</strong><small>EGP</small></div>
+                  <div class="cart-profit"><span>الربح المتوقع</span><strong id="addProfitPreview">0.00</strong><small>EGP</small></div>
+                </div>
+                <div class="cart-details">
+                  <label class="field"><span>تاريخ كل الشحنات</span><input id="addDate" class="control" type="date" required></label>
+                  <label class="field"><span>ملاحظة للدفعة <em>اختياري</em></span><input id="addNote" class="control" placeholder="تُضاف لكل شحنة في السلة"></label>
+                </div>
+                <div class="cart-save-area">
+                  <p class="cart-save-hint">✓ كل شحنة هتتحفظ في صف مستقل في السجل، حتى لو نفس العرض.</p>
+                  <button id="saveQuickTransaction" type="button" class="btn btn-primary btn-block btn-lg" disabled>حفظ العمليات</button>
+                  <span class="cart-shortcut">Ctrl + Enter للحفظ السريع</span>
+                </div>
               </div>
-              <div class="cart-totals" aria-label="إجماليات السلة">
-                <div><span>إجمالي الداخل</span><strong id="addIncomePreview">0.00</strong><small>EGP</small></div>
-                <div><span>إجمالي المصروف</span><strong id="addCostPreview">0.00</strong><small>EGP</small></div>
-                <div class="cart-profit"><span>الربح المتوقع</span><strong id="addProfitPreview">0.00</strong><small>EGP</small></div>
+            </article>
+
+            <article class="panel glass">
+              <div class="panel-head"><div><span class="panel-kicker">آخر استخدام</span><h3>العروض السريعة</h3><p>اضغط على أي عرض لإضافته للسلة. كل ضغطة إضافية تزود شحنة.</p></div><div class="panel-actions"><button id="bulkPresetModeBtn" type="button" class="btn btn-secondary btn-sm">تحديد متعدد</button><button class="text-btn" data-go="settings" data-settings-tab="presets">إدارة العروض</button></div></div>
+              <div class="quick-preset-filter-row">
+                <div class="field quick-service-filter">
+                  <span>الخدمة</span>
+                  <input id="quickPresetServiceFilter" type="hidden" value="">
+                  <button id="quickServicePickerBtn" type="button" class="quick-service-picker glass" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="picker-copy">
+                      <small>فلتر الخدمة</small>
+                      <strong id="quickServicePickerLabel">كل الخدمات</strong>
+                    </span>
+                    <span class="picker-badges">
+                      <i id="quickServicePickerCount" class="picker-count">0</i>
+                      <i class="picker-arrow">⌄</i>
+                    </span>
+                    <span class="picker-glow" aria-hidden="true"></span>
+                  </button>
+                  <div id="quickServiceMenu" class="quick-service-menu hidden" role="listbox" aria-label="اختيار الخدمة"></div>
+                </div>
+                <div id="quickPresetFilterMeta" class="quick-preset-filter-meta"></div>
               </div>
-              <div class="cart-details">
-                <label class="field"><span>تاريخ كل الشحنات</span><input id="addDate" class="control" type="date" required></label>
-                <label class="field"><span>ملاحظة للدفعة <em>اختياري</em></span><input id="addNote" class="control" placeholder="تُضاف لكل شحنة في السلة"></label>
-              </div>
-              <div class="cart-save-area">
-                <p class="cart-save-hint">✓ كل شحنة هتتحفظ في صف مستقل في السجل، حتى لو نفس العرض.</p>
-                <button id="saveQuickTransaction" type="button" class="btn btn-primary btn-block btn-lg" disabled>حفظ العمليات</button>
-                <span class="cart-shortcut">Ctrl + Enter للحفظ السريع</span>
-              </div>
-            </div>
+              <div id="recentPresets" class="recent-presets"></div>
+              <div id="bulkPresetBar" class="bulk-preset-bar hidden"></div>
+            </article>
+          </div>
+
+          <article id="walletImportPanel" class="panel glass wallet-panel">
+            <div class="panel-head"><div><span class="panel-kicker">Vodafone Cash</span><h3>استيراد رسائل المحفظة</h3><p>الصق الرسائل العربية أو الإنجليزية؛ هنستخرج المبلغ والتاريخ والمرجع ونقترح أقرب عرض.</p></div><div class="panel-actions"><button id="pasteWalletBtn" class="btn btn-secondary">لصق تلقائي</button><button id="analyzeWalletBtn" class="btn btn-primary">تحليل</button></div></div>
+            <textarea id="walletMessages" class="control textarea" placeholder="الصق رسائل المحفظة هنا..."></textarea>
+            <div id="walletImportStats" class="import-stats hidden"></div>
+            <div id="walletPreviewWrap" class="table-card hidden"><div class="table-scroll"><table><thead><tr><th>التاريخ</th><th>المرسل</th><th>المبلغ</th><th>العرض المقترح</th><th>المصروف</th><th>الربح</th><th>الحالة</th></tr></thead><tbody id="walletPreviewBody"></tbody></table></div><div class="table-footer"><button id="importWalletRowsBtn" class="btn btn-primary">إضافة العمليات الجديدة</button></div></div>
           </article>
 
-          <article class="panel glass">
-            <div class="panel-head"><div><span class="panel-kicker">آخر استخدام</span><h3>العروض السريعة</h3><p>اضغط على أي عرض لإضافته للسلة. كل ضغطة إضافية تزود شحنة.</p></div><div class="panel-actions"><button id="bulkPresetModeBtn" type="button" class="btn btn-secondary btn-sm">تحديد متعدد</button><button class="text-btn" data-go="settings" data-settings-tab="presets">إدارة العروض</button></div></div>
-            <div class="quick-preset-filter-row">
-              <div class="field quick-service-filter">
-                <span>الخدمة</span>
-                <input id="quickPresetServiceFilter" type="hidden" value="">
-                <button id="quickServicePickerBtn" type="button" class="quick-service-picker glass" aria-haspopup="listbox" aria-expanded="false">
-                  <span class="picker-copy">
-                    <small>فلتر الخدمة</small>
-                    <strong id="quickServicePickerLabel">كل الخدمات</strong>
-                  </span>
-                  <span class="picker-badges">
-                    <i id="quickServicePickerCount" class="picker-count">0</i>
-                    <i class="picker-arrow">⌄</i>
-                  </span>
-                  <span class="picker-glow" aria-hidden="true"></span>
-                </button>
-                <div id="quickServiceMenu" class="quick-service-menu hidden" role="listbox" aria-label="اختيار الخدمة"></div>
+          <article class="panel glass manual-panel">
+            <details>
+              <summary>إضافة يدوية متقدمة</summary>
+              <div class="manual-form">
+                <div class="form-grid-4">
+                  <label class="field"><span>المنتج / الخدمة</span><input id="manualItem" class="control"></label>
+                  <label class="field"><span>العرض</span><input id="manualOffer" class="control"></label>
+                  <label class="field"><span>الداخل / واحدة</span><input id="manualPaid" class="control ltr" type="number" step="0.01" min="0"></label>
+                  <label class="field"><span>مصروف / واحدة</span><input id="manualCost" class="control ltr" type="number" step="0.01" min="0"></label>
+                </div>
+                <div class="form-grid-3">
+                  <label class="field"><span>التاريخ</span><input id="manualDate" class="control" type="date"></label>
+                  <label class="field"><span>الكمية</span><input id="manualQty" class="control ltr" type="number" min="1" value="1"></label>
+                  <label class="field"><span>ملاحظة</span><input id="manualNote" class="control"></label>
+                </div>
+                <button id="saveManualBtn" class="btn btn-secondary">إضافة العملية يدويًا</button>
               </div>
-              <div id="quickPresetFilterMeta" class="quick-preset-filter-meta"></div>
-            </div>
-            <div id="recentPresets" class="recent-presets"></div>
-            <div id="bulkPresetBar" class="bulk-preset-bar hidden"></div>
+            </details>
           </article>
         </div>
 
-        <article id="walletImportPanel" class="panel glass wallet-panel">
-          <div class="panel-head"><div><span class="panel-kicker">Vodafone Cash</span><h3>استيراد رسائل المحفظة</h3><p>الصق الرسائل العربية أو الإنجليزية؛ هنستخرج المبلغ والتاريخ والمرجع ونقترح أقرب عرض.</p></div><div class="panel-actions"><button id="pasteWalletBtn" class="btn btn-secondary">لصق تلقائي</button><button id="analyzeWalletBtn" class="btn btn-primary">تحليل</button></div></div>
-          <textarea id="walletMessages" class="control textarea" placeholder="الصق رسائل المحفظة هنا..."></textarea>
-          <div id="walletImportStats" class="import-stats hidden"></div>
-          <div id="walletPreviewWrap" class="table-card hidden"><div class="table-scroll"><table><thead><tr><th>التاريخ</th><th>المرسل</th><th>المبلغ</th><th>العرض المقترح</th><th>المصروف</th><th>الربح</th><th>الحالة</th></tr></thead><tbody id="walletPreviewBody"></tbody></table></div><div class="table-footer"><button id="importWalletRowsBtn" class="btn btn-primary">إضافة العمليات الجديدة</button></div></div>
-        </article>
-
-        <article class="panel glass manual-panel">
-          <details>
-            <summary>إضافة يدوية متقدمة</summary>
-            <div class="manual-form">
-              <div class="form-grid-4">
-                <label class="field"><span>المنتج / الخدمة</span><input id="manualItem" class="control"></label>
-                <label class="field"><span>العرض</span><input id="manualOffer" class="control"></label>
-                <label class="field"><span>الداخل / واحدة</span><input id="manualPaid" class="control ltr" type="number" step="0.01" min="0"></label>
-                <label class="field"><span>مصروف / واحدة</span><input id="manualCost" class="control ltr" type="number" step="0.01" min="0"></label>
-              </div>
-              <div class="form-grid-3">
-                <label class="field"><span>التاريخ</span><input id="manualDate" class="control" type="date"></label>
-                <label class="field"><span>الكمية</span><input id="manualQty" class="control ltr" type="number" min="1" value="1"></label>
-                <label class="field"><span>ملاحظة</span><input id="manualNote" class="control"></label>
-              </div>
-              <button id="saveManualBtn" class="btn btn-secondary">إضافة العملية يدويًا</button>
+        <!-- Native Flagship Mobile Add View (Full Cashier & Input Suite) -->
+        <div id="mobileAddView" class="mobile-add-view mobile-only">
+          <!-- Top Header -->
+          <div class="mob-add-header">
+            <div class="mob-add-title-group">
+              <span class="mob-badge-tag">● نظام الكاشير المتكامل</span>
+              <h2>تسجيل العمليات</h2>
             </div>
-          </details>
-        </article>
+            <button id="mobAddOpenCartTopBtn" type="button" class="mob-cart-pill-btn" aria-label="عرض سلة العمليات">
+              <span class="mob-cart-icon">🛒</span>
+              <span class="mob-cart-pill-text">السلة</span>
+              <span id="mobCartTopCountBadge" class="mob-cart-count-badge hidden">0</span>
+            </button>
+          </div>
+
+          <!-- 4 Segmented Mode Tabs -->
+          <div class="mob-segment-tabs" role="tablist">
+            <button class="mob-seg-tab active" data-mob-input-tab="cart" type="button" role="tab" aria-selected="true">
+              <span>🛒</span><b>الكاشير والسلة</b>
+            </button>
+            <button class="mob-seg-tab" data-mob-input-tab="manual" type="button" role="tab" aria-selected="false">
+              <span>✍️</span><b>يدوي</b>
+            </button>
+            <button class="mob-seg-tab" data-mob-input-tab="wallet" type="button" role="tab" aria-selected="false">
+              <span>📲</span><b>المحفظة</b>
+            </button>
+            <button class="mob-seg-tab" data-mob-input-tab="amount" type="button" role="tab" aria-selected="false">
+              <span>⚡</span><b>مبلغ فقط</b>
+            </button>
+          </div>
+
+          <!-- =================== TAB 1: CASHIER & CART =================== -->
+          <div id="mobPaneCart" class="mob-input-pane active">
+            <!-- Search & Autocomplete -->
+            <div class="mob-search-input-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <input id="mobCartPresetSearch" class="mob-search-input" type="search" placeholder="ابحث عن باقة أو عرض (ببجي، نتفلكس، فودافون...)" autocomplete="off">
+              <button id="mobCartSearchClear" class="mob-search-clear-btn hidden" type="button">✕</button>
+            </div>
+            <div id="mobCartPresetDropdown" class="mob-preset-dropdown hidden"></div>
+
+            <!-- Service Category Horizontal Chips -->
+            <div id="mobCartServiceChips" class="mob-services-chip-scroll"></div>
+
+            <!-- Meta & Tools Row -->
+            <div class="mob-cart-tools-row">
+              <div id="mobCartFilterMeta" class="mob-cart-meta-text">0 عرض</div>
+              <div class="mob-cart-tool-btns">
+                <button id="mobCartBulkModeBtn" type="button" class="btn btn-secondary btn-sm">تحديد متعدد</button>
+                <button id="mobCartManageBtn" type="button" class="mob-text-link">إدارة العروض</button>
+              </div>
+            </div>
+
+            <!-- Bulk Selection Floating Bar on Mobile -->
+            <div id="mobCartBulkBar" class="mob-bulk-bar hidden">
+              <div id="mobCartBulkSummary" class="mob-bulk-summary">0 محدد</div>
+              <div class="mob-bulk-actions">
+                <button id="mobClearBulkBtn" type="button" class="btn btn-ghost btn-sm">إلغاء</button>
+                <button id="mobAddBulkBtn" type="button" class="btn btn-primary btn-sm">＋ إضافة للسلة</button>
+              </div>
+            </div>
+
+            <!-- Presets Grid -->
+            <div id="mobCartPresetsGrid" class="mob-presets-grid"></div>
+
+            <!-- Floating Sticky Cart Summary Bar at Bottom (appears when items in cart) -->
+            <div id="mobFloatingCartBar" class="mob-floating-cart-bar">
+              <div class="mob-floating-cart-info" id="mobFloatingCartTrigger">
+                <div class="mob-floating-cart-icon-wrap">
+                  <span>🛒</span>
+                  <span id="mobFloatingCartBadge" class="mob-floating-badge">0</span>
+                </div>
+                <div class="mob-floating-cart-text">
+                  <strong id="mobFloatingCartCount">0 شحنة في السلة</strong>
+                  <small id="mobFloatingCartProfit">الربح المتوقع: 0 EGP</small>
+                </div>
+              </div>
+              <div class="mob-floating-cart-actions">
+                <button id="mobOpenCartSheetBtn" type="button" class="btn btn-secondary btn-sm">عرض السلة</button>
+                <button id="mobQuickSaveCartBtn" type="button" class="btn btn-primary btn-sm" disabled>حفظ العمليات</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- =================== TAB 2: ADVANCED MANUAL =================== -->
+          <div id="mobPaneManual" class="mob-input-pane hidden">
+            <div class="mob-manual-card glass">
+              <div class="mob-pane-head">
+                <span class="mob-hero-label">تسجيل يدوي مخصص</span>
+                <h3>إضافة عملية يدويًا</h3>
+                <p>سجّل عمليات غير محفوظة في العروض بتفاصيلها وأسعارها بدقة.</p>
+              </div>
+
+              <div class="mob-manual-grid">
+                <label class="mob-field">
+                  <span>المنتج / الخدمة</span>
+                  <input id="mobManualItem" class="control" placeholder="مثال: شحن فودافون كاش، اشتراك..." list="mobServicesList">
+                  <datalist id="mobServicesList"></datalist>
+                </label>
+
+                <label class="mob-field">
+                  <span>العرض / الباقة</span>
+                  <input id="mobManualOffer" class="control" placeholder="مثال: 50 جنيه، رصيد صافي...">
+                </label>
+
+                <div class="mob-form-row-2">
+                  <label class="mob-field">
+                    <span>الداخل / واحدة (EGP)</span>
+                    <input id="mobManualPaid" class="control ltr" type="number" step="0.01" min="0" placeholder="0.00" inputmode="decimal">
+                  </label>
+                  <label class="mob-field">
+                    <span>مصروف / واحدة (EGP)</span>
+                    <input id="mobManualCost" class="control ltr" type="number" step="0.01" min="0" placeholder="0.00" inputmode="decimal">
+                  </label>
+                </div>
+
+                <div class="mob-form-row-2">
+                  <label class="mob-field">
+                    <span>التاريخ</span>
+                    <input id="mobManualDate" class="control ltr" type="date">
+                  </label>
+                  <label class="mob-field">
+                    <span>الكمية</span>
+                    <input id="mobManualQty" class="control ltr" type="number" min="1" value="1" inputmode="numeric">
+                  </label>
+                </div>
+
+                <label class="mob-field">
+                  <span>ملاحظة (اختياري)</span>
+                  <input id="mobManualNote" class="control" placeholder="اسم العميل أو تفاصيل إضافية...">
+                </label>
+
+                <!-- Live Profit Badge -->
+                <div id="mobManualProfitBadge" class="mob-manual-profit-box neutral">
+                  <span>الربح المتوقع:</span>
+                  <strong id="mobManualProfitVal">0.00 EGP</strong>
+                </div>
+
+                <button id="mobSaveManualBtn" type="button" class="btn btn-primary btn-block btn-lg mob-save-btn">
+                  <span>✓ إضافة العملية يدويًا</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- =================== TAB 3: WALLET IMPORT =================== -->
+          <div id="mobPaneWallet" class="mob-input-pane hidden">
+            <div class="mob-wallet-card glass">
+              <div class="mob-pane-head">
+                <span class="mob-hero-label">تحليل تلقائي للمحافظ</span>
+                <h3>استيراد رسائل كاش</h3>
+                <p>الصق رسائل فودافون كاش، اتصالات كاش، أو أورنج كاش؛ هنستخرج المبالغ والتاريخ ونقترح العرض والربح تلقائيًا.</p>
+              </div>
+
+              <div class="mob-wallet-actions-bar">
+                <button id="mobPasteWalletBtn" type="button" class="btn btn-secondary">
+                  <span>📋 لصق من الحافظة</span>
+                </button>
+                <button id="mobAnalyzeWalletBtn" type="button" class="btn btn-primary">
+                  <span>⚡ تحليل الرسائل</span>
+                </button>
+              </div>
+
+              <textarea id="mobWalletMessages" class="control textarea mob-wallet-textarea" placeholder="الصق رسائل المحفظة هنا (عربي أو إنجليزي)..." rows="4"></textarea>
+
+              <div id="mobWalletStats" class="mob-wallet-stats hidden"></div>
+
+              <div id="mobWalletPreviewWrap" class="mob-wallet-preview-wrap hidden">
+                <div class="mob-section-head">
+                  <h4>العمليات المستخرجة</h4>
+                  <span id="mobWalletItemsCount" class="mob-count-chip">0 عملية</span>
+                </div>
+                <div id="mobWalletPreviewList" class="mob-wallet-cards-list"></div>
+                <button id="mobImportWalletRowsBtn" type="button" class="btn btn-primary btn-block btn-lg mob-save-btn">
+                  <span>✓ إضافة العمليات الجديدة إلى السجل</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- =================== TAB 4: AMOUNT ONLY =================== -->
+          <div id="mobPaneAmount" class="mob-input-pane hidden">
+            <div class="mob-amount-card glass">
+              <div class="mob-pane-head">
+                <span class="mob-hero-label">تسجيل فوري بدون تعطيل</span>
+                <h3>تسجيل مبلغ فقط</h3>
+                <p>سجّل الكاش المستلم فورًا بضغطة زر، وصنّف الخدمة في أي وقت لاحق من السجل.</p>
+              </div>
+
+              <div class="mob-amount-input-box">
+                <span class="mob-amount-currency">EGP</span>
+                <input id="mobAmountOnlyInput" class="mob-huge-amount-input" type="number" step="any" placeholder="0" inputmode="decimal">
+              </div>
+
+              <div class="mob-field-stack">
+                <label class="mob-field">
+                  <span>ملاحظة سريعة (اختياري)</span>
+                  <input id="mobAmountOnlyNote" class="control" placeholder="اسم العميل أو رقم العملية...">
+                </label>
+              </div>
+
+              <button id="mobSaveAmountOnlyBtn" type="button" class="btn btn-primary btn-block btn-lg mob-save-btn">
+                <span>سجل وحدد الخدمة لاحقًا</span>
+              </button>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section id="view-history" class="view">
@@ -487,7 +697,7 @@
       <b>السجل</b>
     </button>
     
-    <button id="mobileNavAddBtn" class="mob-nav-add-btn" type="button" aria-label="إضافة سريعة">
+    <button id="mobileNavAddBtn" class="mob-nav-add-btn" data-view="add" type="button" aria-label="الكاشير وإضافة عملية">
       <span class="mob-add-plus">＋</span>
     </button>
     
@@ -507,8 +717,67 @@
   </nav>
 
   <!-- ============================================================
-       Mobile Bottom Sheets (7 Native Sheets)
+       Mobile Bottom Sheets
        ============================================================ -->
+  <!-- 0. Interactive Mobile Cart Drawer Bottom Sheet -->
+  <div id="sheetMobileCart" class="mob-sheet-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="sheetMobileCartTitle">
+    <div class="mob-sheet-panel mob-cart-drawer-panel">
+      <div class="mob-sheet-handle"></div>
+      <div class="mob-sheet-head">
+        <div class="mob-sheet-title-group">
+          <span class="mob-sheet-kicker">سلة الكاشير</span>
+          <h3 id="sheetMobileCartTitle">سلة العمليات</h3>
+        </div>
+        <div class="mob-sheet-head-actions">
+          <button id="mobClearCartSheetBtn" type="button" class="mob-text-link danger">تفريغ</button>
+          <button type="button" class="mob-sheet-close-btn" data-sheet-close="sheetMobileCart" aria-label="إغلاق">✕</button>
+        </div>
+      </div>
+
+      <div class="mob-sheet-body">
+        <div class="mob-cart-summary-pill" id="mobSheetCartSummary">0 شحنة · 0 عرض</div>
+
+        <!-- Scrollable Cart Items List -->
+        <div id="mobCartItemsList" class="mob-cart-items-list" role="list"></div>
+
+        <!-- Batch Details: Date & Batch Note -->
+        <div class="mob-cart-batch-box">
+          <label class="mob-field">
+            <span>تاريخ كل الشحنات</span>
+            <input id="mobCartBatchDate" class="control ltr" type="date">
+          </label>
+          <label class="mob-field">
+            <span>ملاحظة للدفعة (اختياري)</span>
+            <input id="mobCartBatchNote" class="control" placeholder="تُضاف لكل شحنة في السلة...">
+          </label>
+        </div>
+
+        <!-- Totals Card -->
+        <div class="mob-cart-totals-card">
+          <div class="mob-cart-total-cell">
+            <span>إجمالي الداخل</span>
+            <strong id="mobCartIncomePreview">0.00</strong>
+            <small>EGP</small>
+          </div>
+          <div class="mob-cart-total-cell">
+            <span>إجمالي المصروف</span>
+            <strong id="mobCartCostPreview">0.00</strong>
+            <small>EGP</small>
+          </div>
+          <div class="mob-cart-total-cell profit">
+            <span>الربح المتوقع</span>
+            <strong id="mobCartProfitPreview">0.00</strong>
+            <small>EGP</small>
+          </div>
+        </div>
+
+        <button id="mobSaveCartSheetBtn" type="button" class="btn btn-primary btn-block btn-lg mob-save-btn" disabled>
+          <span>حفظ العمليات</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- 1. Quick Add Bottom Sheet -->
   <div id="sheetQuickAdd" class="mob-sheet-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="sheetQuickAddTitle">
     <div class="mob-sheet-panel">
@@ -861,6 +1130,6 @@
   <dialog id="expenseDialog" class="modal"><form id="expenseForm" class="modal-card" novalidate><div class="modal-head"><div><span class="panel-kicker">المصاريف</span><h3 id="expenseDialogTitle">مصروف</h3></div><button type="button" class="icon-btn" data-dialog-close="expenseDialog" aria-label="إغلاق">×</button></div><input id="expenseType" type="hidden"><input id="expenseId" type="hidden"><div class="form-grid-2"><label class="field span-2"><span>اسم المصروف</span><input id="expenseName" class="control"></label><label class="field"><span>القيمة</span><input id="expenseAmount" class="control ltr" type="number" step="0.01" min="0.01"></label><label class="field"><span>تاريخ البداية / المصروف</span><input id="expenseDate" class="control" type="date"></label><label id="recurrenceField" class="field"><span>التكرار</span><select id="expenseRecurrence" class="control"><option value="once">مرة واحدة</option><option value="monthly">شهري</option><option value="yearly">سنوي</option></select></label><label class="field span-2"><span>ملاحظة</span><input id="expenseNote" class="control"></label></div><div id="expenseDialogError" class="dialog-error hidden" role="alert"></div><div class="modal-actions"><button type="button" class="btn btn-ghost" data-dialog-close="expenseDialog">إلغاء</button><button id="saveExpenseBtn" type="submit" class="btn btn-primary">حفظ</button></div></form></dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
-  <script type="module" src="./app.js?v=12"></script>
+  <script type="module" src="./app.js?v=14"></script>
 </body>
 </html>
