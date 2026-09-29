@@ -418,6 +418,18 @@ import {
       if (topbar) topbar.prepend(el);
     }
 
+    const user = getCurrentUser();
+    if (!user) {
+      el.innerHTML = `
+        <span class="sync-dot guest"></span>
+        <span>وضع محلي</span>
+        <button id="moxTopSyncLoginBtn" class="mox-top-login-btn" type="button" title="تسجيل الدخول لتفعيل المزامنة السحابية">تسجيل الدخول ☁️</button>
+      `;
+      const btn = el.querySelector('#moxTopSyncLoginBtn');
+      if (btn) btn.onclick = triggerGoogleLogin;
+      return;
+    }
+
     const { status, pendingCount } = getSyncStatus();
     const labels = {
       [SyncStatus.ONLINE]:  `<span class="sync-dot online"></span> متصل — تمت المزامنة`,
@@ -1285,6 +1297,38 @@ import {
   }
 
   // ============================================================
+  // Sync Status Indicator
+  // ============================================================
+  function renderSyncStatus() {
+    const user = getCurrentUser();
+    const badge = document.querySelector('.sidebar-foot .sync-badge');
+    if (!badge) return;
+
+    if (!user) {
+      badge.className = 'sync-badge guest';
+      badge.innerHTML = `<i class="dot sync-dot guest"></i><span>وضع محلي</span> <button class="mox-top-login-btn" type="button">تسجيل الدخول ☁️</button>`;
+      const loginBtn = badge.querySelector('.mox-top-login-btn');
+      if (loginBtn) loginBtn.onclick = () => showLoginScreen();
+      return;
+    }
+
+    const { status, pendingCount } = getSyncStatus();
+    if (!navigator.onLine || status === SyncStatus.OFFLINE) {
+      badge.className = 'sync-badge warn';
+      badge.innerHTML = `<i class="dot"></i><span>بدون إنترنت (محلي)</span>`;
+    } else if (status === SyncStatus.SYNCING) {
+      badge.className = 'sync-badge';
+      badge.innerHTML = `<i class="dot"></i><span>جارٍ المزامنة…</span>`;
+    } else if (pendingCount > 0) {
+      badge.className = 'sync-badge warn';
+      badge.innerHTML = `<i class="dot"></i><span>${pendingCount} في الانتظار</span>`;
+    } else {
+      badge.className = 'sync-badge ok';
+      badge.innerHTML = `<i class="dot"></i><span>سحابي متزامن</span>`;
+    }
+  }
+
+  // ============================================================
   // Account & Sync Tab
   // ============================================================
   function renderAccountTab() {
@@ -1311,17 +1355,33 @@ import {
         <div class="panel-head">
           <div><span class="panel-kicker">Cloud Account</span><h3>الحساب والمزامنة</h3></div>
         </div>
-        <div class="account-profile-row">
-          ${user ? `${photoHtml}<div><b>${esc(user.displayName||'مستخدم')}</b><small>${esc(user.email||'')}</small></div>` : '<span>غير مسجّل الدخول</span>'}
-        </div>
-        <div class="account-sync-status">
-          <span>${statusLabel}</span>
-          ${pendingCount?`<small>${pendingCount} تغيير في انتظار المزامنة</small>`:''}
-        </div>
+        ${!user ? `
+          <div class="account-guest-banner">
+            <div>
+              <h4>الوضع المحلي (بدون تسجيل)</h4>
+              <p>بياناتك محفوظة بأمان على هذا الجهاز في المتصفح. يمكنك تسجيل الدخول بحساب Google لحفظ بياناتك سحابيًا والوصول إليها من هاتفك أو أجهزة أخرى في أي وقت.</p>
+            </div>
+            <button id="accountLoginBtn" class="btn btn-primary" type="button">تسجيل الدخول بحساب Google ☁️</button>
+          </div>
+        ` : `
+          <div class="account-profile-row">
+            ${photoHtml}<div><b>${esc(user.displayName||'مستخدم')}</b><small>${esc(user.email||'')}</small></div>
+          </div>
+          <div class="account-sync-status">
+            <span>${statusLabel}</span>
+            ${pendingCount?`<small>${pendingCount} تغيير في انتظار المزامنة</small>`:''}
+          </div>
+        `}
         <div class="data-actions" style="margin-top:1rem">
-          <button id="syncNowBtn" class="action-card">
-            <span>🔄</span><b>مزامنة الآن</b><small>رفع التغييرات المحلية</small>
-          </button>
+          ${user ? `
+            <button id="syncNowBtn" class="action-card">
+              <span>🔄</span><b>مزامنة الآن</b><small>رفع التغييرات المحلية</small>
+            </button>
+          ` : `
+            <button id="guestSyncBtn" class="action-card">
+              <span>☁️</span><b>تسجيل الدخول</b><small>تفعيل المزامنة السحابية</small>
+            </button>
+          `}
           <button id="backupBtn" class="action-card">
             <span>↓</span><b>تنزيل نسخة احتياطية</b><small>JSON كامل بدون نسخ متداخلة</small>
           </button>
@@ -1341,7 +1401,9 @@ import {
       </article>
     `;
 
-    // Re-bind data tab buttons since HTML was replaced.
+    // Re-bind buttons
+    if($('accountLoginBtn')) $('accountLoginBtn').onclick = () => showLoginScreen();
+    if($('guestSyncBtn')) $('guestSyncBtn').onclick = () => showLoginScreen();
     if($('backupBtn'))   $('backupBtn').onclick   = downloadBackup;
     if($('restoreBtn'))  $('restoreBtn').onclick  = ()=>$('restoreFile').click();
     if($('restoreFile')) $('restoreFile').onchange = e=>{if(e.target.files[0])restoreBackup(e.target.files[0]);e.target.value='';};
@@ -1445,17 +1507,11 @@ import {
       // Clear in-memory state to prevent data bleed.
       state = emptyState();
       db   = null;
-      // Show login screen.
-      showLoginScreen();
-      // Hide main app.
-      const appShell = document.getElementById('app');
-      if (appShell) appShell.style.display = 'none';
-      const mobileNav = document.querySelector('.mobile-nav');
-      if (mobileNav) mobileNav.style.display = 'none';
-      // Remove user profile.
-      document.getElementById('moxUserProfile')?.remove();
-      document.getElementById('moxSyncStatus')?.remove();
+      // Start again in local guest mode seamlessly!
+      await startApp(null);
+      toast('تم تسجيل الخروج. أنت الآن في الوضع المحلي.');
     } catch(e) {
+      console.error('[MOX Logout]', e);
       toast('تعذر تسجيل الخروج. حاول مرة أخرى.','error');
     }
   }
@@ -1468,7 +1524,11 @@ import {
   // ============================================================
   // Event Binding
   // ============================================================
+  let _eventsBound = false;
   function bindEvents(){
+    if (_eventsBound) return;
+    _eventsBound = true;
+
     $$('.nav-item,.mobile-nav button').forEach(b=>b.onclick=()=>goView(b.dataset.view));
     $$('[data-go]').forEach(b=>b.onclick=()=>{goView(b.dataset.go);if(b.dataset.settingsTab)setSettingsTab(b.dataset.settingsTab)});
     $('globalAddBtn').onclick=()=>goView('add');
@@ -1512,105 +1572,106 @@ import {
   // ============================================================
   // Startup / Init
   // ============================================================
-  async function startApp(user) {
-    // Set user-scoped IndexedDB name to prevent data bleed.
-    DB_NAME = `mox-v4-${user.uid}`;
+  let _isStartingApp = false;
+  async function startApp(user = null) {
+    if (_isStartingApp) return;
+    _isStartingApp = true;
+    try {
+      // Set user-scoped IndexedDB name to prevent data bleed.
+      DB_NAME = user ? `mox-v4-${user.uid}` : 'mox-v4-db';
 
-    // Show main app shell.
-    const appShell = document.getElementById('app');
-    if (appShell) appShell.style.display = '';
-    const mobileNav = document.querySelector('.mobile-nav');
-    if (mobileNav) mobileNav.style.display = '';
+      // Show main app shell.
+      const appShell = document.getElementById('app');
+      if (appShell) appShell.style.display = '';
+      const mobileNav = document.querySelector('.mobile-nav');
+      if (mobileNav) mobileNav.style.display = '';
 
-    // Open user-scoped IndexedDB.
-    await openDB();
-    await loadState();
+      // Open IndexedDB.
+      await openDB();
+      await loadState();
 
-    const fixedRepairWasDone = Boolean(state.settings.fixedExpenseHistoryRepaired);
-    const repairedFixed = repairLegacyFixedExpenseStartDates();
-    if (!fixedRepairWasDone || repairedFixed) await idbSet(STATE_KEY, sanitizeState(state));
+      const fixedRepairWasDone = Boolean(state.settings.fixedExpenseHistoryRepaired);
+      const repairedFixed = repairLegacyFixedExpenseStartDates();
+      if (!fixedRepairWasDone || repairedFixed) await idbSet(STATE_KEY, sanitizeState(state));
 
-    // Initialize cloud sync.
-    await initCloudSync(user.uid, async (type, remoteRecords) => {
-      // Real-time update from another device.
-      if (type === 'transactions') {
-        state.transactions = mergeTransactions(state.transactions, remoteRecords);
-        await idbSet(STATE_KEY, sanitizeState(state));
-        renderAll();
+      if (user) {
+        // Initialize cloud sync for authenticated user
+        await initCloudSync(user.uid, async (type, remoteRecords) => {
+          // Real-time update from another device.
+          if (type === 'transactions') {
+            state.transactions = mergeTransactions(state.transactions, remoteRecords);
+            await idbSet(STATE_KEY, sanitizeState(state));
+            renderAll();
+          }
+        });
+
+        // Load cloud state and merge.
+        let cloudData = null;
+        if (navigator.onLine) {
+          try {
+            cloudData = await loadCloudState();
+            if (cloudData) {
+              // Merge cloud data into local state.
+              state.transactions    = mergeTransactions(state.transactions, cloudData.transactions || []);
+              state.presets         = mergePresets(state.presets, cloudData.presets || []);
+              state.fixedExpenses   = mergeTransactions(state.fixedExpenses, cloudData.fixedExpenses || []);
+              state.variableExpenses = mergeTransactions(state.variableExpenses, cloudData.variableExpenses || []);
+              if (cloudData.settings) state.settings = {...state.settings, ...cloudData.settings};
+              await idbSet(STATE_KEY, sanitizeState(state));
+            }
+          } catch(e) {
+            console.warn('[MOX] Cloud load failed, using local data:', e.message);
+          }
+        }
+
+        // Check for first-time migration.
+        const alreadyMigrated = await isMigrated(user.uid, idbGet);
+        const hasLocalData = state.transactions.length > 0 || state.presets.length > 0;
+        const cloudEmpty = !(cloudData?.transactions?.length);
+
+        if (!alreadyMigrated && hasLocalData && cloudEmpty) {
+          // Show migration dialog.
+          const choice = await showMigrationDialog(state, user);
+          if (choice === 'migrate') {
+            try {
+              await runMigration(state, user.uid, idbGet, idbSet, createSafetySnapshot, sanitizeState);
+              closeMigrationDialog();
+              toast('تمت المزامنة بنجاح. بياناتك محفوظة في السحابة.','success',5000);
+            } catch(e) {
+              console.error('[MOX Migration]', e);
+              showMigrationError('تعذر نقل بعض البيانات. لم يتم حذف بيانات الجهاز ويمكنك المحاولة مرة أخرى.');
+            }
+          }
+        }
+      } else {
+        stopCloudSync();
       }
-    });
 
-    // Render user profile in sidebar.
-    renderUserProfile(user, handleLogout);
+      // Render user profile in sidebar (works for both user and guest).
+      renderUserProfile(user, handleLogout, () => showLoginScreen());
 
-    // Sync status listener.
-    onSyncStatusChange((status, pending) => {
+      // Sync status listener.
+      onSyncStatusChange(() => {
+        renderSyncStatus();
+      });
+
+      bindEvents();
+      renderAll();
       renderSyncStatus();
-    });
+      renderReportRangeButtons();
+      reportRangeQuick('month');
+      goView(state.settings.lastView || 'today');
 
-    // Network monitor.
-    initNetworkMonitor(
-      async () => {
-        toast('عاد الاتصال بالإنترنت. جارٍ مزامنة التغييرات…','success',3000);
-        renderSyncStatus();
-      },
-      () => {
-        toast('تعذر الاتصال بالسحابة. تم حفظ العملية على الجهاز وسيتم رفعها عند عودة الإنترنت.','error',4000);
-        renderSyncStatus();
+      // Date pill.
+      const todayPill = $('todayPill');
+      if (todayPill) todayPill.textContent = new Date().toLocaleDateString('ar-EG',{weekday:'long',day:'numeric',month:'long'});
+
+      // Service Worker registration (exclude file: protocol).
+      if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
       }
-    );
-
-    // Load cloud state and merge.
-    let cloudData = null;
-    if (navigator.onLine) {
-      try {
-        cloudData = await loadCloudState();
-        if (cloudData) {
-          // Merge cloud data into local state.
-          state.transactions    = mergeTransactions(state.transactions, cloudData.transactions || []);
-          state.presets         = mergePresets(state.presets, cloudData.presets || []);
-          state.fixedExpenses   = mergeTransactions(state.fixedExpenses, cloudData.fixedExpenses || []);
-          state.variableExpenses = mergeTransactions(state.variableExpenses, cloudData.variableExpenses || []);
-          if (cloudData.settings) state.settings = {...state.settings, ...cloudData.settings};
-          await idbSet(STATE_KEY, sanitizeState(state));
-        }
-      } catch(e) {
-        console.warn('[MOX] Cloud load failed, using local data:', e.message);
-      }
-    }
-
-    // Check for first-time migration.
-    const alreadyMigrated = await isMigrated(user.uid, idbGet);
-    const hasLocalData = state.transactions.length > 0 || state.presets.length > 0;
-    const cloudEmpty = !(cloudData?.transactions?.length);
-
-    if (!alreadyMigrated && hasLocalData && cloudEmpty) {
-      // Show migration dialog.
-      const choice = await showMigrationDialog(state, user);
-      if (choice === 'migrate') {
-        try {
-          await runMigration(state, user.uid, idbGet, idbSet, createSafetySnapshot, sanitizeState);
-          closeMigrationDialog();
-          toast('تمت المزامنة بنجاح. بياناتك محفوظة في السحابة.','success',5000);
-        } catch(e) {
-          console.error('[MOX Migration]', e);
-          showMigrationError('تعذر نقل بعض البيانات. لم يتم حذف بيانات الجهاز ويمكنك المحاولة مرة أخرى.');
-        }
-      }
-    }
-
-    bindEvents();
-    renderAll();
-    renderReportRangeButtons();
-    reportRangeQuick('month');
-    goView(state.settings.lastView || 'today');
-
-    // Date pill.
-    $('todayPill').textContent = new Date().toLocaleDateString('ar-EG',{weekday:'long',day:'numeric',month:'long'});
-
-    // Service Worker registration (exclude Firebase requests from caching).
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    } finally {
+      _isStartingApp = false;
     }
   }
 
@@ -1623,34 +1684,39 @@ import {
     if (addDateEl)   addDateEl.value   = todayISO();
     if (manualDateEl) manualDateEl.value = todayISO();
 
-    // Hide main app shell until login confirmed.
-    const appShell = document.getElementById('app');
-    if (appShell) appShell.style.display = 'none';
-    const mobileNav = document.querySelector('.mobile-nav');
-    if (mobileNav) mobileNav.style.display = 'none';
+    // Start immediately in local mode so the site opens smoothly without any barrier!
+    try {
+      await startApp(null);
+    } catch(err) {
+      console.error('[MOX] Local startup error:', err);
+    }
 
-    // Show login screen.
-    showLoginScreen();
-
-    // Initialize Firebase Auth.
-    await initAuth(async (user) => {
-      if (user) {
-        hideLoginScreen();
-        try {
-          await startApp(user);
-        } catch(e) {
-          console.error('[MOX] startApp failed:', e);
-          toast('حدث خطأ أثناء تحميل التطبيق. جرّب تحديث الصفحة.','error',8000);
-        }
-      } else {
-        // Signed out — show login screen.
-        showLoginScreen();
-        const appShellEl = document.getElementById('app');
-        if (appShellEl) appShellEl.style.display = 'none';
-        const mobileNavEl = document.querySelector('.mobile-nav');
-        if (mobileNavEl) mobileNavEl.style.display = 'none';
+    // Network monitor.
+    initNetworkMonitor(
+      async () => {
+        renderSyncStatus();
+      },
+      () => {
+        renderSyncStatus();
       }
-    });
+    );
+
+    // Initialize Firebase Auth in background (non-blocking)
+    try {
+      await initAuth(async (user) => {
+        if (user) {
+          hideLoginScreen();
+          try {
+            await startApp(user);
+          } catch(e) {
+            console.error('[MOX] startApp with user failed:', e);
+            toast('حدث خطأ أثناء تحميل بيانات السحابة.','error',4000);
+          }
+        }
+      });
+    } catch(err) {
+      console.warn('[MOX Auth] Background auth init error:', err);
+    }
   }
 
   document.addEventListener('DOMContentLoaded', init);

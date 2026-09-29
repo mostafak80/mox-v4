@@ -685,3 +685,348 @@
   font-size: 0.82rem;
   color: #cbd5e1;
 }
+
+/* ============================================================
+   MOX-V4 Login Modal & Auth Styles
+   ============================================================ */
+.mox-login-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(3, 7, 18, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: 18px;
+  animation: moxFadeIn 0.22s ease;
+}
+@keyframes moxFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.mox-login-card {
+  position: relative;
+  width: min(470px, 100%);
+  background: linear-gradient(145deg, rgba(17, 24, 39, 0.96), rgba(9, 14, 28, 0.94));
+  border: 1px solid rgba(108, 124, 255, 0.28);
+  border-radius: 26px;
+  padding: 32px 26px 24px;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+  text-align: center;
+  animation: moxCardUp 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes moxCardUp {
+  from { opacity: 0; transform: translateY(18px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.mox-login-close-btn {
+  position: absolute;
+  top: 16px;
+  left: 18px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  font-size: 1.35rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.mox-login-close-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-color: rgba(108, 124, 255, 0.45);
+  transform: rotate(90deg);
+}
+.mox-login-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.mox-login-logo {
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
+  object-fit: cover;
+  border: 1px solid rgba(108, 124, 255, 0.35);
+  box-shadow: 0 8px 25px rgba(108, 124, 255, 0.25);
+}
+.mox-login-brand strong {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: #fff;
+  text-align: right;
+}
+.mox-login-brand span {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-align: right;
+  direction: ltr;
+}
+.mox-login-body h2 {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: #fff;
+}
+.mox-login-body p {
+  margin: 0 0 20px;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  line-height: 1.7;
+}
+.mox-google-btn {
+  width: 100%;
+  min-height: 52px;
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #ffffff;
+  color: #1f2937;
+  font-size: 0.95rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+.mox-google-btn:hover {
+  background: #f8fafc;
+  transform: translateY(-2px);
+  box-shadow: 0 14px 35px rgba(108, 124, 255, 0.25);
+}
+.mox-google-btn:active {
+  transform: translateY(0);
+}
+.mox-google-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+.mox-login-error {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.75;
+  text-align: right;
+  direction: rtl;
+  white-space: pre-line;
+  animation: moxShake 0.3s ease;
+}
+@keyframes moxShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+.mox-login-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 16px;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+.mox-spinner-ring {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(108, 124, 255, 0.2);
+  border-top-color: #6c7cff;
+  border-radius: 50%;
+  animation: moxSpin 0.75s linear infinite;
+}
+@keyframes moxSpin {
+  to { transform: rotate(360deg); }
+}
+.mox-login-footer {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+}
+.mox-login-dismiss-btn {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 13px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+  color: #cbd5e1;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.mox-login-dismiss-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border-color: rgba(148, 163, 184, 0.35);
+}
+.mox-login-footer small {
+  color: var(--muted2);
+  font-size: 0.68rem;
+  line-height: 1.6;
+}
+
+/* User Profile Widget in Sidebar */
+.mox-user-profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  margin-top: 10px;
+}
+.mox-user-profile.guest {
+  border-color: rgba(108, 124, 255, 0.2);
+  background: linear-gradient(135deg, rgba(108, 124, 255, 0.08), rgba(45, 212, 191, 0.04));
+}
+.mox-user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid rgba(108, 124, 255, 0.3);
+}
+.mox-user-avatar-placeholder {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6c7cff, #8b5cf6);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+.mox-guest-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(108, 124, 255, 0.12);
+  border: 1px solid rgba(108, 124, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+}
+.mox-user-info {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+}
+.mox-user-info b {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mox-user-info small {
+  display: block;
+  font-size: 0.65rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mox-logout-btn {
+  border: 1px solid rgba(251, 113, 133, 0.25);
+  background: rgba(251, 113, 133, 0.08);
+  color: #fca5a5;
+  border-radius: 9px;
+  padding: 5px 9px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+.mox-logout-btn:hover {
+  background: rgba(251, 113, 133, 0.18);
+  color: #fff;
+  border-color: rgba(251, 113, 133, 0.45);
+}
+.mox-sidebar-login-btn {
+  border: 1px solid rgba(108, 124, 255, 0.35);
+  background: linear-gradient(135deg, rgba(108, 124, 255, 0.2), rgba(139, 92, 246, 0.2));
+  color: #c7d2fe;
+  border-radius: 9px;
+  padding: 6px 11px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+.mox-sidebar-login-btn:hover {
+  background: linear-gradient(135deg, rgba(108, 124, 255, 0.35), rgba(139, 92, 246, 0.35));
+  color: #fff;
+  border-color: rgba(108, 124, 255, 0.6);
+  transform: translateY(-1px);
+}
+.mox-top-login-btn {
+  border: 0;
+  background: transparent;
+  color: #93c5fd;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 2px 4px;
+}
+.mox-top-login-btn:hover {
+  color: #fff;
+}
+.sync-badge.guest {
+  border-color: rgba(148, 163, 184, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+}
+.sync-dot.guest {
+  background: #94a3b8;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.12);
+}
+.account-guest-banner {
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(108, 124, 255, 0.1), rgba(45, 212, 191, 0.05));
+  border: 1px solid rgba(108, 124, 255, 0.25);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.account-guest-banner h4 {
+  margin: 0 0 5px;
+  font-size: 0.98rem;
+  color: #fff;
+}
+.account-guest-banner p {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  line-height: 1.65;
+}
+

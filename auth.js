@@ -27,14 +27,13 @@ function shouldUseRedirect() {
   const ua = navigator.userAgent;
   const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
   const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
-  const isPWA = window.matchMedia('(display-mode: standalone)').matches
-             || window.navigator.standalone === true;
-  return isIOS || isSafari || isPWA;
+  // Only use redirect if on mobile Safari where popups are strictly prevented
+  return isIOS && isSafari;
 }
 
 /**
  * Trigger Google Sign-In.
- * Uses popup on desktop Chrome/Firefox, redirect on mobile/Safari/PWA.
+ * Tries popup first for fastest, cleanest UX, with redirect fallback if blocked.
  */
 export async function signInWithGoogle() {
   const auth = getFirebaseAuth();
@@ -43,23 +42,27 @@ export async function signInWithGoogle() {
   provider.addScope('email');
   provider.setCustomParameters({ prompt: 'select_account' });
 
+  if (window.location.protocol === 'file:') {
+    const err = new Error('لا يمكن تسجيل الدخول عبر بروتوكول file://. يجب فتح الموقع عبر سيرفر محلي (مثل Live Server أو npx serve).');
+    err.code = 'auth/operation-not-supported-in-this-environment';
+    throw err;
+  }
+
   if (shouldUseRedirect()) {
-    // Store a flag so we know to check redirect result on next load.
     sessionStorage.setItem('mox_auth_redirect', '1');
     await signInWithRedirect(auth, provider);
-    // Execution stops here — the page will reload.
-    return;
+    return null;
   }
 
   try {
     const result = await signInWithPopup(auth, provider);
     return result.user;
   } catch (err) {
-    if (err.code === 'auth/popup-blocked' || err.code === 'auth/cancelled-popup-request') {
-      // Fallback to redirect if popup was blocked.
+    if (err.code === 'auth/popup-blocked') {
+      // Fallback to redirect if popup was explicitly blocked by browser
       sessionStorage.setItem('mox_auth_redirect', '1');
       await signInWithRedirect(auth, provider);
-      return;
+      return null;
     }
     throw err;
   }
@@ -76,17 +79,30 @@ export async function signOutUser() {
 }
 
 /**
- * Translate Firebase auth errors to friendly Arabic messages.
+ * Translate Firebase auth errors to friendly, actionable Arabic messages.
  */
-function friendlyAuthError(code) {
+function friendlyAuthError(code, message = '') {
+  const currentHost = window.location.hostname || 'هذا الجهاز';
+  const isFileProto = window.location.protocol === 'file:';
+
+  if (isFileProto) {
+    return '⚠️ لا يمكن تسجيل الدخول عبر فتح ملف HTML مباشرة (file://) بسبب قيود أمان Google OAuth.\n\nالحل السريع: اضغط مرتين على ملف "تشغيل-الموقع.bat" الموجود في مجلد المشروع لفتح الموقع على سيرفر محلي، أو استخدم Live Server.';
+  }
+
   const map = {
-    'auth/network-request-failed': 'لا يوجد اتصال بالإنترنت. تحقق من الشبكة وحاول مرة أخرى.',
-    'auth/popup-closed-by-user':   'تم إغلاق نافذة تسجيل الدخول. يمكنك المحاولة مرة أخرى.',
-    'auth/cancelled-popup-request':'تم إلغاء طلب تسجيل الدخول.',
-    'auth/user-cancelled':         'تم إلغاء عملية تسجيل الدخول.',
-    'auth/account-exists-with-different-credential': 'هذا البريد الإلكتروني مستخدم بطريقة مختلفة.',
+    'auth/operation-not-allowed': `⚠️ موفر Google غير مفعّل في Firebase Console!\n\nالحل:\n1. افتح https://console.firebase.google.com\n2. اختر مشروعك (mox-v2-22fcc)\n3. اذهب إلى Authentication ثم Sign-in method\n4. اضغط على Google واجعله مفعّل (Enable) واكتب بريدك للدعم ثم اضغط Save.`,
+    'auth/unauthorized-domain': `⚠️ النطاق الحالي (${currentHost}) غير مصرح به في Firebase Console!\n\nالحل:\n1. افتح Firebase Console لمشروعك\n2. اذهب إلى Authentication ثم Settings ثم Authorized domains\n3. اضغط Add domain وأضف: ${currentHost}`,
+    'auth/operation-not-supported-in-this-environment': '⚠️ البيئة الحالية لا تدعم تسجيل الدخول (مثل فتح ملف محلي بدون سيرفر ويب). شغّل الموقع عبر سيرفر محلي (Localhost).',
+    'auth/popup-blocked': '⚠️ قام المتصفح بحظر النافذة المنبثقة (Popup Blocked).\nيرجى السماح بالنوافذ المنبثقة من شريط عنوان المتصفح ثم إعادة المحاولة.',
+    'auth/popup-closed-by-user': 'تم إغلاق نافذة Google قبل إتمام تسجيل الدخول. يمكنك الضغط مرة أخرى للمحاولة.',
+    'auth/cancelled-popup-request': 'تم إلغاء عملية تسجيل الدخول أو تم الضغط مرتين.',
+    'auth/user-cancelled': 'تم إلغاء عملية تسجيل الدخول.',
+    'auth/network-request-failed': '⚠️ تعذر الاتصال بخوادم Google. تحقق من اتصال الإنترنت وحاول مجددًا.',
+    'auth/invalid-api-key': '⚠️ مفتاح Firebase API Key غير صالح. تحقق من بيانات مشروعك في firebase-config.js.',
+    'auth/internal-error': '⚠️ حدث خطأ داخلي في خدمة Google. تحقق من تفعيل Authentication في مشروع Firebase.',
+    'auth/account-exists-with-different-credential': 'هذا البريد الإلكتروني مسجل مسبقًا بطريقة أخرى.',
   };
-  return map[code] || 'فشل تسجيل الدخول بحساب Google. حاول مرة أخرى.';
+  return map[code] || (message ? `تعذر تسجيل الدخول (${code || 'خطأ'}): ${message}` : 'فشل تسجيل الدخول بحساب Google. حاول مرة أخرى.');
 }
 
 /**
@@ -109,7 +125,8 @@ export async function initAuth(onUserReady) {
       }
     } catch (err) {
       console.error('[MOX Auth] Redirect result error:', err.code, err.message);
-      showLoginError(friendlyAuthError(err.code));
+      showLoginScreen();
+      showLoginError(friendlyAuthError(err.code, err.message));
     }
   }
 
@@ -129,9 +146,13 @@ let _loginErrorEl = null;
 
 export function showLoginScreen() {
   if (_loginScreen) {
-    _loginScreen.style.display = '';
+    _loginScreen.style.display = 'flex';
+    if (_loginErrorEl) _loginErrorEl.classList.add('hidden');
+    setLoginLoading(false);
     return;
   }
+
+  const isFileProto = window.location.protocol === 'file:';
 
   // Create the login overlay.
   _loginScreen = document.createElement('div');
@@ -139,6 +160,7 @@ export function showLoginScreen() {
   _loginScreen.className = 'mox-login-screen';
   _loginScreen.innerHTML = `
     <div class="mox-login-card glass">
+      <button id="moxLoginCloseBtn" class="mox-login-close-btn" title="إغلاق">×</button>
       <div class="mox-login-brand">
         <img src="./assets/logo.png" alt="MOX" class="mox-login-logo">
         <div>
@@ -148,8 +170,14 @@ export function showLoginScreen() {
       </div>
 
       <div class="mox-login-body">
-        <h2>أهلاً بك في MOX</h2>
-        <p>سجّل الدخول بحساب Google لحفظ بياناتك في السحابة ومزامنتها على كل أجهزتك.</p>
+        <h2>تسجيل الدخول إلى MOX</h2>
+        <p>تسجيل الدخول اختياري — يمكنك المتابعة محليًا، أو تسجيل الدخول بحساب Google لحفظ ومزامنة بياناتك سحابيًا عبر أجهزتك.</p>
+
+        ${isFileProto ? `
+          <div class="mox-login-error" style="display:block;margin-bottom:14px;background:rgba(245,158,11,0.12);border-color:rgba(245,158,11,0.35);color:#fde68a">
+            💡 <b>تنبيه:</b> أنت فاتح الموقع كملف محلي (file://). لتسجيل الدخول بـ Google وحفظ بياناتك سحابيًا، اضغط على <b>تشغيل-الموقع.bat</b> في مجلد المشروع لتشغيله على سيرفر محلي.
+          </div>
+        ` : ''}
 
         <button id="moxGoogleSignInBtn" class="mox-google-btn">
           <svg width="20" height="20" viewBox="0 0 18 18" aria-hidden="true">
@@ -169,7 +197,8 @@ export function showLoginScreen() {
       </div>
 
       <div class="mox-login-footer">
-        <small>بياناتك المالية محمية ومرتبطة بحسابك فقط.</small>
+        <button id="moxLoginDismissBtn" class="mox-login-dismiss-btn" type="button">المتابعة بدون تسجيل (الوضع المحلي)</button>
+        <small style="display:block;margin-top:8px">يمكنك استخدام النظام محليًا دائمًا بدون أي حساب.</small>
       </div>
     </div>
   `;
@@ -178,6 +207,8 @@ export function showLoginScreen() {
   _loginErrorEl = _loginScreen.querySelector('#moxLoginError');
 
   _loginScreen.querySelector('#moxGoogleSignInBtn').onclick = handleLoginClick;
+  _loginScreen.querySelector('#moxLoginCloseBtn').onclick = hideLoginScreen;
+  _loginScreen.querySelector('#moxLoginDismissBtn').onclick = hideLoginScreen;
 }
 
 export function hideLoginScreen() {
@@ -195,18 +226,24 @@ function setLoginLoading(on) {
   const spinner = document.getElementById('moxLoginSpinner');
   if (btn) btn.disabled = on;
   if (spinner) spinner.classList.toggle('hidden', !on);
-  if (_loginErrorEl) _loginErrorEl.classList.add('hidden');
+  if (_loginErrorEl && on) _loginErrorEl.classList.add('hidden');
 }
 
 async function handleLoginClick() {
   setLoginLoading(true);
   try {
-    await signInWithGoogle();
-    // If redirect was used, the page reloads and we won't reach here.
-    // If popup was used, onAuthStateChanged fires and handles the rest.
+    const user = await signInWithGoogle();
+    if (user) {
+      _currentUser = user;
+      hideLoginScreen();
+      if (_onUserReadyCallback) {
+        await _onUserReadyCallback(user);
+      }
+    }
   } catch (err) {
-    console.error('[MOX Auth] Login error:', err.code, err.message);
-    showLoginError(friendlyAuthError(err.code));
+    console.error('[MOX Auth] Login error:', err.code, err.message, err);
+    showLoginError(friendlyAuthError(err.code, err.message));
+  } finally {
     setLoginLoading(false);
   }
 }
@@ -215,34 +252,46 @@ async function handleLoginClick() {
 // User Profile Header
 // ============================================================
 
-export function renderUserProfile(user, onLogout) {
+export function renderUserProfile(user, onLogout, onLogin) {
   const existing = document.getElementById('moxUserProfile');
   if (existing) existing.remove();
 
-  if (!user) return;
-
   const el = document.createElement('div');
   el.id = 'moxUserProfile';
-  el.className = 'mox-user-profile';
+  el.className = 'mox-user-profile' + (!user ? ' guest' : '');
 
-  const photoUrl = user.photoURL
-    ? `<img src="${escapeAttr(user.photoURL)}" alt="${escapeAttr(user.displayName || '')}" class="mox-user-avatar" referrerpolicy="no-referrer">`
-    : `<span class="mox-user-avatar-placeholder">${(user.displayName || '؟').slice(0, 1)}</span>`;
+  if (user) {
+    const photoUrl = user.photoURL
+      ? `<img src="${escapeAttr(user.photoURL)}" alt="${escapeAttr(user.displayName || '')}" class="mox-user-avatar" referrerpolicy="no-referrer">`
+      : `<span class="mox-user-avatar-placeholder">${(user.displayName || '؟').slice(0, 1)}</span>`;
 
-  el.innerHTML = `
-    ${photoUrl}
-    <div class="mox-user-info">
-      <b>${escHtml(user.displayName || 'مستخدم')}</b>
-      <small>${escHtml(user.email || '')}</small>
-    </div>
-    <button id="moxLogoutBtn" class="mox-logout-btn" title="تسجيل الخروج">خروج</button>
-  `;
+    el.innerHTML = `
+      ${photoUrl}
+      <div class="mox-user-info">
+        <b>${escHtml(user.displayName || 'مستخدم')}</b>
+        <small>${escHtml(user.email || '')}</small>
+      </div>
+      <button id="moxLogoutBtn" class="mox-logout-btn" title="تسجيل الخروج">خروج</button>
+    `;
 
-  // Insert at the top of the sidebar brand area.
-  const brand = document.querySelector('.brand');
-  if (brand) brand.after(el);
+    const brand = document.querySelector('.brand');
+    if (brand) brand.after(el);
+    document.getElementById('moxLogoutBtn').onclick = onLogout;
+  } else {
+    el.innerHTML = `
+      <div class="mox-guest-icon">☁️</div>
+      <div class="mox-user-info">
+        <b>وضع محلي</b>
+        <small>تسجيل الدخول اختياري</small>
+      </div>
+      <button id="moxSidebarLoginBtn" class="mox-sidebar-login-btn">دخول</button>
+    `;
 
-  document.getElementById('moxLogoutBtn').onclick = onLogout;
+    const brand = document.querySelector('.brand');
+    if (brand) brand.after(el);
+    const loginBtn = document.getElementById('moxSidebarLoginBtn');
+    if (loginBtn) loginBtn.onclick = onLogin || showLoginScreen;
+  }
 }
 
 function escHtml(v) {
@@ -250,3 +299,4 @@ function escHtml(v) {
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 }
 function escapeAttr(v) { return escHtml(v); }
+
