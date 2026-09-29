@@ -1509,7 +1509,10 @@ import {
       db   = null;
       // Start again in local guest mode seamlessly!
       await startApp(null);
-      toast('تم تسجيل الخروج. أنت الآن في الوضع المحلي.');
+      showLoginScreen(() => {
+        toast('أنت الآن في الوضع المحلي. جميع بياناتك محفوظة على جهازك.');
+      });
+      toast('تم تسجيل الخروج بنجاح.');
     } catch(e) {
       console.error('[MOX Logout]', e);
       toast('تعذر تسجيل الخروج. حاول مرة أخرى.','error');
@@ -1701,7 +1704,12 @@ import {
       }
     );
 
-    // Initialize Firebase Auth in background (non-blocking)
+    // Immediately present the dual choice (Local Mode vs Google Login)
+    showLoginScreen(() => {
+      toast('أنت الآن في الوضع المحلي. جميع بياناتك محفوظة على جهازك.');
+    });
+
+    // Initialize Firebase Auth in background
     try {
       await initAuth(async (user) => {
         if (user) {

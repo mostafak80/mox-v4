@@ -16,13 +16,13 @@
 // ============================================================
 
 const FIREBASE_CONFIG = {
-  apiKey:            "AIzaSyD8EIbHcwopgH0frKTKDEhP7CqToktGHas",
-  authDomain:        "mox-v2-22fcc.firebaseapp.com",
-  projectId:         "mox-v2-22fcc",
-  storageBucket:     "mox-v2-22fcc.firebasestorage.app",
+  apiKey: "AIzaSyD8EIbHcwopgH0frKTKDEhP7CqToktGHas",
+  authDomain: "mox-v2-22fcc.firebaseapp.com",
+  projectId: "mox-v2-22fcc",
+  storageBucket: "mox-v2-22fcc.firebasestorage.app",
   messagingSenderId: "632182526574",
-  appId:             "1:632182526574:web:ede171b582162820d84c7f",
-  measurementId:     "G-N155SQJ8ZW"
+  appId: "1:632182526574:web:ede171b582162820d84c7f",
+  measurementId: "G-N155SQJ8ZW"
 };
 
 // ============================================================

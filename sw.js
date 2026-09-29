@@ -1,4 +1,4 @@
-const CACHE='mox-v4-cloud-sync-20260929-1';
+const CACHE='mox-v4-v4';
 const APP_ASSETS=[
   './',
   './index.html',
@@ -36,26 +36,23 @@ self.addEventListener('fetch',event=>{
     return;
   }
 
-  // صفحات التنقل: Network first، ولو مفيش نت نرجع index.html فقط.
-  if(request.mode==='navigate'){
-    event.respondWith(fetch(request).then(response=>{
-      const copy=response.clone();
-      caches.open(CACHE).then(cache=>cache.put('./index.html',copy)).catch(()=>{});
-      return response;
-    }).catch(()=>caches.match('./index.html')));
-    return;
-  }
-
-  // ملفات التطبيق من نفس الدومين: Cache first ثم الشبكة.
+  // Network First for local assets: fetch fresh from network, fallback to cache when offline
   if(url.origin===self.location.origin){
-    event.respondWith(caches.match(request).then(cached=>cached||fetch(request).then(response=>{
-      if(response && response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(request,copy)).catch(()=>{});}
-      return response;
-    })));
+    event.respondWith(
+      fetch(request)
+        .then(response=>{
+          if(response && response.ok){
+            const copy=response.clone();
+            caches.open(CACHE).then(cache=>cache.put(request,copy)).catch(()=>{});
+          }
+          return response;
+        })
+        .catch(()=>caches.match(request).then(cached=>cached||(request.mode==='navigate'?caches.match('./index.html'):null)))
+    );
     return;
   }
 
-  // الموارد الخارجية لا نرجّع لها HTML عند الفشل حتى لا يحصل MIME error.
+  // External static resources
   event.respondWith(fetch(request).catch(()=>caches.match(request)));
 });
 

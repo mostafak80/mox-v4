@@ -1,0 +1,10 @@
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# Agent / IDE metadata
+.agent/
+
+# Logs and temporary files
+*.log
+test-*.ps1
