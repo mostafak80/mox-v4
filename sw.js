@@ -1,4 +1,4 @@
-const CACHE='mox-v4-v9';
+const CACHE='mox-v4-v10';
 const APP_ASSETS=[
   './',
   './index.html',
@@ -19,8 +19,11 @@ self.addEventListener('install',event=>{
 });
 
 self.addEventListener('activate',event=>{
-  event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))));
-  self.clients.claim();
+  event.waitUntil(
+    caches.keys()
+      .then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key))))
+      .then(()=>self.clients.claim())
+  );
 });
 
 self.addEventListener('fetch',event=>{
@@ -28,7 +31,7 @@ self.addEventListener('fetch',event=>{
   if(request.method!=='GET') return;
   const url=new URL(request.url);
 
-  // Pass-through for Firebase, Google APIs, and auth requests
+  // Pass-through for Firebase, Google APIs, and auth requests (live traffic).
   if (url.origin.includes('firebaseio.com') ||
       url.origin.includes('googleapis.com') ||
       url.origin.includes('gstatic.com') ||
@@ -36,7 +39,8 @@ self.addEventListener('fetch',event=>{
     return;
   }
 
-  // Network First for local assets: fetch fresh from network, fallback to cache when offline
+  // Same-origin app assets: network-first, fall back to cache when offline.
+  // ignoreSearch lets '?v=9' requests match the pre-cached plain paths.
   if(url.origin===self.location.origin){
     event.respondWith(
       fetch(request)
@@ -47,12 +51,21 @@ self.addEventListener('fetch',event=>{
           }
           return response;
         })
-        .catch(()=>caches.match(request).then(cached=>cached||(request.mode==='navigate'?caches.match('./index.html'):null)))
+        .catch(()=>caches.match(request,{ignoreSearch:true}).then(cached=>cached||(request.mode==='navigate'?caches.match('./index.html'):null)))
     );
     return;
   }
 
-  // External static resources
-  event.respondWith(fetch(request).catch(()=>caches.match(request)));
+  // External static resources (xlsx bundle, fonts): network-first with caching.
+  event.respondWith(
+    fetch(request)
+      .then(response=>{
+        if(response && response.ok && (url.hostname.endsWith('jsdelivr.net') || url.hostname.endsWith('fonts.gstatic.com') || url.hostname.endsWith('fonts.googleapis.com'))){
+          const copy=response.clone();
+          caches.open(CACHE).then(cache=>cache.put(request,copy)).catch(()=>{});
+        }
+        return response;
+      })
+      .catch(()=>caches.match(request))
+  );
 });
-

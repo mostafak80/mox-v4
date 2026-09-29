@@ -49,39 +49,62 @@ function setSyncStatus(status, pending = _pendingCount) {
 }
 export function getSyncStatus() { return { status: _status, pendingCount: _pendingCount }; }
 
+/** Report the app-level deferred-operations queue size (offline pending syncs). */
+export function setPendingCount(count) {
+  const n = Math.max(0, count | 0);
+  if (n > 0) {
+    setSyncStatus(SyncStatus.PENDING, n);
+  } else if (_status === SyncStatus.PENDING) {
+    setSyncStatus(SyncStatus.ONLINE, 0);
+  } else {
+    _pendingCount = 0;
+  }
+}
+
 // ============================================================
 // Firestore Path Helpers  (all paths are scoped to uid)
 // ============================================================
 
+export function cleanDocId(id) {
+  return String(id || '').trim().replace(/[\/\s#?\[\]]/g, '_');
+}
+
 function userRef(uid)                    { return doc(_db, 'users', uid); }
 function colRef(uid, col)                { return collection(_db, 'users', uid, col); }
-function docRef(uid, col, id)            { return doc(_db, 'users', uid, col, id); }
+function docRef(uid, col, id)            { return doc(_db, 'users', uid, col, cleanDocId(id)); }
 function settingsDocRef(uid)             { return doc(_db, 'users', uid, 'settings', 'main'); }
 function metaSyncRef(uid)                { return doc(_db, 'users', uid, 'meta', 'sync'); }
 
 let _db = null;
 let _uid = null;
+let _realtimeUnsubs = [];
+let _onRemoteChangeCallback = null;
 
 /**
  * Initialize cloud sync for the given Firebase UID.
  * Must be called after the user signs in.
  */
-export async function initCloudSync(uid, onRemoteChange) {
+export async function initCloudSync(uid, onRemoteChange = null) {
   _db  = await getFirebaseDb();
   _uid = uid;
 
-  // Start real-time listener for settings + transactions if enabled.
-  if (FIRESTORE_REALTIME && onRemoteChange) {
-    _startRealtimeListeners(onRemoteChange);
+  if (onRemoteChange) {
+    _onRemoteChangeCallback = onRemoteChange;
+  }
+
+  // Start real-time listeners for all collections if enabled.
+  if (FIRESTORE_REALTIME && _onRemoteChangeCallback) {
+    _startRealtimeListeners(_onRemoteChangeCallback);
   }
 
   setSyncStatus(SyncStatus.ONLINE, 0);
 }
 
 export function stopCloudSync() {
-  if (_realtimeUnsub) { _realtimeUnsub(); _realtimeUnsub = null; }
+  _stopRealtimeListeners();
   _db  = null;
   _uid = null;
+  _onRemoteChangeCallback = null;
   setSyncStatus(SyncStatus.OFFLINE, 0);
 }
 
@@ -309,26 +332,207 @@ export async function syncPresetBatch(presets) {
 }
 
 // ============================================================
-// Real-time Listeners
+// Real-time Listeners (Instant Bidirectional Multi-Device Sync)
 // ============================================================
 
+function _stopRealtimeListeners() {
+  _realtimeUnsubs.forEach(unsub => {
+    try { if (typeof unsub === 'function') unsub(); } catch (e) {}
+  });
+  _realtimeUnsubs = [];
+}
+
 function _startRealtimeListeners(onRemoteChange) {
-  if (_realtimeUnsub) _realtimeUnsub();
+  _stopRealtimeListeners();
+  if (!_db || !_uid) return;
 
-  // Listen to transactions collection for cross-device updates.
-  const unsub = onSnapshot(
-    query(colRef(_uid, 'transactions'), orderBy('updatedAt', 'desc'), limit(500)),
-    (snap) => {
-      if (snap.metadata.hasPendingWrites) return; // local write — skip
-      const changed = snap.docChanges().filter(c => c.type !== 'removed');
-      if (changed.length > 0) {
-        onRemoteChange('transactions', changed.map(c => _fromFirestore(c.doc.data())));
-      }
-    },
-    (err) => console.error('[MOX Sync] Real-time listener error:', err)
-  );
+  const unsubs = [];
 
-  _realtimeUnsub = unsub;
+  // 1. Transactions Collection Listener (Adds, Edits, Deletes)
+  try {
+    let isInitialTx = true;
+    const unsubTx = onSnapshot(
+      colRef(_uid, 'transactions'),
+      (snap) => {
+        if (snap.metadata.hasPendingWrites) return; // Ignore local optimistic writes
+
+        const upserted = [];
+        const removed  = [];
+
+        snap.docChanges().forEach(change => {
+          const docId = cleanDocId(change.doc.id);
+          if (change.type === 'removed') {
+            removed.push(docId);
+          } else {
+            const data = _fromFirestore(change.doc.data());
+            if (!data.id) data.id = docId;
+            upserted.push(data);
+          }
+        });
+
+        const isLive = !isInitialTx;
+        isInitialTx = false;
+
+        if (upserted.length > 0 || removed.length > 0) {
+          console.log(`[MOX Sync] Real-time transactions: ${upserted.length} upserted, ${removed.length} removed (isLive: ${isLive})`);
+          onRemoteChange('transactions', { upserted, removed, isLive });
+        }
+      },
+      (err) => console.error('[MOX Sync] Real-time transactions listener error:', err)
+    );
+    unsubs.push(unsubTx);
+  } catch (err) {
+    console.error('[MOX Sync] Failed to attach transactions listener:', err);
+  }
+
+  // 2. Presets Collection Listener
+  try {
+    let isInitialPresets = true;
+    const unsubPresets = onSnapshot(
+      colRef(_uid, 'presets'),
+      (snap) => {
+        if (snap.metadata.hasPendingWrites) return;
+
+        const upserted = [];
+        const removed  = [];
+
+        snap.docChanges().forEach(change => {
+          const docId = cleanDocId(change.doc.id);
+          if (change.type === 'removed') {
+            removed.push(docId);
+          } else {
+            const data = _fromFirestore(change.doc.data());
+            if (!data.id) data.id = docId;
+            upserted.push(data);
+          }
+        });
+
+        const isLive = !isInitialPresets;
+        isInitialPresets = false;
+
+        if (upserted.length > 0 || removed.length > 0) {
+          onRemoteChange('presets', { upserted, removed, isLive });
+        }
+      },
+      (err) => console.error('[MOX Sync] Real-time presets listener error:', err)
+    );
+    unsubs.push(unsubPresets);
+  } catch (err) {
+    console.error('[MOX Sync] Failed to attach presets listener:', err);
+  }
+
+  // 3. Fixed Expenses Collection Listener
+  try {
+    let isInitialFixed = true;
+    const unsubFixed = onSnapshot(
+      colRef(_uid, 'fixedExpenses'),
+      (snap) => {
+        if (snap.metadata.hasPendingWrites) return;
+
+        const upserted = [];
+        const removed  = [];
+
+        snap.docChanges().forEach(change => {
+          const docId = cleanDocId(change.doc.id);
+          if (change.type === 'removed') {
+            removed.push(docId);
+          } else {
+            const data = _fromFirestore(change.doc.data());
+            if (!data.id) data.id = docId;
+            upserted.push(data);
+          }
+        });
+
+        const isLive = !isInitialFixed;
+        isInitialFixed = false;
+
+        if (upserted.length > 0 || removed.length > 0) {
+          onRemoteChange('fixedExpenses', { upserted, removed, isLive });
+        }
+      },
+      (err) => console.error('[MOX Sync] Real-time fixedExpenses listener error:', err)
+    );
+    unsubs.push(unsubFixed);
+  } catch (err) {
+    console.error('[MOX Sync] Failed to attach fixedExpenses listener:', err);
+  }
+
+  // 4. Variable Expenses Collection Listener
+  try {
+    let isInitialVar = true;
+    const unsubVar = onSnapshot(
+      colRef(_uid, 'variableExpenses'),
+      (snap) => {
+        if (snap.metadata.hasPendingWrites) return;
+
+        const upserted = [];
+        const removed  = [];
+
+        snap.docChanges().forEach(change => {
+          const docId = cleanDocId(change.doc.id);
+          if (change.type === 'removed') {
+            removed.push(docId);
+          } else {
+            const data = _fromFirestore(change.doc.data());
+            if (!data.id) data.id = docId;
+            upserted.push(data);
+          }
+        });
+
+        const isLive = !isInitialVar;
+        isInitialVar = false;
+
+        if (upserted.length > 0 || removed.length > 0) {
+          onRemoteChange('variableExpenses', { upserted, removed, isLive });
+        }
+      },
+      (err) => console.error('[MOX Sync] Real-time variableExpenses listener error:', err)
+    );
+    unsubs.push(unsubVar);
+  } catch (err) {
+    console.error('[MOX Sync] Failed to attach variableExpenses listener:', err);
+  }
+
+  // 5. Settings Document Listener
+  try {
+    let isInitialSettings = true;
+    const unsubSettings = onSnapshot(
+      settingsDocRef(_uid),
+      (snap) => {
+        if (snap.metadata.hasPendingWrites) return;
+        if (!snap.exists()) return;
+        const isLive = !isInitialSettings;
+        isInitialSettings = false;
+        const newSettings = _fromFirestore(snap.data());
+        onRemoteChange('settings', { settings: newSettings, isLive });
+      },
+      (err) => console.error('[MOX Sync] Real-time settings listener error:', err)
+    );
+    unsubs.push(unsubSettings);
+  } catch (err) {
+    console.error('[MOX Sync] Failed to attach settings listener:', err);
+  }
+
+  _realtimeUnsubs = unsubs;
+}
+
+/**
+ * Permanently delete all transaction documents from Firestore when user clears data.
+ */
+export async function syncClearAllTransactions() {
+  if (!_db || !_uid) return;
+  try {
+    const snap = await getDocs(colRef(_uid, 'transactions'));
+    const batchSize = 100;
+    for (let i = 0; i < snap.docs.length; i += batchSize) {
+      const batch = writeBatch(_db);
+      const chunk = snap.docs.slice(i, i + batchSize);
+      chunk.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    }
+  } catch (e) {
+    console.error('[MOX Sync] syncClearAllTransactions failed:', e);
+  }
 }
 
 // ============================================================

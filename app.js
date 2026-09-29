@@ -16,9 +16,10 @@ import {
   syncDeleteTransaction, syncPreset, syncDeletePreset, syncSettings,
   syncFixedExpense, syncDeleteFixedExpense, syncVariableExpense,
   syncDeleteVariableExpense, syncTransactionBatch, syncPresetBatch,
+  syncClearAllTransactions,
   syncAuditEntry, mergeTransactions, mergePresets, getLastSyncMeta,
   updateSyncMeta, onSyncStatusChange, getSyncStatus, SyncStatus,
-  initNetworkMonitor
+  initNetworkMonitor, setPendingCount
 } from './cloud-sync.js';
 
 import {
@@ -174,7 +175,7 @@ import {
       externalRef:     r.externalRef || r.ref || '',
       archived:        Boolean(r.archived),
       // Classification support for unclassified wallet imports.
-      classificationStatus: r.classificationStatus || (r.item && r.offer ? 'classified' : 'classified'),
+      classificationStatus: r.classificationStatus || ((String(r.item||'').trim() && String(r.offer||'').trim()) ? 'classified' : 'unclassified'),
       createdAt:       r.createdAt || nowIso(),
       updatedAt:       r.updatedAt || r.createdAt || nowIso()
     };
@@ -242,6 +243,13 @@ import {
 
   // Helper to read un-scoped legacy IndexedDB databases (e.g. mox-v2-db)
   async function readLegacyIndexedDB(name) {
+    // Avoid creating an empty database as a side effect of probing.
+    try {
+      if (typeof indexedDB.databases === 'function') {
+        const existing = await indexedDB.databases();
+        if (!existing.some(d => d.name === name)) return null;
+      }
+    } catch { /* databases() unsupported — probe anyway */ }
     return new Promise((resolve) => {
       try {
         const req = indexedDB.open(name);
@@ -276,17 +284,21 @@ import {
   // ============================================================
   // Load / Save State (IndexedDB)
   // ============================================================
-  async function loadState() {
+  // allowLegacy: guest sessions may adopt old un-scoped databases from this
+  // device. Signed-in sessions never silently inherit device-local data —
+  // that transfer only happens through the explicit migration dialog.
+  async function loadState(allowLegacy = true) {
     let saved = await idbGet(STATE_KEY);
-    if (!saved) {
+    if (!saved && allowLegacy) {
       // Check for existing data in un-scoped IndexedDB from MOX-V2 / previous versions
       const legacyIdbState = (await readLegacyIndexedDB('mox-v2-db')) || (await readLegacyIndexedDB('mox-v4-db'));
       if (legacyIdbState && (legacyIdbState.transactions?.length || legacyIdbState.presets?.length)) {
         saved = legacyIdbState;
       }
     }
-    state = saved ? sanitizeState(saved) : await migrateLegacy();
-    state = sanitizeState(state);
+    if (saved) state = sanitizeState(saved);
+    else if (allowLegacy) state = sanitizeState(await migrateLegacy());
+    else state = sanitizeState(emptyState());
     await idbSet(STATE_KEY, state);
   }
 
@@ -332,7 +344,7 @@ import {
   // Financial Calculations
   // ============================================================
   function txFinancials(t){ const q=qty(t.quantity); return {income:num(t.paid)*q,cost:num(t.deducted)*q,profit:(num(t.paid)-num(t.deducted))*q,quantity:q}; }
-  function rangeRows(from='',to='',includeArchived=false){ return state.transactions.filter(t=>(includeArchived||!t.archived)&&(!from||t.date>=from)&&(!to||t.date<=to)); }
+  function rangeRows(from='',to='',includeArchived=false){ return state.transactions.filter(t=>(includeArchived||!t.archived)&&t.classificationStatus!=='unclassified'&&(!from||t.date>=from)&&(!to||t.date<=to)); }
   function rangeVariableExpenses(from='',to=''){ return state.variableExpenses.filter(e=>(!from||e.date>=from)&&(!to||e.date<=to)); }
   function monthIndex(date){ return date.getFullYear()*12+date.getMonth(); }
   function fixedExpenseOccurrences(e,from,to){
@@ -352,8 +364,15 @@ import {
     const earliest=parseISO(dates[0]);
     if(!earliest){state.settings.fixedExpenseHistoryRepaired=true;return false;}
     const earliestMonth=localDateISO(new Date(earliest.getFullYear(),earliest.getMonth(),1));
+    const todayStart=new Date();todayStart.setHours(0,0,0,0);
     let changed=false;
-    state.fixedExpenses.forEach(e=>{if(e.recurrence==='monthly'&&(!e.startDate||e.startDate>earliestMonth)){e.startDate=earliestMonth;changed=true;}});
+    // Only backdate expenses with a missing or non-historical start date.
+    // A deliberately past-dated startDate is respected as-is.
+    state.fixedExpenses.forEach(e=>{
+      if(e.recurrence!=='monthly')return;
+      const sd=parseISO(e.startDate);
+      if(!e.startDate||!sd||sd>=todayStart){e.startDate=earliestMonth;changed=true;}
+    });
     state.settings.fixedExpenseHistoryRepaired=true;
     return changed;
   }
@@ -431,7 +450,7 @@ import {
         <button id="moxTopSyncLoginBtn" class="mox-top-login-btn" type="button" title="تسجيل الدخول لتفعيل المزامنة السحابية">تسجيل الدخول ☁️</button>
       `;
       const btn = el.querySelector('#moxTopSyncLoginBtn');
-      if (btn) btn.onclick = triggerGoogleLogin;
+      if (btn) btn.onclick = () => showLoginScreen();
       return;
     }
 
@@ -511,7 +530,10 @@ import {
     const badge = $('unclassifiedCount');
     if (badge) badge.textContent = String(count);
     const section = $('view-unclassified');
-    if (section) { if (count > 0) renderUnclassifiedSection(); }
+    if (section) {
+      section.classList.toggle('hidden', count === 0);
+      if (count > 0) renderUnclassifiedSection();
+    }
   }
 
   function renderUnclassifiedSection() {
@@ -1123,7 +1145,10 @@ import {
     toast(`تم تغيير تاريخ ${changed.length} عملية إلى ${dateLabel(target)}.`,'success',6200,async()=>{
       before.forEach(old=>{const t=state.transactions.find(x=>x.id===old.id);if(t){t.date=old.date;t.updatedAt=old.updatedAt;}});
       audit(state,'تراجع عن تغيير تاريخ مجموعة','',{count:before.length});
-      await saveState('undo-bulk-history-date');renderAll();
+      await saveState('undo-bulk-history-date');
+      // Keep the cloud in sync with the restored dates.
+      _cloudSync(()=>syncTransactionBatch(before.map(old=>state.transactions.find(x=>x.id===old.id)).filter(Boolean)));
+      renderAll();
     });
   }
 
@@ -1233,11 +1258,11 @@ import {
     if(!Number.isFinite(deducted)||deducted<0)return setDialogError('presetDialog','اكتب قيمة المصروف بشكل صحيح.','presetCost');
     setDialogError('presetDialog','');
     const id=$('presetId').value,p=state.presets.find(x=>x.id===id);const data={item,offer,paid,deducted,updatedAt:nowIso()};
-    if(p)Object.assign(p,data);else state.presets.push(normalizePreset({...data,id:uid('preset')}));
+    let saved;
+    if(p){Object.assign(p,data);saved=p;}else{saved=normalizePreset({...data,id:uid('preset')});state.presets.push(saved);}
     state.settings.serviceColors[item]=$('presetColor').value;
     audit(state,p?'تعديل عرض':'إضافة عرض','',`${item} — ${offer}`);
     await saveState('preset');
-    const saved = state.presets.find(x=>x.item===item&&x.offer===offer);
     _cloudSync(async()=>{ if(saved) await syncPreset(saved); await syncSettings(state.settings); });
     closeDialog('presetDialog');renderAll();toast('تم حفظ العرض.');
   }
@@ -1302,46 +1327,20 @@ import {
   }
 
   // ============================================================
-  // Sync Status Indicator
-  // ============================================================
-  function renderSyncStatus() {
-    const user = getCurrentUser();
-    const badge = document.querySelector('.sidebar-foot .sync-badge');
-    if (!badge) return;
-
-    if (!user) {
-      badge.className = 'sync-badge guest';
-      badge.innerHTML = `<i class="dot sync-dot guest"></i><span>وضع محلي</span> <button class="mox-top-login-btn" type="button">تسجيل الدخول ☁️</button>`;
-      const loginBtn = badge.querySelector('.mox-top-login-btn');
-      if (loginBtn) loginBtn.onclick = () => showLoginScreen();
-      return;
-    }
-
-    const { status, pendingCount } = getSyncStatus();
-    if (!navigator.onLine || status === SyncStatus.OFFLINE) {
-      badge.className = 'sync-badge warn';
-      badge.innerHTML = `<i class="dot"></i><span>بدون إنترنت (محلي)</span>`;
-    } else if (status === SyncStatus.SYNCING) {
-      badge.className = 'sync-badge';
-      badge.innerHTML = `<i class="dot"></i><span>جارٍ المزامنة…</span>`;
-    } else if (pendingCount > 0) {
-      badge.className = 'sync-badge warn';
-      badge.innerHTML = `<i class="dot"></i><span>${pendingCount} في الانتظار</span>`;
-    } else {
-      badge.className = 'sync-badge ok';
-      badge.innerHTML = `<i class="dot"></i><span>سحابي متزامن</span>`;
-    }
-  }
-
-  // ============================================================
-  // Account & Sync Tab
-  // ============================================================
-  // ============================================================
   // Account & Sync Tab & Local Migration
   // ============================================================
 
   function readRawDatabase(dbName) {
-    return new Promise((resolve) => {
+    // Avoid creating an empty database as a side effect of probing.
+    const probe = new Promise((resolve) => {
+      try {
+        if (typeof indexedDB.databases !== 'function') { resolve(true); return; }
+        indexedDB.databases().then(dbs => resolve(dbs.some(d => d.name === dbName))).catch(() => resolve(true));
+      } catch { resolve(true); }
+    });
+    return probe.then(exists => {
+      if (!exists) return null;
+      return new Promise((resolve) => {
       try {
         const req = indexedDB.open(dbName, 1);
         req.onerror = () => resolve(null);
@@ -1399,6 +1398,7 @@ import {
       } catch {
         resolve(null);
       }
+      });
     });
   }
 
@@ -1743,6 +1743,7 @@ import {
     audit(state,'مسح كل العمليات','','');
     await saveState('clear-transactions');
     _cloudSync(async()=>{
+      await syncClearAllTransactions();
       const { uploadFullState: upload } = await import('./cloud-sync.js');
       await upload(state,()=>{});
     });
@@ -1760,18 +1761,57 @@ import {
   }
 
   // ============================================================
-  // Cloud Sync Helper
+  // Cloud Sync Helper — offline-deferred operation queue
   // ============================================================
+
+  const _pendingSyncOps = [];
+  let _flushingSyncOps = false;
+
+  function _queueSyncOp(fn) {
+    _pendingSyncOps.push(fn);
+    setPendingCount(_pendingSyncOps.length);
+  }
 
   /**
    * Run a cloud sync operation non-blockingly.
-   * If offline, silently skip. Errors are logged but don't crash the app.
+   * When offline (or on transient failure) the operation is queued and
+   * retried automatically as soon as connectivity returns.
    */
   function _cloudSync(fn) {
-    if (!navigator.onLine) return;
+    if (!getCurrentUser()) return; // local mode: nothing to sync
+    if (!navigator.onLine) { _queueSyncOp(fn); return; }
     fn().catch(err => {
-      console.warn('[MOX Sync]', err?.message || err);
+      if (err?.code === 'permission-denied') {
+        console.warn('[MOX Sync] dropped (permission denied):', err?.message || err);
+        return;
+      }
+      console.warn('[MOX Sync] deferred, will retry when online:', err?.message || err);
+      _queueSyncOp(fn);
     });
+  }
+
+  async function flushPendingSyncOps() {
+    if (_flushingSyncOps || !navigator.onLine || !getCurrentUser()) return;
+    _flushingSyncOps = true;
+    try {
+      while (_pendingSyncOps.length) {
+        const op = _pendingSyncOps[0];
+        try {
+          await op();
+          _pendingSyncOps.shift();
+          setPendingCount(_pendingSyncOps.length);
+        } catch (err) {
+          if (err?.code === 'permission-denied') {
+            _pendingSyncOps.shift(); // never retry a hard permission failure
+            continue;
+          }
+          break; // still failing — keep the queue for the next trigger
+        }
+      }
+    } finally {
+      _flushingSyncOps = false;
+      if (!_pendingSyncOps.length) setPendingCount(0);
+    }
   }
 
   // ============================================================
@@ -1781,6 +1821,8 @@ import {
     if (!confirm('تسجيل الخروج من MOX-V4؟\n\nبياناتك في السحابة لن تُحذف.')) return;
     try {
       stopCloudSync();
+      _pendingSyncOps.length = 0;
+      setPendingCount(0);
       await signOutUser();
       // Clear in-memory state to prevent data bleed.
       state = emptyState();
@@ -1867,6 +1909,7 @@ import {
   // Startup / Init
   // ============================================================
   let _isStartingApp = false;
+  let _unsubSyncStatus = null;
   async function startApp(user = null) {
     if (_isStartingApp) return;
     _isStartingApp = true;
@@ -1880,20 +1923,97 @@ import {
       const mobileNav = document.querySelector('.mobile-nav');
       if (mobileNav) mobileNav.style.display = '';
 
-      // Open IndexedDB.
+      // Open IndexedDB. Guest sessions may adopt legacy device databases;
+      // signed-in sessions start clean (transfer requires explicit consent).
       await openDB();
-      await loadState();
+      await loadState(!user);
 
       const fixedRepairWasDone = Boolean(state.settings.fixedExpenseHistoryRepaired);
       const repairedFixed = repairLegacyFixedExpenseStartDates();
       if (!fixedRepairWasDone || repairedFixed) await idbSet(STATE_KEY, sanitizeState(state));
 
       if (user) {
-        // Initialize cloud sync for authenticated user
-        await initCloudSync(user.uid, async (type, remoteRecords) => {
-          // Real-time update from another device.
+        // Initialize real-time cloud sync for authenticated user (instant multi-device sync)
+        await initCloudSync(user.uid, async (type, change) => {
+          if (!change) return;
+
+          let stateUpdated = false;
+
           if (type === 'transactions') {
-            state.transactions = mergeTransactions(state.transactions, remoteRecords);
+            // 1. Instantly delete removed transactions from all screens
+            if (change.removed && change.removed.length > 0) {
+              const rmSet = new Set(change.removed);
+              const beforeCount = state.transactions.length;
+              state.transactions = state.transactions.filter(t => !rmSet.has(t.id));
+              if (state.transactions.length !== beforeCount) {
+                stateUpdated = true;
+                if (change.isLive) {
+                  toast(`☁️ تم حذف ${rmSet.size} عملية فورًا من جهاز آخر.`, 'info', 2800);
+                }
+              }
+            }
+
+            // 2. Instantly add and update transactions on all screens
+            if (change.upserted && change.upserted.length > 0) {
+              state.transactions = mergeTransactions(state.transactions, change.upserted);
+              stateUpdated = true;
+              if (change.isLive) {
+                toast(`☁️ تم استلام ${change.upserted.length} عملية جديدة فورًا من جهاز آخر!`, 'success', 3000);
+              }
+            }
+
+            if (stateUpdated) {
+              await idbSet(STATE_KEY, sanitizeState(state));
+              renderAll();
+            }
+          } else if (type === 'presets') {
+            if (change.removed && change.removed.length > 0) {
+              const rmSet = new Set(change.removed);
+              const beforeCount = state.presets.length;
+              state.presets = state.presets.filter(p => !rmSet.has(p.id));
+              if (state.presets.length !== beforeCount) stateUpdated = true;
+            }
+            if (change.upserted && change.upserted.length > 0) {
+              state.presets = mergePresets(state.presets, change.upserted);
+              stateUpdated = true;
+            }
+            if (stateUpdated) {
+              await idbSet(STATE_KEY, sanitizeState(state));
+              renderAll();
+              if (change.isLive) toast('☁️ تم تحديث قائمة العروض فورًا.', 'info', 2500);
+            }
+          } else if (type === 'fixedExpenses') {
+            if (change.removed && change.removed.length > 0) {
+              const rmSet = new Set(change.removed);
+              const beforeCount = state.fixedExpenses.length;
+              state.fixedExpenses = state.fixedExpenses.filter(e => !rmSet.has(e.id));
+              if (state.fixedExpenses.length !== beforeCount) stateUpdated = true;
+            }
+            if (change.upserted && change.upserted.length > 0) {
+              state.fixedExpenses = mergeTransactions(state.fixedExpenses, change.upserted);
+              stateUpdated = true;
+            }
+            if (stateUpdated) {
+              await idbSet(STATE_KEY, sanitizeState(state));
+              renderAll();
+            }
+          } else if (type === 'variableExpenses') {
+            if (change.removed && change.removed.length > 0) {
+              const rmSet = new Set(change.removed);
+              const beforeCount = state.variableExpenses.length;
+              state.variableExpenses = state.variableExpenses.filter(e => !rmSet.has(e.id));
+              if (state.variableExpenses.length !== beforeCount) stateUpdated = true;
+            }
+            if (change.upserted && change.upserted.length > 0) {
+              state.variableExpenses = mergeTransactions(state.variableExpenses, change.upserted);
+              stateUpdated = true;
+            }
+            if (stateUpdated) {
+              await idbSet(STATE_KEY, sanitizeState(state));
+              renderAll();
+            }
+          } else if (type === 'settings' && change.settings) {
+            state.settings = { ...state.settings, ...change.settings };
             await idbSet(STATE_KEY, sanitizeState(state));
             renderAll();
           }
@@ -1918,28 +2038,41 @@ import {
           }
         }
 
-        // Check for first-time migration.
+        // First-time migration: offer transferring this device's local
+        // (guest) data — only with explicit consent, never silently.
         const alreadyMigrated = await isMigrated(user.uid, idbGet);
-        const hasLocalData = state.transactions.length > 0 || state.presets.length > 0;
         const cloudEmpty = !(cloudData?.transactions?.length);
 
-        if (!alreadyMigrated && hasLocalData && cloudEmpty) {
-          // Show migration dialog with full retry loop
-          await showMigrationDialog(state, user, async (dlg) => {
-            const errEl = dlg.querySelector('#moxMigrationError');
-            if (errEl) errEl.classList.add('hidden');
-            try {
-              await runMigration(state, user.uid, idbGet, idbSet, createSafetySnapshot, sanitizeState);
-              closeMigrationDialog();
-              renderAll();
-              renderAccountTab();
-              toast('✓ تمت المزامنة السحابية بنجاح! جميع بياناتك محفوظة الآن في حسابك.', 'success', 6000);
-            } catch(e) {
-              console.error('[MOX Migration]', e);
-              showMigrationError('تعذر نقل بعض البيانات. لم يتم حذف بيانات الجهاز ويمكنك المحاولة مرة أخرى.', e);
-            }
-          });
+        if (!alreadyMigrated && cloudEmpty) {
+          const legacyState = (await readLegacyIndexedDB('mox-v4-db')) || (await readLegacyIndexedDB('mox-v2-db'));
+          const legacyCount = (legacyState?.transactions?.length || 0) + (legacyState?.presets?.length || 0)
+            + (legacyState?.fixedExpenses?.length || 0) + (legacyState?.variableExpenses?.length || 0);
+
+          if (legacyCount > 0) {
+            // Show migration dialog with full retry loop
+            await showMigrationDialog(legacyState, user, async (dlg) => {
+              const errEl = dlg.querySelector('#moxMigrationError');
+              if (errEl) errEl.classList.add('hidden');
+              try {
+                state.transactions     = mergeTransactions(state.transactions || [], legacyState.transactions || []);
+                state.presets          = mergePresets(state.presets || [], legacyState.presets || []);
+                state.fixedExpenses    = mergeTransactions(state.fixedExpenses || [], legacyState.fixedExpenses || []);
+                state.variableExpenses = mergeTransactions(state.variableExpenses || [], legacyState.variableExpenses || []);
+                await saveState('legacy-consent-merge');
+                await runMigration(state, user.uid, idbGet, idbSet, createSafetySnapshot, sanitizeState);
+                closeMigrationDialog();
+                renderAll();
+                renderAccountTab();
+                toast('✓ تمت المزامنة السحابية بنجاح! جميع بياناتك محفوظة الآن في حسابك.', 'success', 6000);
+              } catch(e) {
+                console.error('[MOX Migration]', e);
+                showMigrationError('تعذر نقل بعض البيانات. لم يتم حذف بيانات الجهاز ويمكنك المحاولة مرة أخرى.', e);
+              }
+            });
+          }
         }
+        // Push any operations deferred while offline/signed out.
+        flushPendingSyncOps();
       } else {
         stopCloudSync();
       }
@@ -1947,8 +2080,9 @@ import {
       // Render user profile in sidebar (works for both user and guest).
       renderUserProfile(user, handleLogout, () => showLoginScreen());
 
-      // Sync status listener.
-      onSyncStatusChange(() => {
+      // Sync status listener (replace any previous subscription to avoid stacking).
+      if (_unsubSyncStatus) _unsubSyncStatus();
+      _unsubSyncStatus = onSyncStatusChange(() => {
         renderSyncStatus();
       });
 
@@ -1992,6 +2126,7 @@ import {
     initNetworkMonitor(
       async () => {
         renderSyncStatus();
+        flushPendingSyncOps(); // auto-upload changes saved while offline
       },
       () => {
         renderSyncStatus();

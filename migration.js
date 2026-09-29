@@ -199,7 +199,8 @@ export async function runMigration(state, uid, idbGet, idbSet, createSafetySnaps
 
   // 2. Validate.
   const clean = sanitizeState(JSON.parse(JSON.stringify(state)));
-  if (!clean.transactions && !clean.presets) throw new Error('empty-state');
+  if (!clean.transactions?.length && !clean.presets?.length &&
+      !clean.fixedExpenses?.length && !clean.variableExpenses?.length) throw new Error('empty-state');
 
   // 3. Upload.
   let uploaded = 0;
