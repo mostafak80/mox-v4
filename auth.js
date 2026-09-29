@@ -21,19 +21,23 @@ let _currentUser = null;
 export function getCurrentUser() { return _currentUser; }
 
 /**
- * Detect mobile / Safari / standalone PWA — these need redirect auth.
+ * Detect mobile / tablet / standalone PWA.
+ * On mobile devices, Google Sign-In must ALWAYS use Redirect because
+ * popups are blocked or disconnected across background tabs.
  */
-function shouldUseRedirect() {
-  const ua = navigator.userAgent;
-  const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
-  const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
-  // Only use redirect if on mobile Safari where popups are strictly prevented
-  return isIOS && isSafari;
+function isMobileDevice() {
+  const ua = navigator.userAgent || '';
+  const isMobileUA = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini|Mobile|CriOS/i.test(ua);
+  const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  const isSmallScreen = window.innerWidth <= 800;
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  return isMobileUA || (isTouch && isSmallScreen) || Boolean(isStandalone);
 }
 
 /**
  * Trigger Google Sign-In.
- * Tries popup first for fastest, cleanest UX, with redirect fallback if blocked.
+ * - On Mobile / PWA: Uses signInWithRedirect directly for 100% stability.
+ * - On Desktop: Tries signInWithPopup first, falls back to signInWithRedirect.
  */
 export async function signInWithGoogle() {
   const auth = getFirebaseAuth();
@@ -43,24 +47,29 @@ export async function signInWithGoogle() {
   provider.setCustomParameters({ prompt: 'select_account' });
 
   if (window.location.protocol === 'file:') {
-    const err = new Error('لا يمكن تسجيل الدخول عبر بروتوكول file://. يجب فتح الموقع عبر سيرفر محلي (مثل Live Server أو npx serve).');
+    const err = new Error('لا يمكن تسجيل الدخول عبر بروتوكول file://. يجب فتح الموقع عبر سيرفر محلي (مثل Live Server أو تشغيل-الموقع.bat).');
     err.code = 'auth/operation-not-supported-in-this-environment';
     throw err;
   }
 
-  if (shouldUseRedirect()) {
-    sessionStorage.setItem('mox_auth_redirect', '1');
+  // Mobile phones & tablets: ALWAYS redirect directly
+  if (isMobileDevice()) {
+    console.log('[MOX Auth] Mobile device detected, initiating signInWithRedirect.');
     await signInWithRedirect(auth, provider);
     return null;
   }
 
+  // Desktop: try popup first, fallback to redirect if blocked or dismissed
   try {
     const result = await signInWithPopup(auth, provider);
     return result.user;
   } catch (err) {
-    if (err.code === 'auth/popup-blocked') {
-      // Fallback to redirect if popup was explicitly blocked by browser
-      sessionStorage.setItem('mox_auth_redirect', '1');
+    if (
+      err.code === 'auth/popup-blocked' ||
+      err.code === 'auth/popup-closed-by-user' ||
+      err.code === 'auth/cancelled-popup-request'
+    ) {
+      console.warn('[MOX Auth] Desktop popup issue, falling back to redirect:', err.code);
       await signInWithRedirect(auth, provider);
       return null;
     }
@@ -131,26 +140,29 @@ export async function initAuth(onUserReady) {
   _onUserReadyCallback = onUserReady;
   const auth = getFirebaseAuth();
 
-  // Check for pending redirect sign-in result first.
-  if (sessionStorage.getItem('mox_auth_redirect')) {
-    sessionStorage.removeItem('mox_auth_redirect');
-    try {
-      const result = await getRedirectResult(auth);
-      if (result?.user) {
-        _currentUser = result.user;
-        // onAuthStateChanged will fire next and call onUserReady.
-      }
-    } catch (err) {
-      console.error('[MOX Auth] Redirect result error:', err.code, err.message);
-      showLoginScreen();
-      showLoginError(friendlyAuthError(err.code, err.message));
+  // Always check redirect sign-in result on page load (Firebase official standard)
+  try {
+    const result = await getRedirectResult(auth);
+    if (result?.user) {
+      _currentUser = result.user;
+      hideLoginScreen();
+      if (_onUserReadyCallback) await _onUserReadyCallback(result.user);
     }
+  } catch (err) {
+    console.error('[MOX Auth] Redirect result error:', err.code, err.message);
+    showLoginScreen();
+    showLoginError(friendlyAuthError(err.code, err.message));
   }
 
-  // Primary auth state listener.
-  onAuthStateChanged(auth, (user) => {
+  // Primary auth state listener
+  onAuthStateChanged(auth, async (user) => {
     _currentUser = user;
-    if (_onUserReadyCallback) _onUserReadyCallback(user);
+    if (user) {
+      hideLoginScreen();
+      if (_onUserReadyCallback) await _onUserReadyCallback(user);
+    } else {
+      renderUserProfile(null, null, () => showLoginScreen());
+    }
   });
 }
 
