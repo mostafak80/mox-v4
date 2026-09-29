@@ -6,9 +6,9 @@
   <meta name="theme-color" content="#070b17">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="MOX-V2">
+  <meta name="apple-mobile-web-app-title" content="MOX-V4">
   <meta name="color-scheme" content="dark">
-  <title>MOX-V2</title>
+  <title>MOX-V4</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./assets/logo.png">
   <link rel="apple-touch-icon" href="./assets/logo.png">
@@ -23,11 +23,11 @@
   <div id="app" class="app-shell">
     <aside class="sidebar glass">
       <div class="brand">
-        <div class="brand-mark"><img src="./assets/logo.png" alt="MOX-V2"></div>
-        <div><strong>MOX-V2</strong><span>Store Finance OS</span></div>
+        <div class="brand-mark"><img src="./assets/logo.png" alt="MOX-V4"></div>
+        <div><strong>MOX-V4</strong><span>Store Finance OS</span></div>
       </div>
       <nav class="nav-list" aria-label="التنقل الرئيسي">
-        <button class="nav-item active" data-view="today"><span class="nav-icon">⌂</span><span>اليوم</span></button>
+        <button class="nav-item active" data-view="today"><span class="nav-icon">⌂</span><span>اليوم</span><span class="unclassified-badge hidden"></span></button>
         <button class="nav-item" data-view="add"><span class="nav-icon">＋</span><span>إضافة</span></button>
         <button class="nav-item" data-view="history"><span class="nav-icon">▤</span><span>السجل</span></button>
         <button class="nav-item" data-view="reports"><span class="nav-icon">⌁</span><span>التقارير</span></button>
@@ -91,6 +91,13 @@
               <button class="shortcut" data-action="backup"><span>⌑</span><b>نسخة احتياطية</b><small>JSON كامل وآمن</small></button>
             </div>
           </article>
+        </div>
+
+        <div id="view-unclassified" class="panel glass unclassified-panel hidden">
+          <div class="panel-head">
+            <div><span class="panel-kicker">مراجعة المحفظة</span><h3>معاملات واردة تحتاج تصنيف (<span id="unclassifiedCount">0</span>)</h3></div>
+          </div>
+          <div id="unclassifiedList" class="unclassified-list"></div>
         </div>
 
         <section class="smart-center" aria-label="مركز MOX الذكي">
@@ -260,7 +267,7 @@
       </section>
 
       <section id="view-settings" class="view">
-        <div class="settings-tabs"><button class="settings-tab active" data-tab="presets">العروض</button><button class="settings-tab" data-tab="expenses">المصاريف</button><button class="settings-tab" data-tab="data">البيانات</button></div>
+        <div class="settings-tabs"><button class="settings-tab active" data-tab="presets">العروض</button><button class="settings-tab" data-tab="expenses">المصاريف</button><button class="settings-tab" data-tab="data">البيانات</button><button class="settings-tab" data-tab="account">الحساب والمزامنة</button></div>
 
         <div id="settings-presets" class="settings-pane active">
           <article class="panel glass"><div class="panel-head"><div><span class="panel-kicker">مكتبة العروض</span><h3>العروض المحفوظة</h3></div><button id="newPresetBtn" class="btn btn-primary">＋ عرض جديد</button></div><div class="filters-row"><div class="search-control flex-2"><span>⌕</span><input id="presetManageSearch" class="control" placeholder="بحث في العروض"></div><select id="presetServiceFilter" class="control"><option value="">كل الخدمات</option></select></div><div id="presetManageGrid" class="preset-manage-grid"></div></article>
@@ -274,11 +281,13 @@
           <article class="panel glass"><div class="panel-head"><div><span class="panel-kicker">Data Center</span><h3>النسخ الاحتياطي والبيانات</h3></div></div><div class="data-actions"><button id="backupBtn" class="action-card"><span>↓</span><b>تنزيل نسخة احتياطية</b><small>JSON كامل بدون نسخ متداخلة</small></button><button id="restoreBtn" class="action-card"><span>↑</span><b>استرجاع نسخة</b><small>مع Safety Snapshot قبل الاستبدال</small></button><button id="safetyRestoreBtn" class="action-card"><span>↶</span><b>آخر نسخة أمان</b><small>استرجاع سريع بعد أي خطأ</small></button><button id="clearDataBtn" class="action-card danger"><span>⌫</span><b>مسح العمليات</b><small>يتطلب تأكيد واضح</small></button></div><input id="restoreFile" type="file" accept="application/json" hidden><div id="storageInfo" class="storage-info"></div></article>
         </div>
 
+        <div id="settings-account" class="settings-pane"></div>
+
       </section>
     </main>
   </div>
 
-  <nav class="mobile-nav glass" aria-label="تنقل الموبايل"><button class="active" data-view="today"><span>⌂</span><b>اليوم</b></button><button data-view="add"><span>＋</span><b>إضافة</b></button><button data-view="history"><span>▤</span><b>السجل</b></button><button data-view="reports"><span>⌁</span><b>تقارير</b></button><button data-view="settings"><span>⚙</span><b>إعدادات</b></button></nav>
+  <nav class="mobile-nav glass" aria-label="تنقل الموبايل"><button class="active" data-view="today"><span>⌂</span><b>اليوم</b><span class="unclassified-badge hidden"></span></button><button data-view="add"><span>＋</span><b>إضافة</b></button><button data-view="history"><span>▤</span><b>السجل</b></button><button data-view="reports"><span>⌁</span><b>تقارير</b></button><button data-view="settings"><span>⚙</span><b>إعدادات</b></button></nav>
 
   <dialog id="editTransactionDialog" class="modal"><form id="editTransactionForm" class="modal-card" novalidate><div class="modal-head"><div><span class="panel-kicker">تعديل</span><h3>العملية</h3></div><button type="button" class="icon-btn" data-dialog-close="editTransactionDialog" aria-label="إغلاق">×</button></div><div class="form-grid-2"><label class="field"><span>التاريخ</span><input id="editTxDate" class="control" type="date"></label><label class="field"><span>الكمية</span><input id="editTxQty" class="control ltr" type="number" min="1"></label><label class="field"><span>المنتج / الخدمة</span><input id="editTxItem" class="control"></label><label class="field"><span>العرض</span><input id="editTxOffer" class="control"></label><label class="field"><span>الداخل / واحدة</span><input id="editTxPaid" class="control ltr" type="number" step="0.01" min="0"></label><label class="field"><span>مصروف / واحدة</span><input id="editTxCost" class="control ltr" type="number" step="0.01" min="0"></label></div><label class="field"><span>ملاحظة</span><input id="editTxNote" class="control"></label><input id="editTxId" type="hidden"><div id="editTxDialogError" class="dialog-error hidden" role="alert"></div><div class="modal-actions"><button type="button" class="btn btn-ghost" data-dialog-close="editTransactionDialog">إلغاء</button><button id="saveEditTxBtn" type="submit" class="btn btn-primary">حفظ التعديل</button></div></form></dialog>
 
@@ -287,6 +296,6 @@
   <dialog id="expenseDialog" class="modal"><form id="expenseForm" class="modal-card" novalidate><div class="modal-head"><div><span class="panel-kicker">المصاريف</span><h3 id="expenseDialogTitle">مصروف</h3></div><button type="button" class="icon-btn" data-dialog-close="expenseDialog" aria-label="إغلاق">×</button></div><input id="expenseType" type="hidden"><input id="expenseId" type="hidden"><div class="form-grid-2"><label class="field span-2"><span>اسم المصروف</span><input id="expenseName" class="control"></label><label class="field"><span>القيمة</span><input id="expenseAmount" class="control ltr" type="number" step="0.01" min="0.01"></label><label class="field"><span>تاريخ البداية / المصروف</span><input id="expenseDate" class="control" type="date"></label><label id="recurrenceField" class="field"><span>التكرار</span><select id="expenseRecurrence" class="control"><option value="once">مرة واحدة</option><option value="monthly">شهري</option><option value="yearly">سنوي</option></select></label><label class="field span-2"><span>ملاحظة</span><input id="expenseNote" class="control"></label></div><div id="expenseDialogError" class="dialog-error hidden" role="alert"></div><div class="modal-actions"><button type="button" class="btn btn-ghost" data-dialog-close="expenseDialog">إلغاء</button><button id="saveExpenseBtn" type="submit" class="btn btn-primary">حفظ</button></div></form></dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
-  <script src="./app.js"></script>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>

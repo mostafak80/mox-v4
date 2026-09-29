@@ -1,5 +1,17 @@
-const CACHE='mox-v4-cashier-cart-20260920-1';
-const APP_ASSETS=['./','./index.html','./style.css','./app.js','./manifest.webmanifest','./assets/logo.png'];
+const CACHE='mox-v4-cloud-sync-20260929-1';
+const APP_ASSETS=[
+  './',
+  './index.html',
+  './style.css',
+  './app.js',
+  './auth.js',
+  './cloud-sync.js',
+  './migration.js',
+  './firebase.js',
+  './firebase-config.js',
+  './manifest.webmanifest',
+  './assets/logo.png'
+];
 
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(APP_ASSETS)).catch(()=>{}));
@@ -15,6 +27,14 @@ self.addEventListener('fetch',event=>{
   const request=event.request;
   if(request.method!=='GET') return;
   const url=new URL(request.url);
+
+  // Pass-through for Firebase, Google APIs, and auth requests
+  if (url.origin.includes('firebaseio.com') ||
+      url.origin.includes('googleapis.com') ||
+      url.origin.includes('gstatic.com') ||
+      url.origin.includes('firebaseapp.com')) {
+    return;
+  }
 
   // صفحات التنقل: Network first، ولو مفيش نت نرجع index.html فقط.
   if(request.mode==='navigate'){
@@ -38,3 +58,4 @@ self.addEventListener('fetch',event=>{
   // الموارد الخارجية لا نرجّع لها HTML عند الفشل حتى لا يحصل MIME error.
   event.respondWith(fetch(request).catch(()=>caches.match(request)));
 });
+
