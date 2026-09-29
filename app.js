@@ -444,15 +444,23 @@ import {
 
     const user = getCurrentUser();
     if (!user) {
+      el.title = 'الوضع المحلي — انقر لتسجيل الدخول بحساب Google';
+      el.onclick = () => showLoginScreen();
       el.innerHTML = `
         <span class="sync-dot guest"></span>
         <span>وضع محلي</span>
         <button id="moxTopSyncLoginBtn" class="mox-top-login-btn" type="button" title="تسجيل الدخول لتفعيل المزامنة السحابية">تسجيل الدخول ☁️</button>
       `;
       const btn = el.querySelector('#moxTopSyncLoginBtn');
-      if (btn) btn.onclick = () => showLoginScreen();
+      if (btn) btn.onclick = (e) => { e.stopPropagation(); showLoginScreen(); };
       return;
     }
+
+    el.title = 'انقر لإدارة الحساب والمزامنة السحابية';
+    el.onclick = () => {
+      goView('settings');
+      setSettingsTab('account');
+    };
 
     const { status, pendingCount } = getSyncStatus();
     const labels = {
