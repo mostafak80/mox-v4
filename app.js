@@ -637,7 +637,43 @@ import {
   // ============================================================
   // Add / Cashier View
   // ============================================================
-  function sortedPresets(){ return [...state.presets].filter(p=>p.active!==false).sort((a,b)=>(new Date(b.lastUsedAt||0)-new Date(a.lastUsedAt||0))||b.usageCount-a.usageCount||a.item.localeCompare(b.item,'ar')); }
+  function extractOfferNumber(offer, paid = 0) {
+    if (!offer) return num(paid);
+    // Convert Arabic-Indic digits (٠-٩) to Latin (0-9) and strip thousand separators
+    const norm = String(offer).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/,/g, '');
+    const m = norm.match(/(\d+(?:\.\d+)?)/);
+    if (m) {
+      const v = parseFloat(m[1]);
+      if (!isNaN(v)) return v;
+    }
+    return num(paid);
+  }
+
+  function comparePresets(a, b) {
+    // 1. Group by service (item) in natural Arabic alphabetical order
+    const itemCmp = (a.item || '').localeCompare(b.item || '', 'ar', { sensitivity: 'base' });
+    if (itemCmp !== 0) return itemCmp;
+
+    // 2. Sort by extracted package quantity / tier number (e.g. 60, 120, 325, 385, 445, 660, 1800)
+    const valA = extractOfferNumber(a.offer, a.paid);
+    const valB = extractOfferNumber(b.offer, b.paid);
+    if (valA !== valB) return valA - valB;
+
+    // 3. If tier numbers are identical or absent, sort by price (paid) ascending
+    const paidDiff = num(a.paid) - num(b.paid);
+    if (paidDiff !== 0) return paidDiff;
+
+    // 4. Then by cost (deducted) ascending
+    const costDiff = num(a.deducted) - num(b.deducted);
+    if (costDiff !== 0) return costDiff;
+
+    // 5. Final fallback: natural text sort on offer name
+    return (a.offer || '').localeCompare(b.offer || '', 'ar', { numeric: true });
+  }
+
+  function sortedPresets(){
+    return [...state.presets].filter(p => p.active !== false).sort(comparePresets);
+  }
   function getQuickPresetServiceFilter(){ const hidden=$('quickPresetServiceFilter');return String(hidden?.value??state?.settings?.quickPresetServiceFilter??'').trim(); }
   function closeQuickServiceMenu(){ const menu=$('quickServiceMenu'),btn=$('quickServicePickerBtn');if(menu)menu.classList.add('hidden');if(btn)btn.setAttribute('aria-expanded','false'); }
   function openQuickServiceMenu(){ const menu=$('quickServiceMenu'),btn=$('quickServicePickerBtn');if(!menu||!btn)return;menu.classList.remove('hidden');btn.setAttribute('aria-expanded','true'); }
@@ -1397,7 +1433,7 @@ import {
     const q=normalize($('presetManageSearch')?.value||''),svc=$('presetServiceFilter')?.value||'';
     const services=[...new Set(state.presets.map(p=>p.item).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ar'));
     if($('presetServiceFilter')){$('presetServiceFilter').innerHTML='<option value="">كل الخدمات</option>'+services.map(s=>`<option ${s===svc?'selected':''}>${esc(s)}</option>`).join('')}
-    const arr=state.presets.filter(p=>(!svc||p.item===svc)&&(!q||normalize(`${p.item} ${p.offer} ${p.paid}`).includes(q)));
+    const arr=state.presets.filter(p=>(!svc||p.item===svc)&&(!q||normalize(`${p.item} ${p.offer} ${p.paid}`).includes(q))).sort(comparePresets);
     $('presetManageGrid').innerHTML=arr.length?arr.map(p=>`<div class="preset-manage-card" style="--service-color:${serviceColor(p.item)}"><h4>${esc(p.item)} — ${esc(p.offer)}</h4><p>استخدم ${p.usageCount||0} مرة</p><div class="preset-manage-meta"><span>الداخل<b>${fmt(p.paid)}</b></span><span>المصروف<b>${fmt(p.deducted)}</b></span><span>الربح<b>${fmt(p.paid-p.deducted)}</b></span></div><div class="preset-manage-actions"><button class="mini-btn" data-pedit="${p.id}">تعديل</button><button class="mini-btn danger" data-pdelete="${p.id}">حذف</button></div></div>`).join(''):'<div class="empty-state">لا توجد عروض مطابقة.</div>';
     $$('[data-pedit]').forEach(b=>b.onclick=()=>openPresetDialog(b.dataset.pedit));$$('[data-pdelete]').forEach(b=>b.onclick=()=>deletePreset(b.dataset.pdelete));
   }
@@ -2535,15 +2571,7 @@ import {
       const favB = favorites.has(b.id) ? 1 : 0;
       if (favA !== favB) return favB - favA;
 
-      const usageA = num(a.usageCount || 0);
-      const usageB = num(b.usageCount || 0);
-      if (usageA !== usageB) return usageB - usageA;
-
-      const lastA = a.lastUsedAt || '';
-      const lastB = b.lastUsedAt || '';
-      if (lastA !== lastB) return lastB.localeCompare(lastA);
-
-      return (a.item || '').localeCompare(b.item || '') || (a.offer || '').localeCompare(b.offer || '');
+      return comparePresets(a, b);
     });
 
     return presets;
