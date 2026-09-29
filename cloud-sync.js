@@ -196,42 +196,85 @@ export async function uploadFullState(state, onProgress) {
 
   setSyncStatus(SyncStatus.SYNCING);
 
-  const records = [
-    ...(state.transactions || []).map(r => ({ col: 'transactions', id: r.id, data: r })),
-    ...(state.presets || []).map(r => ({ col: 'presets', id: r.id, data: r })),
-    ...(state.fixedExpenses || []).map(r => ({ col: 'fixedExpenses', id: r.id, data: r })),
-    ...(state.variableExpenses || []).map(r => ({ col: 'variableExpenses', id: r.id, data: r })),
-    ...(state.closings || []).map(r => ({ col: 'closings', id: r.id || `c_${Date.now()}`, data: r })),
-    ...(state.audit || []).slice(-200).map(r => ({ col: 'audit', id: r.id, data: r })),
+  // 1. Gather all collections safely
+  const rawRecords = [
+    ...(state.transactions || []).map((r, i) => ({ col: 'transactions', id: r.id || `tx_${i}`, data: r })),
+    ...(state.presets || []).map((r, i) => ({ col: 'presets', id: r.id || `preset_${i}`, data: r })),
+    ...(state.fixedExpenses || []).map((r, i) => ({ col: 'fixedExpenses', id: r.id || `fx_${i}`, data: r })),
+    ...(state.variableExpenses || []).map((r, i) => ({ col: 'variableExpenses', id: r.id || `vx_${i}`, data: r })),
+    ...(state.closings || []).map((r, i) => ({ col: 'closings', id: r.id || `c_${i}_${Date.now()}`, data: r })),
+    ...(state.audit || []).slice(-100).map((r, i) => ({ col: 'audit', id: r.id || `audit_${i}`, data: r })),
   ];
+
+  // 2. Sanitize document IDs and deduplicate per collection
+  const seen = new Set();
+  const records = [];
+  rawRecords.forEach((r, idx) => {
+    let cleanId = String(r.id || '').trim().replace(/[\/\s#?\[\]]/g, '_');
+    if (!cleanId) cleanId = `${r.col}_${idx}_${Date.now()}`;
+    const key = `${r.col}/${cleanId}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      records.push({
+        col: r.col,
+        id: cleanId,
+        data: { ...r.data, id: cleanId }
+      });
+    }
+  });
 
   const total = records.length;
   let uploaded = 0;
+  const batchSize = MIGRATION_BATCH_SIZE || 50;
 
-  // Upload in safe chunks.
-  for (let i = 0; i < records.length; i += MIGRATION_BATCH_SIZE) {
-    const chunk = records.slice(i, i + MIGRATION_BATCH_SIZE);
-    const batch = writeBatch(_db);
-    chunk.forEach(({ col, id, data }) => {
-      batch.set(docRef(_uid, col, id), _toFirestore(data));
-    });
-    await batch.commit();
-    uploaded += chunk.length;
+  // 3. Upload in resilient chunks with individual fallback
+  for (let i = 0; i < records.length; i += batchSize) {
+    const chunk = records.slice(i, i + batchSize);
+    try {
+      const batch = writeBatch(_db);
+      chunk.forEach(({ col, id, data }) => {
+        batch.set(docRef(_uid, col, id), _toFirestore(data), { merge: true });
+      });
+      await batch.commit();
+      uploaded += chunk.length;
+    } catch (batchErr) {
+      console.warn(`[MOX Sync] Batch write at chunk ${i} failed:`, batchErr);
+      // Fast-fail if permission-denied or unauthenticated
+      if (batchErr.code === 'permission-denied' || batchErr.message?.includes('permission')) {
+        setSyncStatus(SyncStatus.ERROR);
+        throw batchErr;
+      }
+      // Fallback: commit items one-by-one so a single faulty item doesn't fail the rest
+      for (const item of chunk) {
+        try {
+          await setDoc(docRef(_uid, item.col, item.id), _toFirestore(item.data), { merge: true });
+          uploaded++;
+        } catch (itemErr) {
+          console.error(`[MOX Sync] Individual write failed for ${item.col}/${item.id}:`, itemErr);
+          if (itemErr.code === 'permission-denied') {
+            setSyncStatus(SyncStatus.ERROR);
+            throw itemErr;
+          }
+        }
+      }
+    }
     if (onProgress) onProgress(uploaded, total);
   }
 
-  // Save settings separately.
-  if (state.settings) {
-    await setDoc(settingsDocRef(_uid), { ..._toFirestore(state.settings), _syncedAt: serverTimestamp() }, { merge: true });
+  // 4. Save settings and sync metadata safely
+  try {
+    if (state.settings) {
+      await setDoc(settingsDocRef(_uid), { ..._toFirestore(state.settings), _syncedAt: serverTimestamp() }, { merge: true });
+    }
+    await setDoc(metaSyncRef(_uid), {
+      lastSyncAt: serverTimestamp(),
+      migratedAt: serverTimestamp(),
+      totalRecords: total,
+      uid: _uid,
+    }, { merge: true });
+  } catch (err) {
+    console.warn('[MOX Sync] Non-critical meta sync failed:', err);
   }
-
-  // Update sync meta.
-  await setDoc(metaSyncRef(_uid), {
-    lastSyncAt: serverTimestamp(),
-    migratedAt: serverTimestamp(),
-    totalRecords: total,
-    uid: _uid,
-  }, { merge: true });
 
   setSyncStatus(SyncStatus.ONLINE, 0);
   return total;
@@ -358,12 +401,16 @@ export function initNetworkMonitor(onOnline, onOffline) {
 // ============================================================
 
 function _toFirestore(obj) {
-  // Convert undefined fields to null for Firestore compatibility.
-  const out = {};
-  for (const [k, v] of Object.entries(obj)) {
-    out[k] = v === undefined ? null : v;
+  if (!obj || typeof obj !== 'object') return obj ?? null;
+  try {
+    return JSON.parse(JSON.stringify(obj, (k, v) => (v === undefined ? null : v)));
+  } catch {
+    const out = {};
+    for (const [k, v] of Object.entries(obj)) {
+      out[k] = v === undefined ? null : v;
+    }
+    return out;
   }
-  return out;
 }
 
 function _fromFirestore(data) {

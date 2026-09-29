@@ -1912,18 +1912,21 @@ import {
         const cloudEmpty = !(cloudData?.transactions?.length);
 
         if (!alreadyMigrated && hasLocalData && cloudEmpty) {
-          // Show migration dialog.
-          const choice = await showMigrationDialog(state, user);
-          if (choice === 'migrate') {
+          // Show migration dialog with full retry loop
+          await showMigrationDialog(state, user, async (dlg) => {
+            const errEl = dlg.querySelector('#moxMigrationError');
+            if (errEl) errEl.classList.add('hidden');
             try {
               await runMigration(state, user.uid, idbGet, idbSet, createSafetySnapshot, sanitizeState);
               closeMigrationDialog();
-              toast('تمت المزامنة بنجاح. بياناتك محفوظة في السحابة.','success',5000);
+              renderAll();
+              renderAccountTab();
+              toast('✓ تمت المزامنة السحابية بنجاح! جميع بياناتك محفوظة الآن في حسابك.', 'success', 6000);
             } catch(e) {
               console.error('[MOX Migration]', e);
-              showMigrationError('تعذر نقل بعض البيانات. لم يتم حذف بيانات الجهاز ويمكنك المحاولة مرة أخرى.');
+              showMigrationError('تعذر نقل بعض البيانات. لم يتم حذف بيانات الجهاز ويمكنك المحاولة مرة أخرى.', e);
             }
-          }
+          });
         }
       } else {
         stopCloudSync();

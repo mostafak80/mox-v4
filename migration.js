@@ -40,7 +40,7 @@ export async function markMigrated(uid, idbSet) {
  * @param {object} user - Firebase user object
  * @returns {Promise<'migrate'|'later'>}
  */
-export function showMigrationDialog(state, user) {
+export function showMigrationDialog(state, user, onConfirm = null) {
   return new Promise((resolve) => {
     // Remove any existing dialog.
     document.getElementById('moxMigrationDialog')?.remove();
@@ -96,11 +96,11 @@ export function showMigrationDialog(state, user) {
           <span id="moxMigProgressLabel">0%</span>
         </div>
 
-        <div id="moxMigrationError" class="dialog-error hidden" role="alert"></div>
+        <div id="moxMigrationError" class="dialog-error hidden" style="white-space: pre-line; margin-bottom: 14px;" role="alert"></div>
 
         <div class="modal-actions">
-          <button id="moxMigLaterBtn" class="btn btn-ghost">لاحقًا</button>
-          <button id="moxMigConfirmBtn" class="btn btn-primary">نقل البيانات إلى حساب Google</button>
+          <button id="moxMigLaterBtn" class="btn btn-ghost" type="button">لاحقًا</button>
+          <button id="moxMigConfirmBtn" class="btn btn-primary" type="button">نقل البيانات إلى حساب Google</button>
         </div>
       </div>
     `;
@@ -114,7 +114,14 @@ export function showMigrationDialog(state, user) {
       resolve('later');
     };
 
-    dlg.querySelector('#moxMigConfirmBtn').onclick = () => resolve('migrate');
+    const confirmBtn = dlg.querySelector('#moxMigConfirmBtn');
+    confirmBtn.onclick = async () => {
+      if (typeof onConfirm === 'function') {
+        await onConfirm(dlg);
+      } else {
+        resolve('migrate');
+      }
+    };
   });
 }
 
@@ -129,24 +136,45 @@ export function setMigrationProgress(uploaded, total) {
 
   if (progress) progress.classList.remove('hidden');
   if (fill)     fill.style.width = `${pct}%`;
-  if (label)    label.textContent = `${pct}%`;
+  if (label)    label.textContent = `تم رفع ${uploaded.toLocaleString('ar-EG')} من أصل ${total.toLocaleString('ar-EG')} (${pct}%)`;
 
   const confirmBtn = document.getElementById('moxMigConfirmBtn');
   const laterBtn   = document.getElementById('moxMigLaterBtn');
-  if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = 'جارٍ النقل…'; }
+  if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = 'جارٍ النقل للسحابة…'; }
   if (laterBtn)   laterBtn.disabled = true;
 }
 
 /**
- * Show migration error.
+ * Show migration error with detailed troubleshooting.
  */
-export function showMigrationError(msg) {
+export function showMigrationError(msg, err = null) {
   const errEl = document.getElementById('moxMigrationError');
-  if (errEl) { errEl.textContent = msg; errEl.classList.remove('hidden'); }
+  let text = msg || 'تعذر نقل بعض البيانات. لم يتم حذف بيانات الجهاز ويمكنك المحاولة مرة أخرى.';
+
+  if (err) {
+    const code = err.code || err.name || '';
+    const details = err.message || String(err);
+    if (code === 'permission-denied' || details.includes('permission') || details.includes('insufficient')) {
+      text = `🔒 خطأ في أذونات السحابة (Permission Denied):\nقواعد الحماية (Rules) في Firebase تمنع الكتابة.\nيرجى فتح لوحة تحكم Firebase Console ⬅ Cloud Firestore ⬅ تبويب Rules وتفعيل الصلاحية ثم الضغط على Publish.`;
+    } else if (code === 'unavailable' || details.includes('network') || details.includes('Failed to fetch')) {
+      text = `🌐 تعذر الاتصال بخوادم Firebase. يرجى التحقق من اتصال الإنترنت والمحاولة مجددًا.`;
+    } else {
+      text = `${text}\n[تفاصيل الخطأ: ${code ? code + ' - ' : ''}${details}]`;
+    }
+  }
+
+  if (errEl) {
+    errEl.textContent = text;
+    errEl.classList.remove('hidden');
+  }
+
   const confirmBtn = document.getElementById('moxMigConfirmBtn');
   const laterBtn   = document.getElementById('moxMigLaterBtn');
-  if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = 'إعادة المحاولة'; }
-  if (laterBtn)   laterBtn.disabled = false;
+  if (confirmBtn) {
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = 'إعادة المحاولة';
+  }
+  if (laterBtn) laterBtn.disabled = false;
 }
 
 /**

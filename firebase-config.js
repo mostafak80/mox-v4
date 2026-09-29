@@ -32,8 +32,8 @@ const FIREBASE_CONFIG = {
 /** Enable real-time Firestore listeners (phone ↔ laptop live sync). */
 const FIRESTORE_REALTIME = true;
 
-/** Firestore batch size for migration uploads (max 500 per Firestore batch). */
-const MIGRATION_BATCH_SIZE = 200;
+/** Firestore batch size for migration uploads (50 per batch for faster, safer uploads). */
+const MIGRATION_BATCH_SIZE = 50;
 
 /** Maximum number of local safety snapshots to keep. */
 const MAX_BACKUPS = 5;
