@@ -84,6 +84,7 @@ import {
   const num = (v) => Number(v) || 0;
   const qty = (v) => Math.max(1, Math.floor(Number(v) || 1));
   const fmt = (v, digits = 2) => num(v).toLocaleString('en-US',{minimumFractionDigits:digits,maximumFractionDigits:digits});
+  const fmtSmart = (v) => { const n = num(v); return n % 1 === 0 ? fmt(n, 0) : fmt(n, 2); };
   const esc = (v) => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":"&#39;",'"':'&quot;'}[m]));
   const normalize = (v) => String(v ?? '').toLowerCase().normalize('NFKC').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/\s+/g,' ').trim();
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -410,7 +411,7 @@ import {
   function goView(name) {
     if(!$(`view-${name}`)) name='today';
     $$('.view').forEach(v=>v.classList.toggle('active',v.id===`view-${name}`));
-    $$('.nav-item,.mobile-nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===name));
+    $$('.nav-item,.mobile-nav button[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===name));
     state.settings.lastView=name; saveState('view');
     $('viewTitle').textContent={today:'اليوم',add:'إضافة عملية',history:'سجل العمليات',reports:'التقارير',settings:'الإعدادات'}[name]||APP_NAME;
     if(name==='today')   renderToday();
@@ -418,6 +419,9 @@ import {
     if(name==='history') renderHistory();
     if(name==='reports') renderReports();
     if(name==='settings') renderSettings();
+    renderMobileToday();
+    renderMobileHistory();
+    updateMobileHeader();
     window.scrollTo({top:0,behavior:'smooth'});
   }
   function setSettingsTab(tab) {
@@ -453,6 +457,7 @@ import {
       `;
       const btn = el.querySelector('#moxTopSyncLoginBtn');
       if (btn) btn.onclick = (e) => { e.stopPropagation(); showLoginScreen(); };
+      updateMobileHeader();
       return;
     }
 
@@ -471,6 +476,7 @@ import {
       [SyncStatus.ERROR]:   `<span class="sync-dot error"></span> فشل في المزامنة`,
     };
     el.innerHTML = labels[status] || labels[SyncStatus.OFFLINE];
+    updateMobileHeader();
   }
 
   // ============================================================
@@ -485,6 +491,8 @@ import {
     renderRevenueChart('revenueChart',7);renderProductDonut(s.rows);renderRecentTransactions(s.rows.length?s.rows:rangeRows().slice(-5));renderSmartInsights();
     renderUnclassifiedBadge();
     renderSyncStatus();
+    renderMobileToday();
+    updateMobileHeader();
   }
   function renderDelta(el,current,previous,label,inverse=false){
     if(!previous){el.className='kpi-delta neutral';el.textContent=current?'لا توجد مقارنة أمس':'—';return;}
@@ -1119,6 +1127,7 @@ import {
     const modeBtn=$('historySelectModeBtn');if(modeBtn){modeBtn.textContent=historySelectionMode?'✕ إنهاء التحديد':'☑ تحديد';modeBtn.classList.toggle('active-selection',historySelectionMode);}
     $$('#historyTable th[data-sort]').forEach(th=>{th.classList.toggle('sort-asc',historySort.key===th.dataset.sort&&historySort.dir==='asc');th.classList.toggle('sort-desc',historySort.key===th.dataset.sort&&historySort.dir==='desc');});
     renderHistoryBulkBar(all);renderHistoryPagination(all.length);
+    renderMobileHistory();
   }
 
   function openClassifyDialog(txId) {
@@ -1850,7 +1859,17 @@ import {
   // ============================================================
   // Render All
   // ============================================================
-  function renderAll(){renderToday();renderAdd();renderHistory();renderReports();renderSettings();renderUnclassifiedBadge();}
+  function renderAll(){
+    renderToday();
+    renderAdd();
+    renderHistory();
+    renderReports();
+    renderSettings();
+    renderUnclassifiedBadge();
+    renderMobileToday();
+    renderMobileHistory();
+    updateMobileHeader();
+  }
 
   // ============================================================
   // Event Binding
@@ -1860,7 +1879,7 @@ import {
     if (_eventsBound) return;
     _eventsBound = true;
 
-    $$('.nav-item,.mobile-nav button').forEach(b=>b.onclick=()=>goView(b.dataset.view));
+    $$('.nav-item, .mobile-nav button[data-view]').forEach(b=>b.onclick=()=>goView(b.dataset.view));
     $$('[data-go]').forEach(b=>b.onclick=()=>{goView(b.dataset.go);if(b.dataset.settingsTab)setSettingsTab(b.dataset.settingsTab)});
     $('globalAddBtn').onclick=()=>goView('add');
     $$('[data-dialog-close]').forEach(b=>b.onclick=()=>closeDialog(b.dataset.dialogClose));
@@ -1911,6 +1930,1029 @@ import {
     // Legacy data tab buttons (renderAccountTab also re-binds them).
     $$('[data-action="backup"]').forEach(b=>b.onclick=downloadBackup);
     $$('[data-action="wallet-import"]').forEach(b=>b.onclick=()=>{goView('add');setTimeout(()=>$('walletImportPanel').scrollIntoView({behavior:'smooth'}),100)});
+
+    // Initialize flagship mobile event listeners
+    bindMobileEvents();
+  }
+
+  // ============================================================
+  // Flagship Mobile-Only Engine
+  // ============================================================
+
+  function triggerHaptic(duration = 10) {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      try { navigator.vibrate(duration); } catch (_) {}
+    }
+  }
+
+  function openMobileSheet(sheetId) {
+    const sheet = $(sheetId);
+    if (!sheet) return;
+    triggerHaptic(12);
+    sheet.classList.remove('hidden');
+    document.body.classList.add('mob-sheet-open');
+    if (sheetId === 'sheetQuickAdd') {
+      renderMobileQuickAdd();
+    } else if (sheetId === 'sheetHistoryFilter') {
+      populateMobileFilterServices();
+    } else if (sheetId === 'sheetAccount') {
+      updateMobileAccountSheet();
+    } else if (sheetId === 'sheetAmountOnly') {
+      setTimeout(() => $('amountOnlyInput')?.focus(), 200);
+    }
+  }
+
+  function closeMobileSheet(sheetId) {
+    const sheet = $(sheetId);
+    if (!sheet) return;
+    sheet.classList.add('hidden');
+    if (!document.querySelector('.mob-sheet-backdrop:not(.hidden)')) {
+      document.body.classList.remove('mob-sheet-open');
+    }
+  }
+
+  function closeAllMobileSheets() {
+    $$('.mob-sheet-backdrop').forEach(s => s.classList.add('hidden'));
+    document.body.classList.remove('mob-sheet-open');
+  }
+
+  function showMobileSnackbar(message, subtext = '', undoFn = null) {
+    const host = $('mobSnackbarHost');
+    if (!host) return;
+    triggerHaptic(15);
+    const item = document.createElement('div');
+    item.className = 'mob-snackbar-item';
+    item.innerHTML = `
+      <div class="mob-snackbar-content">
+        <span class="mob-snackbar-check">✓</span>
+        <div>
+          <b>${esc(message)}</b>
+          ${subtext ? `<small>${esc(subtext)}</small>` : ''}
+        </div>
+      </div>
+      ${undoFn ? '<button class="mob-snackbar-undo-btn" type="button">تراجع</button>' : ''}
+    `;
+    if (undoFn) {
+      item.querySelector('button').onclick = async () => {
+        try {
+          await undoFn();
+          item.remove();
+        } catch(e) {
+          console.error(e);
+        }
+      };
+    }
+    host.appendChild(item);
+    setTimeout(() => {
+      item.style.opacity = '0';
+      item.style.transform = 'translateY(10px)';
+      item.style.transition = 'all 200ms ease';
+      setTimeout(() => item.remove(), 220);
+    }, 3800);
+  }
+
+  function updateMobileHeader() {
+    const user = getCurrentUser();
+    const avatarImg = $('mobHeaderAvatar');
+    const avatarFallback = $('mobHeaderAvatarFallback');
+    const syncBtn = $('mobileHeaderSyncBtn');
+    const syncDot = $('mobHeaderSyncDot');
+
+    if (user && user.photoURL) {
+      if (avatarImg) {
+        avatarImg.src = user.photoURL;
+        avatarImg.classList.remove('hidden');
+      }
+      if (avatarFallback) avatarFallback.classList.add('hidden');
+    } else {
+      if (avatarImg) avatarImg.classList.add('hidden');
+      if (avatarFallback) avatarFallback.classList.remove('hidden');
+    }
+
+    if (syncBtn && syncDot) {
+      const { status, pendingCount } = getSyncStatus();
+      syncDot.className = 'mob-sync-dot';
+      if (!user) {
+        syncDot.classList.add('guest');
+        syncBtn.setAttribute('title', 'الوضع المحلي — انقر لفتح الحساب');
+      } else if (!navigator.onLine || status === SyncStatus.OFFLINE) {
+        syncDot.classList.add('offline');
+        syncBtn.setAttribute('title', 'بدون اتصال بالإنترنت');
+      } else if (status === SyncStatus.SYNCING) {
+        syncDot.classList.add('syncing');
+        syncBtn.setAttribute('title', 'جارٍ المزامنة…');
+      } else if (status === SyncStatus.PENDING || pendingCount > 0) {
+        syncDot.classList.add('pending');
+        syncBtn.setAttribute('title', `${pendingCount} تغيير بانتظار المزامنة`);
+      } else if (status === SyncStatus.ERROR) {
+        syncDot.classList.add('error');
+        syncBtn.setAttribute('title', 'تعذر المزامنة');
+      } else {
+        syncDot.classList.add('online');
+        syncBtn.setAttribute('title', 'متصل بالسحابة');
+      }
+    }
+  }
+
+  function renderMobileToday() {
+    const heroProfit = $('mobHeroProfit');
+    if (!heroProfit) return;
+
+    const t = todayISO();
+    const y = localDateISO(addDays(new Date(), -1));
+    const s = statsForRange(t, t);
+    const sy = statsForRange(y, y);
+
+    heroProfit.textContent = fmtSmart(s.profit) + ' EGP';
+    
+    const deltaEl = $('mobHeroDelta');
+    if (deltaEl) {
+      if (!sy.profit) {
+        deltaEl.textContent = s.profit ? 'أرباح نشاط اليوم' : 'لا توجد عمليات اليوم';
+        deltaEl.className = 'mob-hero-delta neutral';
+      } else {
+        const pct = ((s.profit - sy.profit) / Math.abs(sy.profit)) * 100;
+        const good = pct >= 0;
+        deltaEl.textContent = `${pct >= 0 ? '+' : ''}${fmt(pct, 1)}% عن أرباح أمس`;
+        deltaEl.className = `mob-hero-delta ${good ? 'up' : 'down'}`;
+      }
+    }
+
+    const incEl = $('mobIncomeVal');
+    const costEl = $('mobCostVal');
+    const cntEl = $('mobCountVal');
+    if (incEl) incEl.textContent = fmtSmart(s.income);
+    if (costEl) costEl.textContent = fmtSmart(s.cost);
+    if (cntEl) cntEl.textContent = s.count;
+
+    const unclassified = getUnclassifiedTransactions();
+    const unclassCard = $('mobUnclassifiedCard');
+    const unclassCount = $('mobUnclassifiedCount');
+    if (unclassCard) {
+      if (unclassified.length > 0) {
+        unclassCard.classList.remove('hidden');
+        if (unclassCount) unclassCount.textContent = `${unclassified.length} معاملة`;
+      } else {
+        unclassCard.classList.add('hidden');
+      }
+    }
+
+    const todayRows = s.rows;
+    const recentList = $('mobRecentTxList');
+    const emptyState = $('mobNoRecentTx');
+    if (recentList) {
+      if (!todayRows.length) {
+        recentList.innerHTML = '';
+        if (emptyState) emptyState.classList.remove('hidden');
+      } else {
+        if (emptyState) emptyState.classList.add('hidden');
+        const displayRows = [...todayRows].reverse().slice(0, 6);
+        recentList.innerHTML = displayRows.map(renderMobileTxCard).join('');
+      }
+    }
+  }
+
+  function renderMobileTxCard(t) {
+    const q = qty(t.quantity);
+    const inc = num(t.paid) * q;
+    const cost = num(t.deducted) * q;
+    const profit = inc - cost;
+    const timeStr = t.time || (t.createdAt ? new Date(t.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '');
+    const dateFormatted = t.date ? new Date(t.date + 'T12:00:00').toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' }) : '';
+    const isUnclass = t.classificationStatus === 'unclassified';
+    const isLoss = profit < 0;
+
+    return `
+      <div class="mob-tx-card ${isUnclass ? 'unclassified' : ''}" data-tx-id="${t.id}" role="button" tabindex="0">
+        <div class="mob-tx-main">
+          <div class="mob-tx-title-row">
+            <strong class="mob-tx-title">${esc(t.item || 'معاملة')}</strong>
+            <span class="mob-tx-paid">${fmtSmart(inc)} EGP</span>
+          </div>
+          <div class="mob-tx-sub-row">
+            <span class="mob-tx-offer">${esc(t.offer || '—')}${q > 1 ? ` <small class="mob-tx-qty">×${q}</small>` : ''}</span>
+            <span class="mob-tx-profit ${isLoss ? 'loss' : 'gain'}">
+              ربح ${profit >= 0 ? '+' : ''}${fmtSmart(profit)}
+            </span>
+          </div>
+          <div class="mob-tx-footer-row">
+            <span class="mob-tx-date-meta">${dateFormatted}${timeStr ? ` · ${timeStr}` : ''}</span>
+            ${t.source ? `<span class="mob-tx-source-tag">${esc(t.source)}</span>` : ''}
+            ${t.note ? `<span class="mob-tx-note-snippet">📝 ${esc(t.note)}</span>` : ''}
+          </div>
+        </div>
+        <div class="mob-tx-arrow">‹</div>
+      </div>
+    `;
+  }
+
+  let _mobHistoryRange = 'today';
+  let _mobHistoryService = '';
+  let _mobHistorySearch = '';
+  let _mobHistoryArchived = false;
+
+  function setMobileHistoryRange(range) {
+    _mobHistoryRange = range;
+    $$('.mob-history-chips button').forEach(b => b.classList.toggle('active', b.dataset.mobRange === range));
+    renderMobileHistory();
+  }
+
+  function getMobileFilteredHistory() {
+    let from = '', to = '';
+    const t = todayISO();
+    if (_mobHistoryRange === 'today') {
+      from = t; to = t;
+    } else if (_mobHistoryRange === 'yesterday') {
+      const y = localDateISO(addDays(new Date(), -1));
+      from = y; to = y;
+    } else if (_mobHistoryRange === '7d') {
+      from = localDateISO(addDays(new Date(), -6));
+      to = t;
+    } else if (_mobHistoryRange === 'month') {
+      const now = new Date();
+      from = localDateISO(new Date(now.getFullYear(), now.getMonth(), 1));
+      to = t;
+    }
+
+    const customFrom = $('mobFilterFrom')?.value;
+    const customTo = $('mobFilterTo')?.value;
+    if (customFrom) from = customFrom;
+    if (customTo) to = customTo;
+
+    const term = (_mobHistorySearch || '').trim().toLowerCase();
+    const serviceFilter = _mobHistoryService || $('mobFilterService')?.value || '';
+    const showArchived = _mobHistoryArchived || $('mobFilterArchived')?.checked || false;
+
+    return state.transactions.filter(tx => {
+      if (!showArchived && tx.archived) return false;
+      if (from && tx.date < from) return false;
+      if (to && tx.date > to) return false;
+      if (serviceFilter && tx.item !== serviceFilter) return false;
+      if (term) {
+        const text = `${tx.item || ''} ${tx.offer || ''} ${tx.note || ''} ${tx.source || ''} ${tx.paid || ''}`.toLowerCase();
+        if (!text.includes(term)) return false;
+      }
+      return true;
+    }).sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || '').localeCompare(a.createdAt || ''));
+  }
+
+  function renderMobileHistory() {
+    const listEl = $('mobTxList');
+    if (!listEl) return;
+
+    const filtered = getMobileFilteredHistory();
+    const summaryText = $('mobHistorySummaryText');
+    const countText = $('mobHistoryCountText');
+    const emptyState = $('mobNoHistoryState');
+
+    const totalProfit = filtered.reduce((acc, t) => {
+      const fin = txFinancials(t);
+      return acc + fin.profit;
+    }, 0);
+
+    if (summaryText) summaryText.textContent = `صافي الأرباح: ${fmtSmart(totalProfit)} EGP`;
+    if (countText) countText.textContent = `${filtered.length} عملية`;
+
+    let activeFilterCount = 0;
+    if ($('mobFilterFrom')?.value || $('mobFilterTo')?.value) activeFilterCount++;
+    if ($('mobFilterService')?.value) activeFilterCount++;
+    if ($('mobFilterArchived')?.checked) activeFilterCount++;
+    const badge = $('mobActiveFilterBadge');
+    if (badge) {
+      if (activeFilterCount > 0) {
+        badge.textContent = activeFilterCount;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    if (!filtered.length) {
+      listEl.innerHTML = '';
+      if (emptyState) emptyState.classList.remove('hidden');
+    } else {
+      if (emptyState) emptyState.classList.add('hidden');
+      listEl.innerHTML = filtered.slice(0, 60).map(renderMobileTxCard).join('');
+    }
+  }
+
+  function populateMobileFilterServices() {
+    const select = $('mobFilterService');
+    if (!select) return;
+    const services = Array.from(new Set(state.presets.map(p => p.item).filter(Boolean))).sort();
+    const current = select.value;
+    select.innerHTML = '<option value="">كل الخدمات</option>' + 
+      services.map(s => `<option value="${esc(s)}" ${s === current ? 'selected' : ''}>${esc(s)}</option>`).join('');
+  }
+
+  function openTransactionDetailsSheet(txId) {
+    const tx = state.transactions.find(t => t.id === txId);
+    if (!tx) return;
+
+    const body = $('txDetailsBody');
+    const statusKicker = $('txDetailsStatus');
+    if (statusKicker) {
+      statusKicker.textContent = tx.archived ? 'عملية مؤرشفة' : (tx.classificationStatus === 'unclassified' ? 'تحتاج مراجعة وتصنيف' : 'تفاصيل العملية');
+    }
+
+    const q = qty(tx.quantity);
+    const inc = num(tx.paid) * q;
+    const cost = num(tx.deducted) * q;
+    const profit = inc - cost;
+    const isLoss = profit < 0;
+
+    if (body) {
+      body.innerHTML = `
+        <div class="mob-detail-header-card">
+          <div class="mob-detail-title-group">
+            <span class="mob-detail-item-tag">${esc(tx.item || 'معاملة')}</span>
+            <h4>${esc(tx.offer || '—')}</h4>
+          </div>
+          <div class="mob-detail-profit-badge ${isLoss ? 'loss' : 'gain'}">
+            <span>الربح الصافي</span>
+            <strong>${profit >= 0 ? '+' : ''}${fmtSmart(profit)} EGP</strong>
+          </div>
+        </div>
+
+        <div class="mob-detail-kpi-grid">
+          <div class="mob-detail-kpi in">
+            <span>الداخل الإجمالي</span>
+            <strong>${fmtSmart(inc)} EGP</strong>
+            <small>${q > 1 ? `(${fmtSmart(tx.paid)} × ${q})` : 'مبلغ الاستلام'}</small>
+          </div>
+          <div class="mob-detail-kpi out">
+            <span>المصروف الإجمالي</span>
+            <strong>${fmtSmart(cost)} EGP</strong>
+            <small>${q > 1 ? `(${fmtSmart(tx.deducted)} × ${q})` : 'تكلفة الشحن'}</small>
+          </div>
+        </div>
+
+        <div class="mob-detail-meta-list">
+          <div class="mob-detail-row">
+            <span>التاريخ والوقت</span>
+            <strong>${tx.date || '—'}${tx.time ? ` · ${tx.time}` : ''}</strong>
+          </div>
+          ${tx.source ? `
+          <div class="mob-detail-row">
+            <span>مصدر العملية</span>
+            <strong>${esc(tx.source)}</strong>
+          </div>` : ''}
+          ${tx.vodafoneRef ? `
+          <div class="mob-detail-row">
+            <span>مرجع فودافون كاش</span>
+            <code class="ltr">${esc(tx.vodafoneRef)}</code>
+          </div>` : ''}
+          ${tx.note ? `
+          <div class="mob-detail-row vertical">
+            <span>ملاحظات</span>
+            <p>${esc(tx.note)}</p>
+          </div>` : ''}
+        </div>
+
+        <div class="mob-detail-actions">
+          <button id="mobDetailEditBtn" class="btn btn-secondary" type="button">
+            ✏️ تعديل العملية
+          </button>
+          <button id="mobDetailArchiveBtn" class="btn btn-ghost" type="button">
+            ${tx.archived ? '↩ إلغاء الأرشفة' : '📦 أرشفة'}
+          </button>
+          <button id="mobDetailDeleteBtn" class="btn btn-danger-soft" type="button">
+            🗑️ حذف
+          </button>
+        </div>
+      `;
+
+      const editBtn = body.querySelector('#mobDetailEditBtn');
+      const archiveBtn = body.querySelector('#mobDetailArchiveBtn');
+      const deleteBtn = body.querySelector('#mobDetailDeleteBtn');
+
+      if (editBtn) {
+        editBtn.onclick = () => {
+          closeMobileSheet('sheetTxDetails');
+          openEditTransaction(tx.id);
+        };
+      }
+
+      if (archiveBtn) {
+        archiveBtn.onclick = async () => {
+          tx.archived = !tx.archived;
+          await saveState('archive-toggle');
+          _cloudSync(async () => {
+            await syncSaveTransaction(tx);
+          });
+          renderAll();
+          closeMobileSheet('sheetTxDetails');
+          showMobileSnackbar(tx.archived ? 'تمت أرشفة العملية' : 'تم استرجاع العملية من الأرشيف');
+        };
+      }
+
+      if (deleteBtn) {
+        deleteBtn.onclick = async () => {
+          if (!confirm(`حذف العملية (${tx.item} - ${tx.offer}) نهائيًا؟`)) return;
+          const idx = state.transactions.findIndex(t => t.id === tx.id);
+          if (idx !== -1) {
+            const removed = state.transactions.splice(idx, 1)[0];
+            await saveState('delete-transaction');
+            _cloudSync(async () => {
+              await syncDeleteTransaction(removed.id);
+            });
+            renderAll();
+            closeMobileSheet('sheetTxDetails');
+            showMobileSnackbar('تم حذف العملية', `${removed.item} - ${removed.offer}`, async () => {
+              state.transactions.splice(idx, 0, removed);
+              await saveState('undo-delete');
+              _cloudSync(async () => {
+                await syncSaveTransaction(removed);
+              });
+              renderAll();
+            });
+          }
+        };
+      }
+    }
+
+    openMobileSheet('sheetTxDetails');
+  }
+
+  let _mobSelectedService = 'all';
+
+  function getRankedPresets(selectedService = 'all', searchQuery = '') {
+    const favorites = new Set(state.settings.favoritePresets || []);
+    let presets = [...state.presets];
+
+    if (selectedService && selectedService !== 'all') {
+      presets = presets.filter(p => p.item === selectedService);
+    }
+
+    const q = (searchQuery || '').trim().toLowerCase();
+    if (q) {
+      presets = presets.filter(p => 
+        (p.item && p.item.toLowerCase().includes(q)) ||
+        (p.offer && p.offer.toLowerCase().includes(q))
+      );
+    }
+
+    presets.sort((a, b) => {
+      const favA = favorites.has(a.id) ? 1 : 0;
+      const favB = favorites.has(b.id) ? 1 : 0;
+      if (favA !== favB) return favB - favA;
+
+      const usageA = num(a.usageCount || 0);
+      const usageB = num(b.usageCount || 0);
+      if (usageA !== usageB) return usageB - usageA;
+
+      const lastA = a.lastUsedAt || '';
+      const lastB = b.lastUsedAt || '';
+      if (lastA !== lastB) return lastB.localeCompare(lastA);
+
+      return (a.item || '').localeCompare(b.item || '') || (a.offer || '').localeCompare(b.offer || '');
+    });
+
+    return presets;
+  }
+
+  function togglePresetFavorite(presetId, e) {
+    if (e) e.stopPropagation();
+    state.settings.favoritePresets = state.settings.favoritePresets || [];
+    const idx = state.settings.favoritePresets.indexOf(presetId);
+    if (idx === -1) {
+      state.settings.favoritePresets.push(presetId);
+      triggerHaptic(15);
+      showMobileSnackbar('تمت إضافة العرض إلى المفضلة ⭐');
+    } else {
+      state.settings.favoritePresets.splice(idx, 1);
+      triggerHaptic(10);
+      showMobileSnackbar('تمت إزالة العرض من المفضلة');
+    }
+    saveState('toggle-fav-preset');
+    renderMobileQuickAdd();
+  }
+
+  function renderMobileQuickAdd() {
+    const listEl = $('mobPresetsList');
+    const chipRow = $('mobServicesChipRow');
+    const countEl = $('mobPresetsCount');
+    const headingEl = $('mobPresetsHeading');
+    const searchInput = $('mobQuickAddSearch');
+    const query = searchInput?.value || '';
+
+    if (chipRow) {
+      const services = Array.from(new Set(state.presets.map(p => p.item).filter(Boolean))).sort();
+      let chipsHtml = `
+        <button type="button" class="mob-service-chip ${_mobSelectedService === 'all' ? 'active' : ''}" data-service="all">
+          الكل
+        </button>
+      `;
+      services.forEach(s => {
+        chipsHtml += `
+          <button type="button" class="mob-service-chip ${_mobSelectedService === s ? 'active' : ''}" data-service="${esc(s)}">
+            ${esc(s)}
+          </button>
+        `;
+      });
+      chipRow.innerHTML = chipsHtml;
+
+      chipRow.querySelectorAll('.mob-service-chip').forEach(chip => {
+        chip.onclick = () => {
+          _mobSelectedService = chip.dataset.service;
+          renderMobileQuickAdd();
+        };
+      });
+    }
+
+    const presets = getRankedPresets(_mobSelectedService, query);
+    const favorites = new Set(state.settings.favoritePresets || []);
+
+    if (countEl) countEl.textContent = `${presets.length} عرض`;
+    if (headingEl) {
+      if (query) headingEl.textContent = `نتائج البحث عن "${query}"`;
+      else if (_mobSelectedService !== 'all') headingEl.textContent = `عروض ${_mobSelectedService}`;
+      else headingEl.textContent = 'الأكثر استخدامًا والمفضلة';
+    }
+
+    if (listEl) {
+      if (!presets.length) {
+        listEl.innerHTML = `
+          <div class="mob-empty-presets">
+            <span class="mob-empty-icon">🔍</span>
+            <strong>لم يتم العثور على عروض مطابقة</strong>
+            <p>يمكنك تسجيل عملية جديدة يدويًا أو عبر تسجيل مبلغ فقط.</p>
+            <button type="button" class="btn btn-secondary btn-sm" id="mobEmptyAmountOnlyBtn">⚡ تسجيل مبلغ فقط</button>
+          </div>
+        `;
+        const btn = listEl.querySelector('#mobEmptyAmountOnlyBtn');
+        if (btn) btn.onclick = () => {
+          closeMobileSheet('sheetQuickAdd');
+          openMobileSheet('sheetAmountOnly');
+        };
+      } else {
+        listEl.innerHTML = presets.map(p => {
+          const isFav = favorites.has(p.id);
+          const profit = num(p.paid) - num(p.cost);
+          return `
+            <div class="mob-preset-card" data-preset-id="${p.id}" role="button" tabindex="0">
+              <div class="mob-preset-header">
+                <span class="mob-preset-service">${esc(p.item)}</span>
+                <button type="button" class="mob-preset-fav-btn ${isFav ? 'is-fav' : ''}" data-fav-id="${p.id}" aria-label="مفضلة">
+                  ${isFav ? '★' : '☆'}
+                </button>
+              </div>
+              <strong class="mob-preset-offer">${esc(p.offer)}</strong>
+              <div class="mob-preset-pricing">
+                <span class="mob-preset-price">${fmtSmart(p.paid)} EGP</span>
+                <span class="mob-preset-profit">+${fmtSmart(profit)} EGP ربح</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        listEl.querySelectorAll('.mob-preset-card').forEach(card => {
+          card.onclick = (e) => {
+            if (e.target.closest('.mob-preset-fav-btn')) return;
+            const pid = card.dataset.presetId;
+            const p = state.presets.find(x => x.id === pid);
+            if (p) openQuickConfirmSheet(p);
+          };
+        });
+
+        listEl.querySelectorAll('.mob-preset-fav-btn').forEach(btn => {
+          btn.onclick = (e) => togglePresetFavorite(btn.dataset.favId, e);
+        });
+      }
+    }
+  }
+
+  function openQuickConfirmSheet(preset) {
+    const sheet = $('sheetQuickConfirm');
+    if (!sheet) return;
+
+    $('confirmPresetId').value = preset.id;
+    $('confirmItemName').textContent = preset.item;
+    $('confirmOfferName').textContent = preset.offer;
+    
+    const iconEl = $('confirmServiceIcon');
+    if (iconEl) {
+      const lower = (preset.item || '').toLowerCase();
+      if (lower.includes('pubg') || lower.includes('ببجي')) iconEl.textContent = '🎮';
+      else if (lower.includes('netflix') || lower.includes('نتفلكس')) iconEl.textContent = '🎬';
+      else if (lower.includes('chat') || lower.includes('gpt')) iconEl.textContent = '🤖';
+      else if (lower.includes('roblox') || lower.includes('روبلوكس')) iconEl.textContent = '🕹️';
+      else if (lower.includes('tiktok') || lower.includes('تيك')) iconEl.textContent = '🎵';
+      else if (lower.includes('كاش') || lower.includes('cash')) iconEl.textContent = '💳';
+      else iconEl.textContent = '⚡';
+    }
+
+    const paid = num(preset.paid);
+    const cost = num(preset.cost);
+    const profit = paid - cost;
+
+    $('confirmPaidDisplay').textContent = `${fmtSmart(paid)} EGP`;
+    $('confirmCostDisplay').textContent = `${fmtSmart(cost)} EGP`;
+    $('confirmProfitDisplay').textContent = `${profit >= 0 ? '+' : ''}${fmtSmart(profit)} EGP`;
+
+    $('confirmQtyInput').value = 1;
+    $('confirmPaidInput').value = paid;
+    $('confirmCostInput').value = cost;
+    $('confirmDateInput').value = todayISO();
+    $('confirmNoteInput').value = '';
+
+    closeMobileSheet('sheetQuickAdd');
+    openMobileSheet('sheetQuickConfirm');
+  }
+
+  async function saveMobileConfirmedTx() {
+    const pid = $('confirmPresetId').value;
+    const preset = state.presets.find(p => p.id === pid);
+    if (!preset) return;
+
+    const q = Math.max(1, parseInt($('confirmQtyInput').value) || 1);
+    const paid = num($('confirmPaidInput').value);
+    const cost = num($('confirmCostInput').value);
+    const date = $('confirmDateInput').value || todayISO();
+    const note = ($('confirmNoteInput').value || '').trim();
+
+    const tx = normalizeTransaction({
+      id: uid('tx'),
+      item: preset.item,
+      offer: preset.offer,
+      paid,
+      deducted: cost,
+      quantity: q,
+      date,
+      time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+      source: 'موبايل فوري',
+      note,
+      classificationStatus: 'classified',
+      archived: false,
+      createdAt: nowIso()
+    });
+
+    state.transactions.push(tx);
+
+    preset.usageCount = (preset.usageCount || 0) + 1;
+    preset.lastUsedAt = nowIso();
+
+    await saveState('mobile-quick-add');
+    _cloudSync(async () => {
+      await syncSaveTransaction(tx);
+      await syncSavePreset(preset);
+    });
+
+    renderAll();
+    closeMobileSheet('sheetQuickConfirm');
+
+    showMobileSnackbar('تم تسجيل العملية بنجاح', `${tx.item} — ${tx.offer}`, async () => {
+      const idx = state.transactions.findIndex(t => t.id === tx.id);
+      if (idx !== -1) {
+        state.transactions.splice(idx, 1);
+        await saveState('undo-mobile-quick-add');
+        _cloudSync(async () => {
+          await syncDeleteTransaction(tx.id);
+        });
+        renderAll();
+      }
+    });
+  }
+
+  async function saveMobileAmountOnly() {
+    const input = $('amountOnlyInput');
+    const amount = num(input?.value);
+    if (!amount || amount <= 0) {
+      toast('يرجى كتابة مبلغ صحيح أكبر من الصفر.', 'error');
+      if (input) input.focus();
+      return;
+    }
+
+    const note = ($('amountOnlyNote')?.value || '').trim();
+
+    const tx = normalizeTransaction({
+      id: uid('tx'),
+      item: 'معاملة واردة',
+      offer: 'بانتظار التحديد',
+      paid: amount,
+      deducted: 0,
+      quantity: 1,
+      date: todayISO(),
+      time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+      source: 'مبلغ سريع',
+      note,
+      classificationStatus: 'unclassified',
+      archived: false,
+      createdAt: nowIso()
+    });
+
+    state.transactions.push(tx);
+    await saveState('mobile-amount-only');
+    _cloudSync(async () => {
+      await syncSaveTransaction(tx);
+    });
+
+    renderAll();
+    closeMobileSheet('sheetAmountOnly');
+
+    if (input) input.value = '';
+    if ($('amountOnlyNote')) $('amountOnlyNote').value = '';
+
+    showMobileSnackbar(`تم تسجيل ${fmtSmart(amount)} EGP`, 'معاملة غير مصنفة — يمكنك مراجعتها لاحقًا', async () => {
+      const idx = state.transactions.findIndex(t => t.id === tx.id);
+      if (idx !== -1) {
+        state.transactions.splice(idx, 1);
+        await saveState('undo-amount-only');
+        _cloudSync(async () => {
+          await syncDeleteTransaction(tx.id);
+        });
+        renderAll();
+      }
+    });
+  }
+
+  function updateMobileAccountSheet() {
+    const user = getCurrentUser();
+    const avatar = $('sheetAccountAvatar');
+    const fallback = $('sheetAccountAvatarFallback');
+    const nameEl = $('sheetAccountName');
+    const emailEl = $('sheetAccountEmail');
+    const syncDot = $('sheetSyncDot');
+    const syncTitle = $('sheetSyncTitle');
+    const syncSubtitle = $('sheetSyncSubtitle');
+    const loginGoogleBtn = $('sheetLoginGoogleBtn');
+    const logoutBtn = $('sheetLogoutBtn');
+
+    if (user) {
+      if (user.photoURL && avatar) {
+        avatar.src = user.photoURL;
+        avatar.classList.remove('hidden');
+        if (fallback) fallback.classList.add('hidden');
+      } else {
+        if (avatar) avatar.classList.add('hidden');
+        if (fallback) fallback.classList.remove('hidden');
+      }
+      if (nameEl) nameEl.textContent = user.displayName || 'مستخدم MOX';
+      if (emailEl) emailEl.textContent = user.email || '';
+      if (loginGoogleBtn) loginGoogleBtn.classList.add('hidden');
+      if (logoutBtn) logoutBtn.classList.remove('hidden');
+    } else {
+      if (avatar) avatar.classList.add('hidden');
+      if (fallback) fallback.classList.remove('hidden');
+      if (nameEl) nameEl.textContent = 'مستخدم محلي (Guest)';
+      if (emailEl) emailEl.textContent = 'بياناتك محفوظة محليًا على هذا الهاتف فقط';
+      if (loginGoogleBtn) loginGoogleBtn.classList.remove('hidden');
+      if (logoutBtn) logoutBtn.classList.add('hidden');
+    }
+
+    const { status, pendingCount } = getSyncStatus();
+    if (syncDot && syncTitle && syncSubtitle) {
+      syncDot.className = 'mob-sync-indicator-dot';
+      if (!user) {
+        syncDot.classList.add('guest');
+        syncTitle.textContent = 'الوضع المحلي';
+        syncSubtitle.textContent = 'سجل الدخول بحساب Google لتفعيل المزامنة';
+      } else if (!navigator.onLine || status === SyncStatus.OFFLINE) {
+        syncDot.classList.add('offline');
+        syncTitle.textContent = 'غير متصل بالإنترنت';
+        syncSubtitle.textContent = 'سيتم رفع التعديلات فور عودة الاتصال';
+      } else if (status === SyncStatus.SYNCING) {
+        syncDot.classList.add('syncing');
+        syncTitle.textContent = 'جارٍ المزامنة السحابية…';
+        syncSubtitle.textContent = 'جلب وتحديث أحدث البيانات';
+      } else if (status === SyncStatus.PENDING || pendingCount > 0) {
+        syncDot.classList.add('pending');
+        syncTitle.textContent = 'تغييرات بانتظار المزامنة';
+        syncSubtitle.textContent = `${pendingCount} تغيير سيتم رفعه تلقائيًا`;
+      } else if (status === SyncStatus.ERROR) {
+        syncDot.classList.add('error');
+        syncTitle.textContent = 'تعذر المزامنة السحابية';
+        syncSubtitle.textContent = 'تحقق من اتصالك واضغط مزامنة مجددًا';
+      } else {
+        syncDot.classList.add('online');
+        syncTitle.textContent = 'المزامنة السحابية نشطة';
+        syncSubtitle.textContent = 'متصل بـ Firestore ومحدث بالكامل';
+      }
+    }
+  }
+
+  function bindMobileEvents() {
+    const userBtn = $('mobileHeaderUserBtn');
+    if (userBtn) userBtn.onclick = () => openMobileSheet('sheetAccount');
+
+    const syncBtn = $('mobileHeaderSyncBtn');
+    if (syncBtn) syncBtn.onclick = () => openMobileSheet('sheetAccount');
+
+    const navAddBtn = $('mobileNavAddBtn');
+    if (navAddBtn) navAddBtn.onclick = () => openMobileSheet('sheetQuickAdd');
+
+    const navMoreBtn = $('mobileNavMoreBtn');
+    if (navMoreBtn) navMoreBtn.onclick = () => openMobileSheet('sheetMobileMore');
+
+    $$('[data-sheet-close]').forEach(btn => {
+      btn.onclick = () => closeMobileSheet(btn.dataset.sheetClose);
+    });
+
+    $$('.mob-sheet-backdrop').forEach(backdrop => {
+      backdrop.onclick = (e) => {
+        if (e.target === backdrop) closeMobileSheet(backdrop.id);
+      };
+    });
+
+    const heroAdd = $('mobQuickAddBtnHero');
+    if (heroAdd) heroAdd.onclick = () => openMobileSheet('sheetQuickAdd');
+
+    const heroWallet = $('mobQuickWalletBtn');
+    if (heroWallet) {
+      heroWallet.onclick = () => {
+        goView('add');
+        setTimeout(() => $('walletImportPanel')?.scrollIntoView({ behavior: 'smooth' }), 120);
+      };
+    }
+
+    const heroAmount = $('mobQuickAmountOnlyBtn');
+    if (heroAmount) heroAmount.onclick = () => openMobileSheet('sheetAmountOnly');
+
+    const heroExpense = $('mobQuickExpenseBtn');
+    if (heroExpense) heroExpense.onclick = () => openExpenseDialog('variable');
+
+    const reviewUnclass = $('mobReviewUnclassifiedBtn');
+    if (reviewUnclass) {
+      reviewUnclass.onclick = () => {
+        setMobileHistoryRange('all');
+        _mobHistorySearch = 'غير مصنفة';
+        goView('history');
+      };
+    }
+
+    const seeAllTx = $('mobSeeAllTxBtn');
+    if (seeAllTx) seeAllTx.onclick = () => goView('history');
+
+    document.addEventListener('click', (e) => {
+      const card = e.target.closest('.mob-tx-card[data-tx-id]');
+      if (card) {
+        e.stopPropagation();
+        openTransactionDetailsSheet(card.dataset.txId);
+      }
+    });
+
+    const quickSearch = $('mobQuickAddSearch');
+    const quickClear = $('mobQuickAddSearchClear');
+    if (quickSearch) {
+      quickSearch.oninput = () => {
+        if (quickClear) quickClear.classList.toggle('hidden', !quickSearch.value);
+        renderMobileQuickAdd();
+      };
+    }
+    if (quickClear) {
+      quickClear.onclick = () => {
+        quickSearch.value = '';
+        quickClear.classList.add('hidden');
+        renderMobileQuickAdd();
+        quickSearch.focus();
+      };
+    }
+
+    const openAmountOnly = $('mobOpenAmountOnlyBtn');
+    if (openAmountOnly) {
+      openAmountOnly.onclick = () => {
+        closeMobileSheet('sheetQuickAdd');
+        openMobileSheet('sheetAmountOnly');
+      };
+    }
+
+    const openWalletFromSheet = $('mobOpenWalletImportBtn');
+    if (openWalletFromSheet) {
+      openWalletFromSheet.onclick = () => {
+        closeMobileSheet('sheetQuickAdd');
+        goView('add');
+        setTimeout(() => $('walletImportPanel')?.scrollIntoView({ behavior: 'smooth' }), 120);
+      };
+    }
+
+    const confirmSaveBtn = $('confirmSaveTxBtn');
+    if (confirmSaveBtn) confirmSaveBtn.onclick = saveMobileConfirmedTx;
+
+    const updateConfirmKPIs = () => {
+      const q = Math.max(1, parseInt($('confirmQtyInput')?.value) || 1);
+      const paid = num($('confirmPaidInput')?.value);
+      const cost = num($('confirmCostInput')?.value);
+      const profit = (paid - cost) * q;
+      if ($('confirmPaidDisplay')) $('confirmPaidDisplay').textContent = `${fmtSmart(paid * q)} EGP`;
+      if ($('confirmCostDisplay')) $('confirmCostDisplay').textContent = `${fmtSmart(cost * q)} EGP`;
+      if ($('confirmProfitDisplay')) $('confirmProfitDisplay').textContent = `${profit >= 0 ? '+' : ''}${fmtSmart(profit)} EGP`;
+    };
+
+    $('confirmQtyInput')?.addEventListener('input', updateConfirmKPIs);
+    $('confirmPaidInput')?.addEventListener('input', updateConfirmKPIs);
+    $('confirmCostInput')?.addEventListener('input', updateConfirmKPIs);
+
+    const saveAmountBtn = $('saveAmountOnlyBtn');
+    if (saveAmountBtn) saveAmountBtn.onclick = saveMobileAmountOnly;
+
+    $$('.mob-history-chips button[data-mob-range]').forEach(btn => {
+      btn.onclick = () => setMobileHistoryRange(btn.dataset.mobRange);
+    });
+
+    const mobHistSearch = $('mobHistorySearch');
+    const mobHistClear = $('mobHistorySearchClear');
+    if (mobHistSearch) {
+      mobHistSearch.oninput = () => {
+        _mobHistorySearch = mobHistSearch.value;
+        if (mobHistClear) mobHistClear.classList.toggle('hidden', !_mobHistorySearch);
+        renderMobileHistory();
+      };
+    }
+    if (mobHistClear) {
+      mobHistClear.onclick = () => {
+        mobHistSearch.value = '';
+        _mobHistorySearch = '';
+        mobHistClear.classList.add('hidden');
+        renderMobileHistory();
+        mobHistSearch.focus();
+      };
+    }
+
+    const mobHistFilterBtn = $('mobHistoryFilterBtn');
+    if (mobHistFilterBtn) mobHistFilterBtn.onclick = () => openMobileSheet('sheetHistoryFilter');
+
+    const filterApplyBtn = $('mobFilterApplyBtn');
+    if (filterApplyBtn) {
+      filterApplyBtn.onclick = () => {
+        closeMobileSheet('sheetHistoryFilter');
+        renderMobileHistory();
+      };
+    }
+
+    const filterResetBtn = $('mobFilterResetBtn');
+    if (filterResetBtn) {
+      filterResetBtn.onclick = () => {
+        if ($('mobFilterFrom')) $('mobFilterFrom').value = '';
+        if ($('mobFilterTo')) $('mobFilterTo').value = '';
+        if ($('mobFilterService')) $('mobFilterService').value = '';
+        if ($('mobFilterArchived')) $('mobFilterArchived').checked = false;
+        closeMobileSheet('sheetHistoryFilter');
+        renderMobileHistory();
+      };
+    }
+
+    const sheetSyncNow = $('sheetSyncNowBtn');
+    if (sheetSyncNow) sheetSyncNow.onclick = forceSyncNow;
+
+    const sheetLogin = $('sheetLoginGoogleBtn');
+    if (sheetLogin) {
+      sheetLogin.onclick = () => {
+        closeMobileSheet('sheetAccount');
+        showLoginScreen();
+      };
+    }
+
+    const sheetBackup = $('sheetBackupBtn');
+    if (sheetBackup) sheetBackup.onclick = downloadBackup;
+
+    const sheetSettings = $('sheetOpenSettingsBtn');
+    if (sheetSettings) {
+      sheetSettings.onclick = () => {
+        closeMobileSheet('sheetAccount');
+        goView('settings');
+      };
+    }
+
+    const sheetLogout = $('sheetLogoutBtn');
+    if (sheetLogout) {
+      sheetLogout.onclick = () => {
+        closeMobileSheet('sheetAccount');
+        handleLogout();
+      };
+    }
+
+    $$('#sheetMobileMore [data-mob-go]').forEach(btn => {
+      btn.onclick = () => {
+        const target = btn.dataset.mobGo;
+        closeMobileSheet('sheetMobileMore');
+        if (target === 'presets') {
+          goView('settings');
+          setSettingsTab('presets');
+        } else if (target === 'expenses') {
+          goView('settings');
+          setSettingsTab('expenses');
+        } else if (target === 'account') {
+          openMobileSheet('sheetAccount');
+        } else if (target === 'data') {
+          goView('settings');
+          setSettingsTab('data');
+        } else if (target === 'smart') {
+          goView('settings');
+          setSettingsTab('smart');
+        }
+      };
+    });
+
+    $$('#sheetMobileMore [data-mob-action]').forEach(btn => {
+      btn.onclick = () => {
+        const action = btn.dataset.mobAction;
+        closeMobileSheet('sheetMobileMore');
+        if (action === 'wallet') {
+          goView('add');
+          setTimeout(() => $('walletImportPanel')?.scrollIntoView({ behavior: 'smooth' }), 120);
+        }
+      };
+    });
   }
 
   // ============================================================

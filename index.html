@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./style.css?v=11">
+  <link rel="stylesheet" href="./style.css?v=12">
 </head>
 <body>
   <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
@@ -36,7 +36,7 @@
     </aside>
 
     <main class="main-content">
-      <header class="topbar">
+      <header class="topbar desktop-only">
         <div>
           <div class="eyebrow">لوحة الإدارة المالية</div>
           <h1 id="viewTitle">اليوم</h1>
@@ -47,90 +47,188 @@
         </div>
       </header>
 
+      <!-- Flagship Compact Native Mobile Header -->
+      <header id="mobileAppHeader" class="mobile-app-header mobile-only" aria-label="شريط رأس الموبايل">
+        <button id="mobileHeaderUserBtn" class="mob-header-avatar-btn" type="button" aria-label="حساب المستخدم">
+          <img id="mobileHeaderAvatarImg" class="mob-header-avatar hidden" src="" alt="المستخدم">
+          <span id="mobileHeaderAvatarFallback" class="mob-header-avatar-fallback">👤</span>
+        </button>
+        <div class="mob-header-brand">
+          <span class="mob-brand-title">MOX</span>
+          <span class="mob-brand-badge">V4</span>
+        </div>
+        <button id="mobileHeaderSyncBtn" class="mob-header-sync-btn" type="button" aria-label="حالة المزامنة السحابية">
+          <span id="mobileHeaderSyncIcon" class="mob-sync-icon synced">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><path d="m9 13 2 2 4-4"/></svg>
+          </span>
+          <span id="mobileHeaderSyncDot" class="mob-sync-dot online"></span>
+        </button>
+      </header>
+
       <div id="toastHost" class="toast-host" aria-live="polite"></div>
 
       <section id="view-today" class="view active">
-        <div class="hero-panel glass">
-          <div class="hero-copy">
-            <span class="hero-kicker">نظرة سريعة</span>
-            <h2>كل أرقام متجرك في مكان واحد</h2>
-            <p>دخل، مصروف، ربح، وأداء آخر الأيام — من غير زحمة شاشات.</p>
-          </div>
-          <div class="hero-orb" aria-hidden="true"><span></span><i></i></div>
-        </div>
-
-        <div class="kpi-grid">
-          <article class="kpi-card glass kpi-income"><div class="kpi-head"><span>دخل اليوم</span><i>↗</i></div><strong id="kpiIncome">0.00</strong><small>EGP</small><div id="kpiIncomeDelta" class="kpi-delta neutral">—</div></article>
-          <article class="kpi-card glass kpi-cost"><div class="kpi-head"><span>مصروف العمليات</span><i>↘</i></div><strong id="kpiCost">0.00</strong><small>EGP</small><div id="kpiCostDelta" class="kpi-delta neutral">—</div></article>
-          <article class="kpi-card glass kpi-profit"><div class="kpi-head"><span>صافي ربح اليوم</span><i>◆</i></div><strong id="kpiProfit">0.00</strong><small>EGP</small><div id="kpiProfitDelta" class="kpi-delta neutral">—</div></article>
-          <article class="kpi-card glass kpi-count"><div class="kpi-head"><span>عدد العمليات</span><i>◫</i></div><strong id="kpiCount">0</strong><small>عملية</small><div id="kpiAvg" class="kpi-delta neutral">—</div></article>
-        </div>
-
-        <div class="dashboard-grid">
-          <article class="panel glass chart-panel span-2">
-            <div class="panel-head"><div><span class="panel-kicker">آخر 7 أيام</span><h3>الدخل والربح</h3></div><div class="legend"><span><i class="legend-dot income"></i>الدخل</span><span><i class="legend-dot profit"></i>الربح</span></div></div>
-            <div id="revenueChart" class="svg-chart"></div>
-          </article>
-          <article class="panel glass donut-panel">
-            <div class="panel-head"><div><span class="panel-kicker">اليوم</span><h3>توزيع الخدمات</h3></div></div>
-            <div class="donut-wrap"><div id="productDonut" class="donut"><div><strong id="donutTotal">0</strong><span>عملية</span></div></div><div id="donutLegend" class="donut-legend"></div></div>
-          </article>
-        </div>
-
-        <div class="dashboard-grid lower-grid">
-          <article class="panel glass span-2">
-            <div class="panel-head"><div><span class="panel-kicker">الأحدث</span><h3>آخر العمليات</h3></div><button class="text-btn" data-go="history">عرض الكل ←</button></div>
-            <div id="recentTransactions" class="activity-list"></div>
-          </article>
-          <article class="panel glass">
-            <div class="panel-head"><div><span class="panel-kicker">اختصارات</span><h3>أسرع طريق للشغل</h3></div></div>
-            <div class="shortcut-grid">
-              <button class="shortcut" data-go="add"><span>⚡</span><b>إضافة سريعة</b><small>اختار عرض واحفظ</small></button>
-              <button class="shortcut" data-action="wallet-import"><span>▣</span><b>رسائل المحفظة</b><small>لصق وتحليل تلقائي</small></button>
-              <button class="shortcut" data-go="reports"><span>↗</span><b>تصدير Excel</b><small>فترة أو شهر كامل</small></button>
-              <button class="shortcut" data-action="backup"><span>⌑</span><b>نسخة احتياطية</b><small>JSON كامل وآمن</small></button>
+        <!-- Native Flagship Mobile Home View -->
+        <div id="mobileTodayView" class="mobile-today-view mobile-only">
+          <!-- Net Profit Hero -->
+          <div class="mob-hero-card">
+            <div class="mob-hero-head">
+              <span class="mob-hero-label">صافي ربح اليوم</span>
+              <span id="mobDateLabel" class="mob-hero-date">اليوم</span>
             </div>
-          </article>
-        </div>
-
-        <div id="view-unclassified" class="panel glass unclassified-panel hidden">
-          <div class="panel-head">
-            <div><span class="panel-kicker">مراجعة المحفظة</span><h3>معاملات واردة تحتاج تصنيف (<span id="unclassifiedCount">0</span>)</h3></div>
-          </div>
-          <div id="unclassifiedList" class="unclassified-list"></div>
-        </div>
-
-        <section class="smart-center" aria-label="مركز MOX الذكي">
-          <div class="smart-center-head">
-            <div>
-              <span class="smart-ai-badge"><i></i> MOX Smart</span>
-              <h2>المراجعة والتسعير الذكي</h2>
-              <p>تحليل محلي لبيانات متجرك بدون إرسال بياناتك لأي خدمة خارجية.</p>
+            <div class="mob-hero-amount-row">
+              <span id="mobHeroProfit" class="mob-hero-val">0</span>
+              <span class="mob-currency">EGP</span>
             </div>
-            <div id="smartHealthScore" class="smart-health-score"><strong>—</strong><span>سلامة البيانات</span></div>
+            <div id="mobHeroDelta" class="mob-hero-delta neutral">—</div>
           </div>
-          <div class="smart-grid">
-            <article class="smart-card glass anomaly-card">
-              <div class="smart-card-head">
-                <div><span class="panel-kicker">كشف تلقائي</span><h3>العمليات الشاذة</h3></div>
-                <span id="smartAnomalyCount" class="smart-count-badge">0</span>
-              </div>
-              <p class="smart-card-desc">يراقب الخسارة، الربح غير المعتاد، التكرار، الكميات الكبيرة، واختلاف السعر عن العرض المحفوظ.</p>
-              <div id="smartAnomalies" class="smart-list"></div>
-              <button id="openAllAnomaliesBtn" class="btn btn-ghost btn-block smart-footer-btn" type="button">مراجعة السجل</button>
-            </article>
 
-            <article class="smart-card glass pricing-card">
-              <div class="smart-card-head">
-                <div><span class="panel-kicker">Smart Pricing</span><h3>اقتراحات التسعير</h3></div>
-                <span id="smartPricingCount" class="smart-count-badge pricing">0</span>
+          <!-- 3 Core Metrics Strip -->
+          <div class="mob-metrics-strip">
+            <div class="mob-metric-cell mob-metric-income">
+              <span class="mob-metric-label">الدخل</span>
+              <strong id="mobIncomeVal">0</strong>
+              <small>EGP</small>
+            </div>
+            <div class="mob-metric-divider"></div>
+            <div class="mob-metric-cell mob-metric-cost">
+              <span class="mob-metric-label">المصروف</span>
+              <strong id="mobCostVal">0</strong>
+              <small>EGP</small>
+            </div>
+            <div class="mob-metric-divider"></div>
+            <div class="mob-metric-cell mob-metric-count">
+              <span class="mob-metric-label">العمليات</span>
+              <strong id="mobCountVal">0</strong>
+              <small>عملية</small>
+            </div>
+          </div>
+
+          <!-- Quick Actions Row -->
+          <div class="mob-actions-row">
+            <button id="mobActionAddBtn" type="button" class="mob-action-btn primary">
+              <span class="mob-action-icon">＋</span>
+              <span>عملية</span>
+            </button>
+            <button id="mobActionWalletBtn" type="button" class="mob-action-btn">
+              <span class="mob-action-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="14" x="2" y="5" rx="3"/><path d="M16 12h.01"/><path d="M2 10h20"/></svg>
+              </span>
+              <span>كاش</span>
+            </button>
+            <button id="mobActionAmountBtn" type="button" class="mob-action-btn">
+              <span class="mob-action-icon">⚡</span>
+              <span>مبلغ فقط</span>
+            </button>
+            <button id="mobActionExpenseBtn" type="button" class="mob-action-btn">
+              <span class="mob-action-icon">↘</span>
+              <span>مصروف</span>
+            </button>
+          </div>
+
+          <!-- Unclassified Alert Banner if any -->
+          <div id="mobUnclassifiedBanner" class="mob-unclassified-banner hidden">
+            <div class="mob-unclass-info">
+              <span class="mob-unclass-badge">!</span>
+              <div>
+                <b id="mobUnclassText">معاملات واردة تحتاج تصنيف</b>
+                <small>اضغط لمراجعتها وتحديد الخدمة</small>
               </div>
-              <p class="smart-card-desc">يحلل آخر 90 يوم، حجم البيع وهامش الربح ويقترح رفع السعر فقط لما يكون له سبب واضح.</p>
-              <div id="smartPricing" class="smart-list"></div>
-              <div class="smart-note">الأسعار لا تتغير تلقائيًا. لازم تضغط «تطبيق» وتؤكد بنفسك.</div>
+            </div>
+            <button id="mobUnclassActionBtn" type="button" class="mob-unclass-btn">مراجعة</button>
+          </div>
+
+          <!-- Recent Operations Header & Native List -->
+          <div class="mob-section-head">
+            <h3>آخر العمليات</h3>
+            <button id="mobViewAllHistoryBtn" type="button" class="mob-text-link">عرض السجل ←</button>
+          </div>
+          <div id="mobRecentList" class="mob-tx-list"></div>
+        </div>
+
+        <div class="desktop-only">
+          <div class="hero-panel glass">
+            <div class="hero-copy">
+              <span class="hero-kicker">نظرة سريعة</span>
+              <h2>كل أرقام متجرك في مكان واحد</h2>
+              <p>دخل، مصروف، ربح، وأداء آخر الأيام — من غير زحمة شاشات.</p>
+            </div>
+            <div class="hero-orb" aria-hidden="true"><span></span><i></i></div>
+          </div>
+
+          <div class="kpi-grid">
+            <article class="kpi-card glass kpi-income"><div class="kpi-head"><span>دخل اليوم</span><i>↗</i></div><strong id="kpiIncome">0.00</strong><small>EGP</small><div id="kpiIncomeDelta" class="kpi-delta neutral">—</div></article>
+            <article class="kpi-card glass kpi-cost"><div class="kpi-head"><span>مصروف العمليات</span><i>↘</i></div><strong id="kpiCost">0.00</strong><small>EGP</small><div id="kpiCostDelta" class="kpi-delta neutral">—</div></article>
+            <article class="kpi-card glass kpi-profit"><div class="kpi-head"><span>صافي ربح اليوم</span><i>◆</i></div><strong id="kpiProfit">0.00</strong><small>EGP</small><div id="kpiProfitDelta" class="kpi-delta neutral">—</div></article>
+            <article class="kpi-card glass kpi-count"><div class="kpi-head"><span>عدد العمليات</span><i>◫</i></div><strong id="kpiCount">0</strong><small>عملية</small><div id="kpiAvg" class="kpi-delta neutral">—</div></article>
+          </div>
+
+          <div class="dashboard-grid">
+            <article class="panel glass chart-panel span-2">
+              <div class="panel-head"><div><span class="panel-kicker">آخر 7 أيام</span><h3>الدخل والربح</h3></div><div class="legend"><span><i class="legend-dot income"></i>الدخل</span><span><i class="legend-dot profit"></i>الربح</span></div></div>
+              <div id="revenueChart" class="svg-chart"></div>
+            </article>
+            <article class="panel glass donut-panel">
+              <div class="panel-head"><div><span class="panel-kicker">اليوم</span><h3>توزيع الخدمات</h3></div></div>
+              <div class="donut-wrap"><div id="productDonut" class="donut"><div><strong id="donutTotal">0</strong><span>عملية</span></div></div><div id="donutLegend" class="donut-legend"></div></div>
             </article>
           </div>
-        </section>
+
+          <div class="dashboard-grid lower-grid">
+            <article class="panel glass span-2">
+              <div class="panel-head"><div><span class="panel-kicker">الأحدث</span><h3>آخر العمليات</h3></div><button class="text-btn" data-go="history">عرض الكل ←</button></div>
+              <div id="recentTransactions" class="activity-list"></div>
+            </article>
+            <article class="panel glass">
+              <div class="panel-head"><div><span class="panel-kicker">اختصارات</span><h3>أسرع طريق للشغل</h3></div></div>
+              <div class="shortcut-grid">
+                <button class="shortcut" data-go="add"><span>⚡</span><b>إضافة سريعة</b><small>اختار عرض واحفظ</small></button>
+                <button class="shortcut" data-action="wallet-import"><span>▣</span><b>رسائل المحفظة</b><small>لصق وتحليل تلقائي</small></button>
+                <button class="shortcut" data-go="reports"><span>↗</span><b>تصدير Excel</b><small>فترة أو شهر كامل</small></button>
+                <button class="shortcut" data-action="backup"><span>⌑</span><b>نسخة احتياطية</b><small>JSON كامل وآمن</small></button>
+              </div>
+            </article>
+          </div>
+
+          <div id="view-unclassified" class="panel glass unclassified-panel hidden">
+            <div class="panel-head">
+              <div><span class="panel-kicker">مراجعة المحفظة</span><h3>معاملات واردة تحتاج تصنيف (<span id="unclassifiedCount">0</span>)</h3></div>
+            </div>
+            <div id="unclassifiedList" class="unclassified-list"></div>
+          </div>
+
+          <section class="smart-center" aria-label="مركز MOX الذكي">
+            <div class="smart-center-head">
+              <div>
+                <span class="smart-ai-badge"><i></i> MOX Smart</span>
+                <h2>المراجعة والتسعير الذكي</h2>
+                <p>تحليل محلي لبيانات متجرك بدون إرسال بياناتك لأي خدمة خارجية.</p>
+              </div>
+              <div id="smartHealthScore" class="smart-health-score"><strong>—</strong><span>سلامة البيانات</span></div>
+            </div>
+            <div class="smart-grid">
+              <article class="smart-card glass anomaly-card">
+                <div class="smart-card-head">
+                  <div><span class="panel-kicker">كشف تلقائي</span><h3>العمليات الشاذة</h3></div>
+                  <span id="smartAnomalyCount" class="smart-count-badge">0</span>
+                </div>
+                <p class="smart-card-desc">يراقب الخسارة، الربح غير المعتاد، التكرار، الكميات الكبيرة، واختلاف السعر عن العرض المحفوظ.</p>
+                <div id="smartAnomalies" class="smart-list"></div>
+                <button id="openAllAnomaliesBtn" class="btn btn-ghost btn-block smart-footer-btn" type="button">مراجعة السجل</button>
+              </article>
+
+              <article class="smart-card glass pricing-card">
+                <div class="smart-card-head">
+                  <div><span class="panel-kicker">Smart Pricing</span><h3>اقتراحات التسعير</h3></div>
+                  <span id="smartPricingCount" class="smart-count-badge pricing">0</span>
+                </div>
+                <p class="smart-card-desc">يحلل آخر 90 يوم، حجم البيع وهامش الربح ويقترح رفع السعر فقط لما يكون له سبب واضح.</p>
+                <div id="smartPricing" class="smart-list"></div>
+                <div class="smart-note">الأسعار لا تتغير تلقائيًا. لازم تضغط «تطبيق» وتؤكد بنفسك.</div>
+              </article>
+            </div>
+          </section>
+        </div>
       </section>
 
       <section id="view-add" class="view">
@@ -216,43 +314,80 @@
       </section>
 
       <section id="view-history" class="view">
-        <article class="panel glass history-panel">
-          <div class="panel-head stack-mobile">
-            <div><span class="panel-kicker">كل العمليات</span><h3>سجل العمليات</h3><p>حدد عملية أو مجموعة عمليات وعدّل تاريخهم كلهم مرة واحدة بأمان.</p></div>
-            <div class="panel-actions">
-              <label class="switch"><input id="showArchived" type="checkbox"><span></span><b>إظهار المؤرشف</b></label>
-              <button id="historySelectModeBtn" type="button" class="btn btn-secondary">☑ تحديد</button>
-              <button id="historyExportBtn" class="btn btn-secondary">Excel</button>
+        <!-- Native Flagship Mobile History View -->
+        <div id="mobileHistoryView" class="mobile-history-view mobile-only">
+          <!-- Mobile History Search & Filter Bar -->
+          <div class="mob-history-bar">
+            <div class="mob-search-input-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <input id="mobHistorySearchInput" class="mob-search-input" type="search" placeholder="ابحث في السجل..." autocomplete="off">
             </div>
-          </div>
-          <div class="filters-row">
-            <div class="search-control flex-2"><span>⌕</span><input id="historySearch" class="control" placeholder="بحث بالمنتج أو العرض أو الملاحظة"></div>
-            <input id="historyFrom" class="control" type="date"><input id="historyTo" class="control" type="date">
-            <button class="btn btn-secondary range-btn" data-range="today">اليوم</button><button class="btn btn-secondary range-btn" data-range="month">الشهر</button><button class="btn btn-ghost range-btn" data-range="all">الكل</button>
-          </div>
-
-          <div id="historyBulkBar" class="history-bulk-bar hidden">
-            <div class="history-bulk-summary">
-              <span class="history-bulk-icon">✓</span>
-              <div><b id="historyBulkCount">0 عملية محددة</b><small id="historyBulkHint">حدد العمليات التي تريد تعديل تاريخها.</small></div>
-            </div>
-            <div class="history-bulk-actions">
-              <button id="historySelectFilteredBtn" type="button" class="mini-btn">تحديد نتائج الفلتر</button>
-              <button id="historySelectAllBtn" type="button" class="mini-btn">تحديد كل السجل</button>
-              <label class="history-bulk-date"><span>التاريخ الجديد</span><input id="historyBulkDate" class="control ltr" type="date"></label>
-              <button id="historyApplyDateBtn" type="button" class="btn btn-primary">نقل للتاريخ</button>
-              <button id="historyClearSelectionBtn" type="button" class="btn btn-ghost">إلغاء التحديد</button>
-            </div>
+            <button id="mobFilterTriggerBtn" type="button" class="mob-filter-trigger">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              <span>فلترة</span>
+              <span id="mobActiveFilterBadge" class="mob-filter-count hidden">0</span>
+            </button>
           </div>
 
-          <div class="table-card">
-            <div class="table-scroll"><table id="historyTable"><thead><tr><th class="history-select-col"><input id="historySelectPageCheckbox" class="history-check" type="checkbox" aria-label="تحديد كل العمليات في الصفحة"></th><th data-sort="date">التاريخ</th><th data-sort="item">المنتج / الخدمة</th><th data-sort="offer">العرض</th><th data-sort="quantity">الكمية</th><th data-sort="paid">الداخل / واحدة</th><th data-sort="deducted">مصروف / واحدة</th><th data-sort="profit">ربح الإجمالي</th><th data-sort="note">ملاحظة</th><th>إجراء</th></tr></thead><tbody id="historyBody"></tbody></table></div>
-            <div class="table-footer history-footer">
-              <div class="history-footer-stats"><span id="historyCount">0 عملية</span><div id="historyTotals"></div></div>
-              <div id="historyPagination" class="history-pagination"></div>
-            </div>
+          <!-- Quick Range Filter Chips -->
+          <div class="mob-quick-chips">
+            <button class="mob-chip active" data-mob-range="today">اليوم</button>
+            <button class="mob-chip" data-mob-range="yesterday">أمس</button>
+            <button class="mob-chip" data-mob-range="week">7 أيام</button>
+            <button class="mob-chip" data-mob-range="month">الشهر</button>
+            <button class="mob-chip" data-mob-range="all">الكل</button>
           </div>
-        </article>
+
+          <!-- Mobile History Summary Line -->
+          <div class="mob-history-summary">
+            <span id="mobHistoryCount">0 عملية</span>
+            <span id="mobHistoryTotals">ربح 0 EGP</span>
+          </div>
+
+          <!-- Native Mobile Transaction List -->
+          <div id="mobHistoryList" class="mob-tx-list"></div>
+          <div id="mobHistoryPagination" class="mob-pagination"></div>
+        </div>
+
+        <div class="desktop-only">
+          <article class="panel glass history-panel">
+            <div class="panel-head stack-mobile">
+              <div><span class="panel-kicker">كل العمليات</span><h3>سجل العمليات</h3><p>حدد عملية أو مجموعة عمليات وعدّل تاريخهم كلهم مرة واحدة بأمان.</p></div>
+              <div class="panel-actions">
+                <label class="switch"><input id="showArchived" type="checkbox"><span></span><b>إظهار المؤرشف</b></label>
+                <button id="historySelectModeBtn" type="button" class="btn btn-secondary">☑ تحديد</button>
+                <button id="historyExportBtn" class="btn btn-secondary">Excel</button>
+              </div>
+            </div>
+            <div class="filters-row">
+              <div class="search-control flex-2"><span>⌕</span><input id="historySearch" class="control" placeholder="بحث بالمنتج أو العرض أو الملاحظة"></div>
+              <input id="historyFrom" class="control" type="date"><input id="historyTo" class="control" type="date">
+              <button class="btn btn-secondary range-btn" data-range="today">اليوم</button><button class="btn btn-secondary range-btn" data-range="month">الشهر</button><button class="btn btn-ghost range-btn" data-range="all">الكل</button>
+            </div>
+
+            <div id="historyBulkBar" class="history-bulk-bar hidden">
+              <div class="history-bulk-summary">
+                <span class="history-bulk-icon">✓</span>
+                <div><b id="historyBulkCount">0 عملية محددة</b><small id="historyBulkHint">حدد العمليات التي تريد تعديل تاريخها.</small></div>
+              </div>
+              <div class="history-bulk-actions">
+                <button id="historySelectFilteredBtn" type="button" class="mini-btn">تحديد نتائج الفلتر</button>
+                <button id="historySelectAllBtn" type="button" class="mini-btn">تحديد كل السجل</button>
+                <label class="history-bulk-date"><span>التاريخ الجديد</span><input id="historyBulkDate" class="control ltr" type="date"></label>
+                <button id="historyApplyDateBtn" type="button" class="btn btn-primary">نقل للتاريخ</button>
+                <button id="historyClearSelectionBtn" type="button" class="btn btn-ghost">إلغاء التحديد</button>
+              </div>
+            </div>
+
+            <div class="table-card">
+              <div class="table-scroll"><table id="historyTable"><thead><tr><th class="history-select-col"><input id="historySelectPageCheckbox" class="history-check" type="checkbox" aria-label="تحديد كل العمليات في الصفحة"></th><th data-sort="date">التاريخ</th><th data-sort="item">المنتج / الخدمة</th><th data-sort="offer">العرض</th><th data-sort="quantity">الكمية</th><th data-sort="paid">الداخل / واحدة</th><th data-sort="deducted">مصروف / واحدة</th><th data-sort="profit">ربح الإجمالي</th><th data-sort="note">ملاحظة</th><th>إجراء</th></tr></thead><tbody id="historyBody"></tbody></table></div>
+              <div class="table-footer history-footer">
+                <div class="history-footer-stats"><span id="historyCount">0 عملية</span><div id="historyTotals"></div></div>
+                <div id="historyPagination" class="history-pagination"></div>
+              </div>
+            </div>
+          </article>
+        </div>
       </section>
 
       <section id="view-reports" class="view">
@@ -335,7 +470,389 @@
     </main>
   </div>
 
-  <nav class="mobile-nav glass" aria-label="تنقل الموبايل"><button class="active" data-view="today"><span>⌂</span><b>اليوم</b><span class="unclassified-badge hidden"></span></button><button data-view="add"><span>＋</span><b>إضافة</b></button><button data-view="history"><span>▤</span><b>السجل</b></button><button data-view="reports"><span>⌁</span><b>تقارير</b></button><button data-view="settings"><span>⚙</span><b>إعدادات</b></button></nav>
+  <!-- Flagship Native Mobile Bottom Navigation -->
+  <nav class="mobile-nav glass" aria-label="تنقل الموبايل">
+    <button class="mob-nav-btn active" data-view="today">
+      <span class="mob-nav-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </span>
+      <b>الرئيسية</b>
+      <span class="unclassified-badge hidden"></span>
+    </button>
+    
+    <button class="mob-nav-btn" data-view="history">
+      <span class="mob-nav-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/><path d="M6 14h6"/></svg>
+      </span>
+      <b>السجل</b>
+    </button>
+    
+    <button id="mobileNavAddBtn" class="mob-nav-add-btn" type="button" aria-label="إضافة سريعة">
+      <span class="mob-add-plus">＋</span>
+    </button>
+    
+    <button class="mob-nav-btn" data-view="reports">
+      <span class="mob-nav-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      </span>
+      <b>التقارير</b>
+    </button>
+    
+    <button id="mobileNavMoreBtn" class="mob-nav-btn" type="button">
+      <span class="mob-nav-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+      </span>
+      <b>المزيد</b>
+    </button>
+  </nav>
+
+  <!-- ============================================================
+       Mobile Bottom Sheets (7 Native Sheets)
+       ============================================================ -->
+  <!-- 1. Quick Add Bottom Sheet -->
+  <div id="sheetQuickAdd" class="mob-sheet-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="sheetQuickAddTitle">
+    <div class="mob-sheet-panel">
+      <div class="mob-sheet-handle"></div>
+      <div class="mob-sheet-head">
+        <div class="mob-sheet-title-group">
+          <span class="mob-sheet-kicker">تسجيل فوري</span>
+          <h3 id="sheetQuickAddTitle">إضافة عملية</h3>
+        </div>
+        <button type="button" class="mob-sheet-close-btn" data-sheet-close="sheetQuickAdd" aria-label="إغلاق">✕</button>
+      </div>
+      
+      <div class="mob-sheet-body">
+        <!-- Search Input -->
+        <div class="mob-sheet-search-wrap">
+          <span class="mob-sheet-search-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          </span>
+          <input id="mobQuickAddSearch" class="mob-sheet-search-input" type="search" placeholder="ابحث عن خدمة أو عرض..." autocomplete="off">
+          <button id="mobQuickAddSearchClear" class="mob-search-clear-btn hidden" type="button">✕</button>
+        </div>
+
+        <!-- Quick Action Shortcuts -->
+        <div class="mob-quick-add-actions">
+          <button id="mobOpenAmountOnlyBtn" type="button" class="mob-pill-action">
+            <span>⚡</span>
+            <b>تسجيل مبلغ فقط</b>
+          </button>
+          <button id="mobOpenWalletImportBtn" type="button" class="mob-pill-action">
+            <span>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="14" x="2" y="5" rx="3"/><path d="M16 12h.01"/><path d="M2 10h20"/></svg>
+            </span>
+            <b>رسالة كاش</b>
+          </button>
+        </div>
+
+        <!-- Dynamic Service Filter Chips -->
+        <div class="mob-services-chip-scroll" id="mobServicesChipRow"></div>
+
+        <!-- Presets Section Heading -->
+        <div class="mob-presets-section-head">
+          <span id="mobPresetsHeading">الأكثر استخدامًا والمفضلة</span>
+          <small id="mobPresetsCount">0 عرض</small>
+        </div>
+
+        <!-- Dynamic Presets List -->
+        <div id="mobPresetsList" class="mob-presets-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Quick Confirm Bottom Sheet -->
+  <div id="sheetQuickConfirm" class="mob-sheet-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="sheetQuickConfirmTitle">
+    <div class="mob-sheet-panel mob-confirm-panel">
+      <div class="mob-sheet-handle"></div>
+      <div class="mob-sheet-head">
+        <div class="mob-sheet-title-group">
+          <span class="mob-sheet-kicker">تأكيد العملية</span>
+          <h3 id="sheetQuickConfirmTitle">تفاصيل الشحنة</h3>
+        </div>
+        <button type="button" class="mob-sheet-close-btn" data-sheet-close="sheetQuickConfirm" aria-label="إغلاق">✕</button>
+      </div>
+
+      <div class="mob-sheet-body">
+        <div class="mob-confirm-highlight">
+          <div class="mob-confirm-service-icon" id="confirmServiceIcon">🎮</div>
+          <div class="mob-confirm-details">
+            <strong id="confirmItemName">—</strong>
+            <span id="confirmOfferName">—</span>
+          </div>
+        </div>
+
+        <div class="mob-confirm-kpis">
+          <div class="mob-confirm-kpi-item in">
+            <span>الداخل</span>
+            <strong id="confirmPaidDisplay">0 EGP</strong>
+          </div>
+          <div class="mob-confirm-kpi-item out">
+            <span>المصروف</span>
+            <strong id="confirmCostDisplay">0 EGP</strong>
+          </div>
+          <div class="mob-confirm-kpi-item profit">
+            <span>الربح</span>
+            <strong id="confirmProfitDisplay">+0 EGP</strong>
+          </div>
+        </div>
+
+        <details class="mob-confirm-adjustments">
+          <summary><span>تعديل المبالغ أو الكمية</span> <em>(اختياري)</em></summary>
+          <div class="mob-adjust-grid">
+            <label class="mob-field">
+              <span>الكمية</span>
+              <input id="confirmQtyInput" class="control ltr" type="number" min="1" value="1" inputmode="numeric">
+            </label>
+            <label class="mob-field">
+              <span>الداخل / واحدة</span>
+              <input id="confirmPaidInput" class="control ltr" type="number" step="0.01" min="0" inputmode="decimal">
+            </label>
+            <label class="mob-field">
+              <span>المصروف / واحدة</span>
+              <input id="confirmCostInput" class="control ltr" type="number" step="0.01" min="0" inputmode="decimal">
+            </label>
+            <label class="mob-field">
+              <span>التاريخ</span>
+              <input id="confirmDateInput" class="control ltr" type="date">
+            </label>
+            <label class="mob-field full-col">
+              <span>ملاحظة</span>
+              <input id="confirmNoteInput" class="control" placeholder="اختياري...">
+            </label>
+          </div>
+        </details>
+
+        <input type="hidden" id="confirmPresetId">
+
+        <div class="mob-confirm-actions">
+          <button id="confirmSaveTxBtn" type="button" class="btn btn-primary btn-block btn-lg mob-save-btn">
+            <span>✓ حفظ العملية</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Amount-Only Fast Mode Sheet -->
+  <div id="sheetAmountOnly" class="mob-sheet-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="sheetAmountOnlyTitle">
+    <div class="mob-sheet-panel">
+      <div class="mob-sheet-handle"></div>
+      <div class="mob-sheet-head">
+        <div class="mob-sheet-title-group">
+          <span class="mob-sheet-kicker">تسجيل سريع</span>
+          <h3 id="sheetAmountOnlyTitle">تسجيل مبلغ فقط</h3>
+        </div>
+        <button type="button" class="mob-sheet-close-btn" data-sheet-close="sheetAmountOnly" aria-label="إغلاق">✕</button>
+      </div>
+
+      <div class="mob-sheet-body">
+        <p class="mob-sheet-desc">سجّل المبلغ المستلم الآن فورًا، وحدد الخدمة والعميل لاحقًا في أي وقت بدون تعطيل شغلك.</p>
+        
+        <div class="mob-amount-input-box">
+          <span class="mob-amount-currency">EGP</span>
+          <input id="amountOnlyInput" class="mob-huge-amount-input" type="number" step="any" placeholder="0" inputmode="decimal">
+        </div>
+
+        <div class="mob-field-stack">
+          <label class="mob-field">
+            <span>ملاحظة سريعة <em>(اختياري)</em></span>
+            <input id="amountOnlyNote" class="control" placeholder="اسم العميل أو رقم العملية...">
+          </label>
+        </div>
+
+        <div class="mob-confirm-actions">
+          <button id="saveAmountOnlyBtn" type="button" class="btn btn-primary btn-block btn-lg mob-save-btn">
+            <span>سجل وحدد الخدمة لاحقًا</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Transaction Details Bottom Sheet -->
+  <div id="sheetTxDetails" class="mob-sheet-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="sheetTxDetailsTitle">
+    <div class="mob-sheet-panel">
+      <div class="mob-sheet-handle"></div>
+      <div class="mob-sheet-head">
+        <div class="mob-sheet-title-group">
+          <span class="mob-sheet-kicker" id="txDetailsStatus">تفاصيل العملية</span>
+          <h3 id="sheetTxDetailsTitle">معاينة العملية</h3>
+        </div>
+        <button type="button" class="mob-sheet-close-btn" data-sheet-close="sheetTxDetails" aria-label="إغلاق">✕</button>
+      </div>
+
+      <div class="mob-sheet-body" id="txDetailsBody"></div>
+    </div>
+  </div>
+
+  <!-- 5. History Filter Bottom Sheet -->
+  <div id="sheetHistoryFilter" class="mob-sheet-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="sheetFilterTitle">
+    <div class="mob-sheet-panel">
+      <div class="mob-sheet-handle"></div>
+      <div class="mob-sheet-head">
+        <div class="mob-sheet-title-group">
+          <span class="mob-sheet-kicker">تصفية متقدمة</span>
+          <h3 id="sheetFilterTitle">فلترة السجل</h3>
+        </div>
+        <button type="button" class="mob-sheet-close-btn" data-sheet-close="sheetHistoryFilter" aria-label="إغلاق">✕</button>
+      </div>
+
+      <div class="mob-sheet-body">
+        <div class="mob-filter-fields">
+          <label class="mob-field">
+            <span>من تاريخ</span>
+            <input id="mobFilterFrom" class="control ltr" type="date">
+          </label>
+          <label class="mob-field">
+            <span>إلى تاريخ</span>
+            <input id="mobFilterTo" class="control ltr" type="date">
+          </label>
+          <label class="mob-field">
+            <span>الخدمة</span>
+            <select id="mobFilterService" class="control">
+              <option value="">كل الخدمات</option>
+            </select>
+          </label>
+          <label class="mob-switch-field">
+            <span>إظهار العمليات المؤرشفة</span>
+            <input id="mobFilterArchived" type="checkbox">
+          </label>
+        </div>
+
+        <div class="mob-filter-footer-actions">
+          <button id="mobFilterResetBtn" type="button" class="btn btn-ghost">إعادة ضبط</button>
+          <button id="mobFilterApplyBtn" type="button" class="btn btn-primary">تطبيق الفلترة</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Account Bottom Sheet -->
+  <div id="sheetAccount" class="mob-sheet-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="sheetAccountTitle">
+    <div class="mob-sheet-panel">
+      <div class="mob-sheet-handle"></div>
+      <div class="mob-sheet-head">
+        <div class="mob-sheet-title-group">
+          <span class="mob-sheet-kicker">الحساب والمزامنة</span>
+          <h3 id="sheetAccountTitle">حساب MOX</h3>
+        </div>
+        <button type="button" class="mob-sheet-close-btn" data-sheet-close="sheetAccount" aria-label="إغلاق">✕</button>
+      </div>
+
+      <div class="mob-sheet-body">
+        <div class="mob-account-card">
+          <div class="mob-account-avatar-wrap">
+            <img id="sheetAccountAvatar" class="mob-account-avatar hidden" src="" alt="المستخدم">
+            <span id="sheetAccountAvatarFallback" class="mob-account-fallback">👤</span>
+          </div>
+          <div class="mob-account-info">
+            <strong id="sheetAccountName">مستخدم محلي</strong>
+            <small id="sheetAccountEmail">البيانات محفوظة محليًا على هذا الجهاز</small>
+          </div>
+        </div>
+
+        <div class="mob-sync-box">
+          <div class="mob-sync-box-head">
+            <span class="mob-sync-indicator-dot online" id="sheetSyncDot"></span>
+            <div>
+              <b id="sheetSyncTitle">المزامنة السحابية</b>
+              <small id="sheetSyncSubtitle">متصل بحسابك</small>
+            </div>
+          </div>
+          <button id="sheetSyncNowBtn" type="button" class="btn btn-secondary btn-sm">مزامنة ⟳</button>
+        </div>
+
+        <div class="mob-settings-list">
+          <button id="sheetLoginGoogleBtn" type="button" class="mob-menu-item primary-item hidden">
+            <span class="mob-menu-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+            </span>
+            <div><b>تسجيل الدخول بحساب Google</b><small>تفعيل النسخ والمزامنة التلقائية</small></div>
+            <span>←</span>
+          </button>
+
+          <button id="sheetBackupBtn" type="button" class="mob-menu-item">
+            <span class="mob-menu-icon">📥</span>
+            <div><b>تنزيل نسخة احتياطية</b><small>ملف JSON كامل ومستقل</small></div>
+            <span>←</span>
+          </button>
+
+          <button id="sheetOpenSettingsBtn" type="button" class="mob-menu-item">
+            <span class="mob-menu-icon">⚙</span>
+            <div><b>الإعدادات الكاملة</b><small>خيارات النظام والتسعير والعملات</small></div>
+            <span>←</span>
+          </button>
+
+          <button id="sheetLogoutBtn" type="button" class="mob-menu-item danger-item hidden">
+            <span class="mob-menu-icon">🚪</span>
+            <div><b>تسجيل الخروج</b><small>العودة للوضع المحلي</small></div>
+            <span>←</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. More Tools Bottom Sheet -->
+  <div id="sheetMobileMore" class="mob-sheet-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="sheetMoreTitle">
+    <div class="mob-sheet-panel">
+      <div class="mob-sheet-handle"></div>
+      <div class="mob-sheet-head">
+        <div class="mob-sheet-title-group">
+          <span class="mob-sheet-kicker">قائمة الأدوات</span>
+          <h3 id="sheetMoreTitle">المزيد</h3>
+        </div>
+        <button type="button" class="mob-sheet-close-btn" data-sheet-close="sheetMobileMore" aria-label="إغلاق">✕</button>
+      </div>
+
+      <div class="mob-sheet-body">
+        <div class="mob-menu-section">
+          <span class="mob-menu-section-label">الأدوات اليومية</span>
+          <div class="mob-settings-list">
+            <button class="mob-menu-item" data-mob-go="presets">
+              <span class="mob-menu-icon">🏷️</span>
+              <div><b>إدارة العروض والأسعار</b><small>تعديل وإضافة العروض المحفوظة</small></div>
+              <span>←</span>
+            </button>
+            <button class="mob-menu-item" data-mob-go="expenses">
+              <span class="mob-menu-icon">💸</span>
+              <div><b>المصاريف الثابتة واليومية</b><small>متابعة التكاليف الإضافية</small></div>
+              <span>←</span>
+            </button>
+            <button class="mob-menu-item" data-mob-action="wallet">
+              <span class="mob-menu-icon">📱</span>
+              <div><b>رسائل فودافون كاش</b><small>استيراد وتحليل الإشعارات</small></div>
+              <span>←</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="mob-menu-section">
+          <span class="mob-menu-section-label">النظام والبيانات</span>
+          <div class="mob-settings-list">
+            <button class="mob-menu-item" data-mob-go="account">
+              <span class="mob-menu-icon">☁️</span>
+              <div><b>الحساب والمزامنة السحابية</b><small>حالة Google Cloud والنسخ الاحتياطي</small></div>
+              <span>←</span>
+            </button>
+            <button class="mob-menu-item" data-mob-go="data">
+              <span class="mob-menu-icon">💾</span>
+              <div><b>النسخ الاحتياطي والأمان</b><small>تصدير واسترجاع لقطات الأمان</small></div>
+              <span>←</span>
+            </button>
+            <button class="mob-menu-item" data-mob-go="smart">
+              <span class="mob-menu-icon">✨</span>
+              <div><b>مركز الذكاء والتسعير Smart</b><small>كشف العمليات الشاذة واقتراحات التسعير</small></div>
+              <span>←</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Snackbar Host -->
+  <div id="mobSnackbarHost" class="mob-snackbar-host mobile-only" aria-live="polite"></div>
 
   <dialog id="editTransactionDialog" class="modal"><form id="editTransactionForm" class="modal-card" novalidate><div class="modal-head"><div><span class="panel-kicker">تعديل</span><h3>العملية</h3></div><button type="button" class="icon-btn" data-dialog-close="editTransactionDialog" aria-label="إغلاق">×</button></div><div class="form-grid-2"><label class="field"><span>التاريخ</span><input id="editTxDate" class="control" type="date"></label><label class="field"><span>الكمية</span><input id="editTxQty" class="control ltr" type="number" min="1"></label><label class="field"><span>المنتج / الخدمة</span><input id="editTxItem" class="control"></label><label class="field"><span>العرض</span><input id="editTxOffer" class="control"></label><label class="field"><span>الداخل / واحدة</span><input id="editTxPaid" class="control ltr" type="number" step="0.01" min="0"></label><label class="field"><span>مصروف / واحدة</span><input id="editTxCost" class="control ltr" type="number" step="0.01" min="0"></label></div><label class="field"><span>ملاحظة</span><input id="editTxNote" class="control"></label><input id="editTxId" type="hidden"><div id="editTxDialogError" class="dialog-error hidden" role="alert"></div><div class="modal-actions"><button type="button" class="btn btn-ghost" data-dialog-close="editTransactionDialog">إلغاء</button><button id="saveEditTxBtn" type="submit" class="btn btn-primary">حفظ التعديل</button></div></form></dialog>
 
@@ -344,6 +861,6 @@
   <dialog id="expenseDialog" class="modal"><form id="expenseForm" class="modal-card" novalidate><div class="modal-head"><div><span class="panel-kicker">المصاريف</span><h3 id="expenseDialogTitle">مصروف</h3></div><button type="button" class="icon-btn" data-dialog-close="expenseDialog" aria-label="إغلاق">×</button></div><input id="expenseType" type="hidden"><input id="expenseId" type="hidden"><div class="form-grid-2"><label class="field span-2"><span>اسم المصروف</span><input id="expenseName" class="control"></label><label class="field"><span>القيمة</span><input id="expenseAmount" class="control ltr" type="number" step="0.01" min="0.01"></label><label class="field"><span>تاريخ البداية / المصروف</span><input id="expenseDate" class="control" type="date"></label><label id="recurrenceField" class="field"><span>التكرار</span><select id="expenseRecurrence" class="control"><option value="once">مرة واحدة</option><option value="monthly">شهري</option><option value="yearly">سنوي</option></select></label><label class="field span-2"><span>ملاحظة</span><input id="expenseNote" class="control"></label></div><div id="expenseDialogError" class="dialog-error hidden" role="alert"></div><div class="modal-actions"><button type="button" class="btn btn-ghost" data-dialog-close="expenseDialog">إلغاء</button><button id="saveExpenseBtn" type="submit" class="btn btn-primary">حفظ</button></div></form></dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
-  <script type="module" src="./app.js?v=11"></script>
+  <script type="module" src="./app.js?v=12"></script>
 </body>
 </html>
