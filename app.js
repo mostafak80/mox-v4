@@ -1482,7 +1482,11 @@ import {
       toast(`✓ تم بنجاح نقل ومزامنة ${localTxs.length} عملية و${localPresets.length} عرض إلى حساب Google الخاص بك!`, 'success', 7000);
     } catch(err) {
       console.error('[MOX Local Transfer Error]', err);
-      toast('حدث خطأ أثناء رفع البيانات للسحابة. تحقق من اتصال الإنترنت.', 'error', 5000);
+      if (err.code === 'permission-denied' || err.message?.includes('permission')) {
+        toast('🔒 خطأ أذونات Firebase: يرجى تفعيل قواعد Firestore Rules في Firebase Console.', 'error', 7000);
+      } else {
+        toast(`حدث خطأ أثناء رفع البيانات: ${err.message || err}`, 'error', 6000);
+      }
     }
   }
 
@@ -1675,6 +1679,7 @@ import {
     }
     toast('جارٍ رفع وتحديث البيانات مع السحابة…','info',2000);
     try {
+      await initCloudSync(user.uid);
       const { uploadFullState: upload } = await import('./cloud-sync.js');
       await upload(state, () => {});
       renderAccountTab();
@@ -1682,7 +1687,13 @@ import {
       toast('✓ تمت المزامنة السحابية بنجاح! جميع بياناتك محدثة.', 'success', 4000);
     } catch(e) {
       console.error('[MOX Sync Error]', e);
-      toast('تعذر إتمام المزامنة السحابية. تحقق من اتصال الإنترنت وحاول مجددًا.', 'error', 4000);
+      if (e.code === 'permission-denied' || e.message?.includes('permission')) {
+        toast('🔒 خطأ أذونات Firebase: يرجى تفعيل قواعد Firestore Rules في Firebase Console.', 'error', 7000);
+      } else if (e.code === 'unavailable' || e.message?.includes('network')) {
+        toast('🌐 تعذر الاتصال بالسحابة: تحقق من اتصال الإنترنت وحاول مجددًا.', 'error', 5000);
+      } else {
+        toast(`تعذر إتمام المزامنة السحابية: ${e.message || e}`, 'error', 6000);
+      }
     }
   }
 
