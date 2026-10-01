@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./style.css?v=18">
+  <link rel="stylesheet" href="./style.css?v=19">
 </head>
 <body>
   <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
@@ -565,8 +565,14 @@
             <span id="mobHistorySummaryText">صافي الأرباح: 0 EGP</span>
           </div>
 
-          <!-- Native Mobile Transaction List -->
-          <div id="mobTxList" class="mob-tx-list"></div>
+          <!-- Native Mobile Transaction Table (2 Rows Per Item) -->
+          <div class="mob-history-table-card">
+            <div id="mobTableHeader" class="mob-table-header">
+              <span class="mob-th-item">العملية / التفاصيل</span>
+              <span class="mob-th-amount">المدفوع / صافي الربح</span>
+            </div>
+            <div id="mobTxList" class="mob-tx-table"></div>
+          </div>
 
           <!-- Empty State -->
           <div id="mobNoHistoryState" class="mob-empty-state hidden">
@@ -1146,6 +1152,6 @@
   <dialog id="expenseDialog" class="modal"><form id="expenseForm" class="modal-card" novalidate><div class="modal-head"><div><span class="panel-kicker">المصاريف</span><h3 id="expenseDialogTitle">مصروف</h3></div><button type="button" class="icon-btn" data-dialog-close="expenseDialog" aria-label="إغلاق">×</button></div><input id="expenseType" type="hidden"><input id="expenseId" type="hidden"><div class="form-grid-2"><label class="field span-2"><span>اسم المصروف</span><input id="expenseName" class="control"></label><label class="field"><span>القيمة</span><input id="expenseAmount" class="control ltr" type="number" step="0.01" min="0.01"></label><label class="field"><span>تاريخ البداية / المصروف</span><input id="expenseDate" class="control" type="date"></label><label id="recurrenceField" class="field"><span>التكرار</span><select id="expenseRecurrence" class="control"><option value="once">مرة واحدة</option><option value="monthly">شهري</option><option value="yearly">سنوي</option></select></label><label class="field span-2"><span>ملاحظة</span><input id="expenseNote" class="control"></label></div><div id="expenseDialogError" class="dialog-error hidden" role="alert"></div><div class="modal-actions"><button type="button" class="btn btn-ghost" data-dialog-close="expenseDialog">إلغاء</button><button id="saveExpenseBtn" type="submit" class="btn btn-primary">حفظ</button></div></form></dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
-  <script type="module" src="./app.js?v=18"></script>
+  <script type="module" src="./app.js?v=19"></script>
 </body>
 </html>

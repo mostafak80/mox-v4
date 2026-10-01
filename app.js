@@ -2564,25 +2564,33 @@ import {
     const isLoss = profit < 0;
 
     return `
-      <div class="mob-tx-card ${isUnclass ? 'unclassified' : ''}" data-tx-id="${t.id}" role="button" tabindex="0">
-        <div class="mob-tx-main">
-          <div class="mob-tx-title-row">
-            <strong class="mob-tx-title">${esc(t.item || 'معاملة')}</strong>
-            <span class="mob-tx-paid">${fmtSmart(inc)} EGP</span>
+      <div class="mob-tx-row mob-tx-card ${isUnclass ? 'unclassified' : ''}" data-tx-id="${t.id}" role="button" tabindex="0">
+        <!-- الصف الأول: الخدمة والعرض (يمين) | المبلغ المدفوع (يسار) -->
+        <div class="mob-table-row-line line-1">
+          <div class="mob-row-cell-main">
+            <strong class="mob-row-title">${esc(t.item || 'معاملة')}</strong>
+            ${t.offer ? `<span class="mob-row-offer">${esc(t.offer)}</span>` : ''}
+            ${q > 1 ? `<span class="mob-row-qty">×${q}</span>` : ''}
           </div>
-          <div class="mob-tx-sub-row">
-            <span class="mob-tx-offer">${esc(t.offer || '—')}${q > 1 ? ` <small class="mob-tx-qty">×${q}</small>` : ''}</span>
-            <span class="mob-tx-profit ${isLoss ? 'loss' : 'gain'}">
-              ربح ${profit >= 0 ? '+' : ''}${fmtSmart(profit)}
-            </span>
-          </div>
-          <div class="mob-tx-footer-row">
-            <span class="mob-tx-date-meta">${dateFormatted}${timeStr ? ` · ${timeStr}` : ''}</span>
-            ${t.source ? `<span class="mob-tx-source-tag">${esc(t.source)}</span>` : ''}
-            ${t.note ? `<span class="mob-tx-note-snippet">📝 ${esc(t.note)}</span>` : ''}
+          <div class="mob-row-cell-val">
+            <span class="mob-row-paid">${fmtSmart(inc)} <small>EGP</small></span>
           </div>
         </div>
-        <div class="mob-tx-arrow">‹</div>
+
+        <!-- الصف الثاني: التاريخ والوقت والمصدر والملاحظة (يمين) | صافي الربح (يسار) -->
+        <div class="mob-table-row-line line-2">
+          <div class="mob-row-cell-meta">
+            <span class="mob-row-date">${dateFormatted}${timeStr ? ` · ${timeStr}` : ''}</span>
+            ${t.source ? `<span class="mob-row-source">${esc(t.source)}</span>` : ''}
+            ${t.note ? `<span class="mob-row-note" title="${esc(t.note)}">📝 ${esc(t.note)}</span>` : ''}
+            ${isUnclass ? `<span class="mob-row-unclass">غير مصنف</span>` : ''}
+          </div>
+          <div class="mob-row-cell-profit">
+            <span class="mob-row-profit ${isLoss ? 'loss' : 'gain'}">
+              ${profit >= 0 ? '+' : ''}${fmtSmart(profit)} EGP
+            </span>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -2645,6 +2653,7 @@ import {
     const summaryText = $('mobHistorySummaryText');
     const countText = $('mobHistoryCountText');
     const emptyState = $('mobNoHistoryState');
+    const tableHeader = $('mobTableHeader');
 
     const totalProfit = filtered.reduce((acc, t) => {
       const fin = txFinancials(t);
@@ -2671,9 +2680,11 @@ import {
     if (!filtered.length) {
       listEl.innerHTML = '';
       if (emptyState) emptyState.classList.remove('hidden');
+      if (tableHeader) tableHeader.classList.add('hidden');
     } else {
       if (emptyState) emptyState.classList.add('hidden');
-      listEl.innerHTML = filtered.slice(0, 60).map(renderMobileTxCard).join('');
+      if (tableHeader) tableHeader.classList.remove('hidden');
+      listEl.innerHTML = filtered.slice(0, 100).map(renderMobileTxCard).join('');
     }
   }
 
@@ -3759,7 +3770,7 @@ import {
     if (saveAmountOnlyBtn) saveAmountOnlyBtn.onclick = saveMobileAmountOnly;
 
     document.addEventListener('click', (e) => {
-      const card = e.target.closest('.mob-tx-card[data-tx-id]');
+      const card = e.target.closest('.mob-tx-card[data-tx-id], .mob-tx-row[data-tx-id]');
       if (card) {
         e.stopPropagation();
         openTransactionDetailsSheet(card.dataset.txId);
